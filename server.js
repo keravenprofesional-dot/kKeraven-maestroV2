@@ -259,6 +259,30 @@ app.post('/api/contratos/:id/abonar', requireAuth, requireAnyPermiso('cobros', '
   res.json(contrato);
 }));
 
+// Datos operativos de cobranza (telefono2, fecha limite, promesa de pago,
+// notas de gestion) -- NO toca monto ni saldo, eso solo cambia abonando.
+// Trabajo diario de Cobrador/Cobros/Ruta, no restringido a Gerente/Sub-Gerente.
+app.patch('/api/contratos/:id/cobranza', requireAuth, requireAnyPermiso('cobrador', 'cobros', 'ruta'), h(async (req, res) => {
+  const { telefono2, fechaLimite, promesaPago, notas } = req.body || {};
+  const contrato = await db.editarDatosCobranza(req.params.id, { telefono2, fechaLimite, promesaPago, notas });
+  if (!contrato) return res.status(404).json({ error: 'Contrato no encontrado' });
+  res.json(contrato);
+}));
+
+// Migracion (una sola vez, desde el navegador) de los clientes que el
+// Cobrador tenia en localStorage antes de conectarse a la base de datos
+// real. No exige cedula/promotor/productos porque esa deuda ya existia.
+app.post('/api/contratos/migrar-cobrador', requireAuth, requireAnyPermiso('cobrador', 'cobros', 'ruta'), h(async (req, res) => {
+  const { numeroFactura, nombre, telefono1, telefono2, monto, saldo, fechaLimite, promesaPago, notas } = req.body || {};
+  if (!numeroFactura || !nombre || monto == null) return res.status(400).json({ error: 'Faltan datos obligatorios' });
+  const contrato = await db.crearContratoLegacyCobrador(
+    { numeroFactura, nombre, telefono1, telefono2, monto, saldo, fechaLimite, promesaPago, notas },
+    req.usuario.id
+  );
+  if (!contrato) return res.status(409).json({ error: 'Ya existe una factura con ese número' });
+  res.status(201).json(contrato);
+}));
+
 // ── ALMACÉN (bodega y ruta) ───────────────────────────────────────────
 app.get('/api/almacen/stock', requireAuth, requireAnyPermiso('almp', 'almm', 'arqueo'), h(async (req, res) => {
   res.json(await db.listarStock());

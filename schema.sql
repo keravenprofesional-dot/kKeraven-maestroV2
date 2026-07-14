@@ -394,3 +394,7 @@ DO $$ BEGIN
     ALTER TABLE clientes ADD CONSTRAINT clientes_estado_crm_check CHECK (estado_crm IN ('nuevo','contactado','interesado','cliente','inactivo'));
   END IF;
 END $$;
+
+-- Cobrador: fecha en que el cliente promete pagar (dato operativo de cobranza,
+-- distinto de fecha_limite que es la fecha de vencimiento del contrato).
+ALTER TABLE contratos ADD COLUMN IF NOT EXISTS promesa_pago DATE;

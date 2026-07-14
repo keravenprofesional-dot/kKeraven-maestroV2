@@ -385,6 +385,75 @@ async function eliminarContrato(id) {
   }
 }
 
+// Edita los datos OPERATIVOS de cobranza de un contrato (telefono2 del
+// cliente, fecha limite, promesa de pago y notas de gestion). A
+// diferencia de editarClienteDeContrato (identidad del cliente, solo
+// Gerente/Sub-Gerente), esto lo puede hacer cualquiera con acceso a
+// Cobrador/Cobros/Ruta -- es trabajo diario de cobranza, no una
+// correccion de datos de facturacion. Nunca toca monto ni saldo: eso
+// solo cambia via registrarAbonoContrato, para que el historial de
+// abonos siempre cuadre con la deuda.
+async function editarDatosCobranza(contratoId, { telefono2, fechaLimite, promesaPago, notas }) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const { rows } = await cliente.query(`SELECT cliente_id FROM contratos WHERE id = $1 FOR UPDATE`, [contratoId]);
+    if (!rows[0]) { await cliente.query('ROLLBACK'); return null; }
+    await cliente.query(`UPDATE clientes SET telefono2 = $2 WHERE id = $1`, [rows[0].cliente_id, telefono2 || null]);
+    const { rows: actualizado } = await cliente.query(
+      `UPDATE contratos SET fecha_limite = $2, promesa_pago = $3, observaciones = $4 WHERE id = $1 RETURNING *`,
+      [contratoId, fechaLimite || null, promesaPago || null, notas || null]
+    );
+    await cliente.query('COMMIT');
+    return actualizado[0];
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
+// Crea un contrato "legado" a partir de un cliente que ya existia en el
+// Cobrador antes de que este se conectara a la base de datos real (ver
+// CB_DATOS_INICIALES en public/index.html). Se usa una sola vez por
+// numero de factura -- si ya existe, no duplica. A diferencia de
+// crearContrato() no exige cedula/promotor/productos porque esta deuda
+// ya existia y no tiene esos datos; queda marcada origen='cobrador'.
+async function crearContratoLegacyCobrador(datos, usuarioId) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const { rows: existe } = await cliente.query(
+      `SELECT id FROM contratos WHERE numero_factura = $1 FOR UPDATE`,
+      [datos.numeroFactura]
+    );
+    if (existe[0]) { await cliente.query('ROLLBACK'); return null; }
+    const { rows: clienteRows } = await cliente.query(
+      `INSERT INTO clientes (nombre, telefono1, telefono2) VALUES ($1, $2, $3) RETURNING id`,
+      [datos.nombre, datos.telefono1 || null, datos.telefono2 || null]
+    );
+    const monto = Number(datos.monto) || 0;
+    const saldo = datos.saldo != null ? Number(datos.saldo) : monto;
+    const { rows: contratoRows } = await cliente.query(
+      `INSERT INTO contratos
+         (numero_factura, cliente_id, promotor_nombre, tipo_venta, fecha_limite, promesa_pago,
+          monto, neto, saldo, observaciones, estado, origen, creado_por, decidido_por, decidido_en)
+       VALUES ($1, $2, 'Cobrador (migración)', 'credito', $3, $4, $5, $5, $6, $7, 'aprobado', 'cobrador', $8, $8, now())
+       RETURNING *`,
+      [datos.numeroFactura, clienteRows[0].id, datos.fechaLimite || null, datos.promesaPago || null,
+       monto, saldo, datos.notas || null, usuarioId]
+    );
+    await cliente.query('COMMIT');
+    return contratoRows[0];
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
 // Registra un abono contra un contrato (usado por Cobros, Ruta y
 // Cobrador -- mismo endpoint para los 3). FOR UPDATE evita que dos
 // cobros simultaneos sobre el mismo contrato se pisen el saldo.
@@ -933,6 +1002,8 @@ module.exports = {
   decidirContrato,
   editarClienteDeContrato,
   eliminarContrato,
+  editarDatosCobranza,
+  crearContratoLegacyCobrador,
   registrarAbonoContrato,
   listarStock,
   registrarEntradaAlmacen,
