@@ -607,8 +607,8 @@ let USUARIOS=[];
 // abajo, viene de /api/login) — esta tabla nunca se usa para dejar
 // pasar o bloquear una accion.
 const PERMS={
-  gerente:    ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta'],
-  subgerente: ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta'],
+  gerente:    ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos'],
+  subgerente: ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos'],
   coordinador:['dash','contrato','buzon','cobros','arqueo','almp','com','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta'],
   supervisor: ['dash','contrato','buzon','cobros','almm','cfg','clientes','cxc','miscom','rendimiento','asistente','cobrador','ruta'],
   almacen:    ['dash','arqueo','almp','almm','cfg','asistente'],
@@ -625,6 +625,7 @@ const NAV=[
   {id:'arqueo',   lab:'Arqueo de almacén',     ico:'ti-clipboard-list',      sec:'Almacén'},
   {id:'almp',     lab:'Almacén Principal',     ico:'ti-building-warehouse',  sec:'Almacén'},
   {id:'almm',     lab:'Almacén Móvil',         ico:'ti-truck',               sec:'Almacén'},
+  {id:'productos',lab:'Gestión de Productos',  ico:'ti-tag',                 sec:'Almacén'},
   {id:'com',      lab:'Comisiones',            ico:'ti-chart-bar',           sec:'Administración'},
   {id:'miscom',   lab:'Cuadre Comisiones',     ico:'ti-coin',                sec:'Administración'},
   {id:'delfac',   lab:'Eliminar Factura',      ico:'ti-trash',               sec:'Administración'},
@@ -705,6 +706,11 @@ async function cargarProductos(){
     PRODS=lista.map(p=>p.nombre);
     PED_PRICES={};lista.forEach(p=>{PED_PRICES[p.nombre]=Number(p.precio_referencia)||0;});
   }catch(e){console.error('No se pudo cargar el catálogo de productos:',e);}
+}
+var PRODUCTOS_ADMIN=[];
+async function cargarProductosAdmin(){
+  try{ PRODUCTOS_ADMIN = await apiFetch('/api/productos?todos=1'); }
+  catch(e){ console.error('No se pudo cargar productos:',e); PRODUCTOS_ADMIN=[]; }
 }
 async function cargarUsuariosLogin(){
   try{
@@ -961,6 +967,7 @@ function render(id){
   else if(id==='cxp')m.innerHTML=rPagar();
   else if(id==='ccrm'){m.innerHTML=rCRM();setTimeout(()=>rCRMBody(),0);}
   else if(id==='pedidos'){pedLoadData().then(()=>{m.innerHTML=rPedidos();setTimeout(()=>padTab('ord'),0);});}
+  else if(id==='productos'){m.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i>Cargando productos...</div>';cargarProductosAdmin().then(()=>{if(pag==='productos')m.innerHTML=rProductosAdmin();});}
 }
 
 // ── DASHBOARD ──────────────────────────────────────────────────────
@@ -987,6 +994,7 @@ function rDash(){
     {id:'arqueo',name:'Arqueo',icon:'🧾',bg:'linear-gradient(145deg,#00838F,#006064,#0097A7)',sh:'0 8px 24px rgba(0,131,143,.45)',stat:'Cierre de ruta'},
     {id:'almp',name:'Almacén',icon:'🏭',bg:'linear-gradient(145deg,#E65100,#BF360C,#F57C00)',sh:'0 8px 24px rgba(230,81,0,.45)',stat:'Inventario'},
     {id:'almm',name:'Alm. Móvil',icon:'🚐',bg:'linear-gradient(145deg,#5D4037,#3E2723,#795548)',sh:'0 8px 24px rgba(93,64,55,.45)',stat:'Despachos'},
+    {id:'productos',name:'Productos',icon:'🏷️',bg:'linear-gradient(145deg,#00695C,#004D40,#00897B)',sh:'0 8px 24px rgba(0,105,92,.45)',stat:'Catálogo y precios'},
     {id:'com',name:'Comisiones',icon:'📊',bg:'linear-gradient(145deg,#C2185B,#880E4F,#E91E63)',sh:'0 8px 24px rgba(194,24,91,.45)',stat:'Día 5'},
     {id:'miscom',name:'Cuadre Com.',icon:'💳',bg:'linear-gradient(145deg,#AD1457,#880E4F,#C2185B)',sh:'0 8px 24px rgba(173,20,87,.45)',stat:'Promotores'},
     {id:'cxp',name:'CxP',icon:'🏦',bg:'linear-gradient(145deg,#C62828,#7F0000,#D32F2F)',sh:'0 8px 24px rgba(198,40,40,.45)',stat:'Por pagar'},
@@ -4156,7 +4164,7 @@ var PERM_MODS=[
   {sec:'Almacén',mods:[{id:'arqueo',lab:'Arqueo',ico:'🧾'},{id:'almp',lab:'Alm. Principal',ico:'🏭'},{id:'almm',lab:'Alm. Móvil',ico:'🚐'},{id:'productos',lab:'Gestión de productos',ico:'🏷️'}]},
   {sec:'Finanzas',mods:[{id:'cxp',lab:'CxP',ico:'💳'},{id:'nomina',lab:'Nómina',ico:'👔'},{id:'contab',lab:'Contabilidad',ico:'📒'},{id:'ccrm',lab:'CRM',ico:'🤝'}]},
   {sec:'Admin',mods:[{id:'com',lab:'Comisiones',ico:'📊'},{id:'miscom',lab:'Cuadre Com.',ico:'💰'},{id:'users',lab:'Usuarios',ico:'👤'},{id:'rendimiento',lab:'Rendimiento',ico:'📈'},{id:'cfg',lab:'Config.',ico:'⚙️'},{id:'delfac',lab:'Eliminar Fac.',ico:'🗑️'}]},
-  {sec:'Herramientas',mods:[{id:'asistente',lab:'Asistente IA',ico:'🤖'}]},
+  {sec:'Herramientas',mods:[{id:'asistente',lab:'Asistente IA',ico:'🤖'},{id:'excel',lab:'Importar/Exportar Excel',ico:'📊'}]},
 ];
 
 function abrirPermisos(uid){
@@ -4365,8 +4373,8 @@ var _origRBuzon2=window.rBuzon;
 
 <script>
 
-var _MOD_ICONS={'dash':'🏠','contrato':'🧾','buzon':'📬','cobros':'💰','arqueo':'🧾','almp':'🏭','almm':'🚐','com':'📊','miscom':'💰','users':'👥','cfg':'⚙️','pedidos':'🛍️','cxp':'💳','nomina':'👔','contab':'📒','ccrm':'🤝','clientes':'🗂️','cxc':'📄','rendimiento':'📈','delfac':'🗑️','asistente':'🤖'};
-var _MOD_TITS={'dash':'Panel Principal','contrato':'Facturación','buzon':'Buzón de Aprobación','cobros':'Ruta de Cobro','arqueo':'Arqueo','almp':'Almacén Principal','almm':'Almacén Móvil','com':'Comisiones','miscom':'Cuadre Comisiones','users':'Usuarios','cfg':'Configuración','pedidos':'Portal Pedidos','cxp':'Cuentas por Pagar','nomina':'Nómina','contab':'Contabilidad','ccrm':'CRM','clientes':'Base de Clientes','cxc':'Cuentas por Cobrar','rendimiento':'Rendimiento','delfac':'Eliminar Factura','asistente':'Asistente IA'};
+var _MOD_ICONS={'dash':'🏠','contrato':'🧾','buzon':'📬','cobros':'💰','arqueo':'🧾','almp':'🏭','almm':'🚐','com':'📊','miscom':'💰','users':'👥','cfg':'⚙️','pedidos':'🛍️','cxp':'💳','nomina':'👔','contab':'📒','ccrm':'🤝','clientes':'🗂️','cxc':'📄','rendimiento':'📈','delfac':'🗑️','asistente':'🤖','productos':'🏷️'};
+var _MOD_TITS={'dash':'Panel Principal','contrato':'Facturación','buzon':'Buzón de Aprobación','cobros':'Ruta de Cobro','arqueo':'Arqueo','almp':'Almacén Principal','almm':'Almacén Móvil','com':'Comisiones','miscom':'Cuadre Comisiones','users':'Usuarios','cfg':'Configuración','pedidos':'Portal Pedidos','cxp':'Cuentas por Pagar','nomina':'Nómina','contab':'Contabilidad','ccrm':'CRM','clientes':'Base de Clientes','cxc':'Cuentas por Cobrar','rendimiento':'Rendimiento','delfac':'Eliminar Factura','asistente':'Asistente IA','productos':'Gestión de Productos'};
 var _STAT_ICO=['💰','📊','👥','✅','⚠️','📦','📈','💳','🏆','🎯','📋','🔄','💎','🌟'];
 function applyModTheme(id){
   var m=document.getElementById('main');if(!m)return;
@@ -5742,22 +5750,6 @@ function CB_descargar(nombre, contenido, tipo){
 function CB_log(t){
   if(!document.getElementById('cb-log-carga')) return;
  const el = document.getElementById("cb-log-carga"); el.textContent += "\n" + t; el.scrollTop = el.scrollHeight; }
-function CB_mergeClientes(nuevos){
-  let agregados=0, duplicados=0;
-  nuevos.forEach(n=>{
-    if (!n || !n.nombre) return;
-    n.no = String(n.no||"").trim();
-    n.monto = parseFloat(n.monto)||0;
-    n.saldo = (n.saldo===undefined || n.saldo===null || n.saldo==="") ? n.monto : (parseFloat(n.saldo)||0);
-    if (n.no && CB_clientes.some(c=>String(c.no)===n.no)) { duplicados++; return; }
-    CB_clientes.push({no:n.no, nombre:n.nombre, tel:String(n.tel||"").replace(/\D/g,""), tel2:String(n.tel2||"").replace(/\D/g,""),
-      monto:n.monto, saldo:n.saldo, limite:n.limite||"", promesa:n.promesa||"", notas:n.notas||""});
-    agregados++;
-  });
-  CB_guardar(); CB_pintar();
-  return {agregados, duplicados};
-}
-
 // Opción 1: leer fotos con la API de Claude
 async function CB_leerFotos(){
   const clave = localStorage.getItem("cobrador_api");
@@ -5765,21 +5757,22 @@ async function CB_leerFotos(){
   if (!clave){ alert("Pega primero tu clave de API (sk-ant-...)."); return; }
   if (!archivos.length){ alert("Selecciona al menos una foto."); return; }
   document.getElementById("cb-log-carga").textContent = `Procesando ${archivos.length} foto(s)...`;
-  let total = {agregados:0, duplicados:0, errores:0};
+  let total = {nuevos:0, existentes:0, errores:0};
   for (let k=0; k<archivos.length; k++){
     try {
       CB_log(`📷 Foto ${k+1}/${archivos.length}: ${archivos[k].name} — leyendo...`);
       const b64 = await CB_redimensionar(archivos[k]);
       const datos = await CB_extraerConIA(clave, b64);
-      const r = CB_mergeClientes(Array.isArray(datos)?datos:[datos]);
-      total.agregados += r.agregados; total.duplicados += r.duplicados;
-      CB_log(`   ✅ ${r.agregados} agregado(s), ${r.duplicados} duplicado(s) omitido(s).`);
+      const r = await _cobradorSubirLote(Array.isArray(datos)?datos:[datos]);
+      total.nuevos += r.nuevos; total.existentes += r.existentes; total.errores += r.errores;
+      CB_log(`   ✅ ${r.nuevos} nuevo(s) guardado(s) de verdad, ${r.existentes} ya exist(ía/ían).`);
     } catch(e){
       total.errores++;
       CB_log(`   ❌ Error: ${e.message}`);
     }
   }
-  CB_log(`\n===== RESULTADO: ${total.agregados} clientes nuevos, ${total.duplicados} duplicados, ${total.errores} errores =====`);
+  CB_cargar(); CB_pintar();
+  CB_log(`\n===== RESULTADO: ${total.nuevos} clientes nuevos, ${total.existentes} ya existían, ${total.errores} errores =====`);
   CB_log(`Revisa en la pestaña Clientes los que digan REVISAR.`);
 }
 function CB_redimensionar(archivo){
@@ -5834,13 +5827,14 @@ Reglas: monto = valor total de la venta. saldo = monto menos abonos anotados a m
 function CB_importarLote(ev){
   const f = ev.target.files[0]; if(!f) return;
   const r = new FileReader();
-  r.onload = () => {
+  r.onload = async () => {
     try{
       let nuevos;
       if (f.name.toLowerCase().endsWith(".json")) nuevos = JSON.parse(r.result);
       else nuevos = CB_csvAClientes(r.result);
-      const res = CB_mergeClientes(nuevos);
-      alert(`Lote importado: ${res.agregados} clientes nuevos, ${res.duplicados} duplicados omitidos.`);
+      const res = await _cobradorSubirLote(Array.isArray(nuevos)?nuevos:[nuevos]);
+      CB_cargar(); CB_pintar();
+      alert(`Lote importado: ${res.nuevos} clientes nuevos guardados de verdad, ${res.existentes} ya existían.`);
     }catch(e){ alert("No se pudo leer el lote: " + e.message); }
     ev.target.value = "";
   };
@@ -6399,7 +6393,7 @@ function _cbFila(obj){
   };
 }
 /* Lee el archivo Excel y lo importa */
-function cbImportarExcel(ev){
+async function cbImportarExcel(ev){
   var f = ev.target.files && ev.target.files[0];
   if(!f) return;
   var log=document.getElementById('cb-excel-log'); if(log) log.textContent='';
@@ -6409,7 +6403,7 @@ function cbImportarExcel(ev){
   }
   _cbLog('📖 Leyendo "'+f.name+'"…');
   var r=new FileReader();
-  r.onload=function(e){
+  r.onload=async function(e){
     try{
       var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
       var hoja = wb.SheetNames[0];
@@ -6440,13 +6434,16 @@ function cbImportarExcel(ev){
         _cbLog('❌ No encontré clientes. El Excel debe tener al menos las columnas: No. · Cliente · Teléfono · Monto');
         ev.target.value=''; return;
       }
-      var res = CB_mergeClientes(listos);
+      _cbLog('   Subiendo a la base de datos…');
+      var res = await _cobradorSubirLote(listos);
+      CB_cargar(); CB_pintar();
       _cbLog('');
-      _cbLog('✅ '+res.agregados+' cliente(s) agregado(s)');
-      _cbLog('⏭️  '+res.duplicados+' duplicado(s) omitido(s) (mismo No. de contrato)');
+      _cbLog('✅ '+res.nuevos+' cliente(s) nuevo(s) creado(s) de verdad en la base de datos');
+      _cbLog('⏭️  '+res.existentes+' ya existían — no se duplicaron (se les actualizó teléfono 2/fecha límite/promesa/notas si venían vacíos)');
+      if(res.errores) _cbLog('❌ '+res.errores+' con error');
       _cbLog('');
       _cbLog('Ve a la pestaña 👥 Clientes para verlos.');
-      if(typeof showToast==='function') showToast('Excel importado: '+res.agregados+' clientes nuevos');
+      if(typeof showToast==='function') showToast('Excel importado: '+res.nuevos+' clientes nuevos');
     }catch(err){
       _cbLog('❌ Error al leer el Excel: '+err.message);
     }
@@ -6468,15 +6465,30 @@ function cbPlantillaExcel(){
   XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
   XLSX.writeFile(wb, 'plantilla_cobrador.xlsx');
 }
-/* Añade el panel de Excel a la pestaña "Cargar" y acepta .xlsx en el lote */
+/* Exporta CB_clientes (la deuda actual) a un .xlsx real */
+function cbExportarExcel(){
+  if(typeof XLSX==='undefined'){ alert('Recarga la página: el lector de Excel no cargó.'); return; }
+  var datos=[['No.','Cliente','Teléfono 1','Teléfono 2','Monto RD$','Saldo (debe) RD$','Fecha límite','Promesa','Notas']];
+  CB_clientes.forEach(function(c){
+    datos.push([c.no, c.nombre, c.tel, c.tel2, c.monto, c.saldo, c.limite||'', c.promesa||'', c.notas||'']);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(datos);
+  ws['!cols']=[{wch:8},{wch:28},{wch:14},{wch:14},{wch:12},{wch:16},{wch:13},{wch:12},{wch:40}];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Cobrador');
+  XLSX.writeFile(wb, 'cobrador_'+CB_hoyISO()+'.xlsx');
+}
+/* Añade el panel de Excel a la pestaña "Cargar" y acepta .xlsx en el lote.
+   Solo se ve si Gerencia le dio a este usuario el permiso opcional 'excel'. */
 function cbMontarPanelExcel(){
   var sec=document.getElementById('cb-sec-cargar');
   if(!sec || document.getElementById('cb-excel-panel')) return;
+  if(typeof perms!=='function' || !perms().includes('excel')) return;
   var div=document.createElement('div');
   div.id='cb-excel-panel';
   div.innerHTML =
-    '<h3>📊 Subir clientes desde Excel</h3>'
-    + '<p style="margin:0;font-size:13px;color:#555">Selecciona tu archivo <b>.xlsx</b> y los clientes se agregan solos. '
+    '<h3>📊 Importar / Exportar Excel</h3>'
+    + '<p style="margin:0;font-size:13px;color:#555">Selecciona tu archivo <b>.xlsx</b> y los clientes se agregan solos, de verdad, a la base de datos. '
     + 'Los contratos que ya existan <b>no se duplican</b> ni se borran tus abonos.</p>'
     + '<div class="cols"><b>Columnas que reconoce</b> (el orden no importa, las tildes tampoco):<br>'
     + '<b>No.</b> · <b>Cliente</b> · <b>Teléfono 1</b> · <b>Teléfono 2</b> · <b>Monto RD$</b> · '
@@ -6486,6 +6498,7 @@ function cbMontarPanelExcel(){
     + '<div class="acciones">'
     + '  <input type="file" id="cb-excel-file" accept=".xlsx,.xls">'
     + '  <button class="azul" onclick="cbPlantillaExcel()">⬇️ Descargar plantilla</button>'
+    + '  <button class="azul" onclick="cbExportarExcel()">⬇️ Exportar deuda actual</button>'
     + '</div>'
     + '<div id="cb-excel-log">Esperando el archivo de Excel…</div>';
   sec.insertBefore(div, sec.firstChild);
@@ -6510,9 +6523,393 @@ function cbMontarPanelExcel(){
   if(!_lote) return;
   window.CB_importarLote=function(ev){
     var f=ev.target.files && ev.target.files[0];
-    if(f && /\.xlsx?$/i.test(f.name)){ cbMontarPanelExcel(); return cbImportarExcel(ev); }
+    if(f && /\.xlsx?$/i.test(f.name)){
+      if(typeof perms!=='function' || !perms().includes('excel')){
+        alert('No tienes permiso para importar Excel. Pídele a Gerencia que te lo active en Usuarios.');
+        ev.target.value=''; return;
+      }
+      cbMontarPanelExcel(); return cbImportarExcel(ev);
+    }
     return _lote.apply(this, arguments);
   };
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   CARGA POR EXCEL — FACTURACIÓN
+   Crea contratos reales (POST /api/contratos, igual que enviarC())
+   desde un Excel con varios clientes. Cada fila entra al Buzón como
+   "pendiente" -- alguien tiene que revisarla y aprobarla igual que
+   una venta manual, y luego completar foto de cédula/GPS desde el
+   celular si hace falta. Reutiliza _cbNorm/_cbFecha/_cbNum (ya
+   cargados por el panel de Excel del Cobrador, más arriba).
+══════════════════════════════════════════════════════════════════ */
+function _facTipoVenta(v){
+  var n=_cbNorm(v);
+  if(n.indexOf('cred')>=0) return 'credito';
+  if(n.indexOf('cont')>=0) return 'contado';
+  return '';
+}
+/* "Duo Kit 10oz, Bálsamo" → nombres reales del catálogo (PRODS), sin
+   duplicar por mayúsculas/tildes distintas a como están guardados */
+function _facProductos(v){
+  var crudos=String(v||'').split(/[,;]+/).map(function(s){return s.trim();}).filter(Boolean);
+  var out=[], noEncontrados=[];
+  crudos.forEach(function(nombre){
+    var n=_cbNorm(nombre);
+    var real=(typeof PRODS!=='undefined'?PRODS:[]).find(function(p){return _cbNorm(p)===n;});
+    if(real){ if(out.indexOf(real)<0) out.push(real); }
+    else noEncontrados.push(nombre);
+  });
+  return {productos:out, noEncontrados:noEncontrados};
+}
+function _facFila(obj){
+  var g={};
+  Object.keys(obj).forEach(function(k){ g[_cbNorm(k)] = obj[k]; });
+  function buscar(lista){
+    for(var i=0;i<lista.length;i++){
+      var k=Object.keys(g).find(function(x){ return x===lista[i]; });
+      if(k!==undefined && g[k]!=='' && g[k]!==null && g[k]!==undefined) return g[k];
+    }
+    // 2º intento: coincidencia parcial (ej. "Monto RD$" → "montord" contiene "monto")
+    for(var j=0;j<lista.length;j++){
+      var k2=Object.keys(g).find(function(x){ return x.indexOf(lista[j])>=0; });
+      if(k2!==undefined && g[k2]!=='' && g[k2]!==null && g[k2]!==undefined) return g[k2];
+    }
+    return '';
+  }
+  var pr=_facProductos(buscar(['productos','producto']));
+  return {
+    nombre:       String(buscar(['cliente','nombre','nombrecliente'])||'').trim().toUpperCase(),
+    cedula:       String(buscar(['cedula'])||'').trim(),
+    telefono1:    String(buscar(['telefono1','telefono','tel','celular'])||'').trim(),
+    telefono2:    String(buscar(['telefono2','tel2','telefonoalterno'])||'').trim(),
+    email:        String(buscar(['correo','email','correoelectronico'])||'').trim(),
+    institucion:  String(buscar(['institucion','trabajo'])||'').trim().toUpperCase(),
+    barrio:       String(buscar(['barrio','sector'])||'').trim().toUpperCase(),
+    referencia:   String(buscar(['referencia'])||'').trim().toUpperCase(),
+    direccion:    String(buscar(['direccion'])||'').trim().toUpperCase(),
+    zona:         String(buscar(['zona','ruta'])||'').trim().toUpperCase(),
+    promotorNombre: String(buscar(['promotor'])||'').trim().toUpperCase(),
+    tipoVenta:    _facTipoVenta(buscar(['tipo','tipoventa','tipodeventa'])),
+    plazoDias:    _cbNum(buscar(['plazo','plazodias'])),
+    productos:    pr.productos,
+    _productosNoEncontrados: pr.noEncontrados,
+    monto:        _cbNum(buscar(['monto','montords','total','valor'])),
+    descuento:    _cbNum(buscar(['descuento'])) || 0,
+    observaciones:String(buscar(['observaciones','notas','comentarios'])||'').trim(),
+  };
+}
+function _facValidarFila(f){
+  var errores=[];
+  if(!f.nombre) errores.push('falta el nombre del cliente');
+  if(!f.cedula) errores.push('falta la cédula');
+  if(!f.telefono1) errores.push('falta el teléfono');
+  if(!f.monto || f.monto<=0) errores.push('falta el monto (o es 0)');
+  if(!f.tipoVenta) errores.push('el tipo debe ser "Crédito" o "Contado"');
+  if(f.tipoVenta==='credito' && !f.plazoDias) errores.push('venta a crédito sin plazo (días)');
+  if(!f.promotorNombre) errores.push('falta el promotor');
+  if(!f.productos.length) errores.push('ningún producto reconocido'+(f._productosNoEncontrados.length?' ("'+f._productosNoEncontrados.join('", "')+'" no está en el catálogo)':''));
+  return errores;
+}
+function facPlantillaExcel(){
+  if(typeof XLSX==='undefined'){ alert('Recarga la página: el lector de Excel no cargó.'); return; }
+  var nombreProd1=(typeof PRODS!=='undefined'&&PRODS[0])?PRODS[0]:'Duo Kit 10 oz';
+  var datos=[
+    ['Cliente','Cédula','Teléfono 1','Teléfono 2','Correo','Institución','Barrio','Referencia','Dirección',
+     'Zona','Promotor','Tipo (Crédito/Contado)','Plazo (días)','Productos','Monto RD$','Descuento RD$','Observaciones'],
+    ['Nombre Apellido','000-0000000-0','8091234567','8299876543','correo@ejemplo.com','Escuela / Empresa',
+     'Los Mameyes','Frente al parque','Calle Principal #12','SANTO DOMINGO','PROMOTOR A','Crédito',30,
+     nombreProd1,4900,0,'Ejemplo — borra esta fila'],
+  ];
+  var ws=XLSX.utils.aoa_to_sheet(datos);
+  ws['!cols']=[{wch:24},{wch:14},{wch:13},{wch:13},{wch:22},{wch:18},{wch:16},{wch:18},{wch:22},
+    {wch:16},{wch:14},{wch:18},{wch:11},{wch:22},{wch:11},{wch:12},{wch:30}];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Ventas');
+  XLSX.writeFile(wb, 'plantilla_facturacion.xlsx');
+}
+function _facLog(msg){
+  var log=document.getElementById('fac-excel-log');
+  if(log) log.textContent += (log.textContent?'\n':'')+msg;
+}
+async function facImportarExcel(ev){
+  var f = ev.target.files && ev.target.files[0];
+  if(!f) return;
+  var log=document.getElementById('fac-excel-log'); if(log) log.textContent='';
+  if(typeof XLSX==='undefined'){ _facLog('❌ No se pudo cargar el lector de Excel. Revisa tu conexión e intenta de nuevo.'); ev.target.value=''; return; }
+  _facLog('📖 Leyendo "'+f.name+'"…');
+  var r=new FileReader();
+  r.onload=async function(e){
+    var filas=[];
+    try{
+      var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+      var hoja = wb.SheetNames[0];
+      filas = XLSX.utils.sheet_to_json(wb.Sheets[hoja], {defval:''});
+      _facLog('   '+filas.length+' fila(s) leída(s)');
+    }catch(err){ _facLog('❌ Error al leer el Excel: '+err.message); ev.target.value=''; return; }
+
+    var registros=filas.map(_facFila).filter(function(x){ return x.nombre && !/^totales?$/i.test(x.nombre); });
+    if(!registros.length){ _facLog('❌ No encontré clientes en el Excel. Descarga la plantilla para ver el formato.'); ev.target.value=''; return; }
+
+    var creados=0, conError=0;
+    var btn=document.getElementById('fac-excel-btn'); if(btn){ btn.disabled=true; btn.textContent='Importando…'; }
+    for (var i=0;i<registros.length;i++){
+      var reg=registros[i];
+      var errores=_facValidarFila(reg);
+      if(errores.length){
+        conError++;
+        _facLog('❌ Fila '+(i+2)+' ('+(reg.nombre||'sin nombre')+'): '+errores.join('; '));
+        continue;
+      }
+      try{
+        var contrato=await apiFetch('/api/contratos',{method:'POST',body:{
+          fecha:hoy(), promotorId:null, promotorNombre:reg.promotorNombre, zona:reg.zona,
+          nombre:reg.nombre, cedula:reg.cedula, telefono1:reg.telefono1, telefono2:reg.telefono2,
+          email:reg.email, institucion:reg.institucion, barrio:reg.barrio, referencia:reg.referencia,
+          direccion:reg.direccion, tipoVenta:reg.tipoVenta, plazoDias:reg.plazoDias||null,
+          fechaLimite:reg.plazoDias?addD(hoy(),reg.plazoDias):null, productos:reg.productos,
+          monto:reg.monto, descuento:reg.descuento,
+          observaciones:(reg.observaciones?reg.observaciones+' — ':'')+'Importado desde Excel: falta foto de cédula y GPS.',
+          origen:'excel',
+        }});
+        creados++;
+        _facLog('✅ Fila '+(i+2)+': '+reg.nombre+' → '+contrato.numero_factura);
+      }catch(err){
+        conError++;
+        _facLog('❌ Fila '+(i+2)+' ('+reg.nombre+'): '+err.message);
+      }
+    }
+    if(btn){ btn.disabled=false; btn.textContent='📥 Importar Excel'; }
+    _facLog('');
+    _facLog('✅ '+creados+' contrato(s) creado(s) — quedaron pendientes en el Buzón.');
+    if(conError) _facLog('⚠️ '+conError+' fila(s) con error — revísalas arriba y vuelve a intentar solo esas.');
+    if(creados){ await cargarContratos(); buildBotNav(); if(typeof showToast==='function') showToast(creados+' contrato(s) importado(s) al Buzón'); }
+    ev.target.value='';
+  };
+  r.onerror=function(){ _facLog('❌ No se pudo abrir el archivo.'); ev.target.value=''; };
+  r.readAsArrayBuffer(f);
+}
+/* Exporta el listado actual de contratos a un .xlsx real */
+function facExportarExcel(){
+  if(typeof XLSX==='undefined'){ alert('Recarga la página: el lector de Excel no cargó.'); return; }
+  var datos=[['Factura','Fecha','Cliente','Cédula','Teléfono','Promotor','Zona','Tipo','Monto','Saldo','Estado','Productos']];
+  contratos.forEach(function(c){
+    datos.push([c.fac, c.fecha, c.cliente, c.cedula, c.tel1, c.promotor, c.zona, c.tipo==='credito'?'Crédito':'Contado',
+      Number(c.monto)||0, Number(c.saldo!=null?c.saldo:c.monto)||0, c.status, (c.prods||[]).join(', ')]);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(datos);
+  ws['!cols']=[{wch:12},{wch:11},{wch:26},{wch:14},{wch:13},{wch:14},{wch:16},{wch:9},{wch:11},{wch:11},{wch:11},{wch:30}];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Facturación');
+  XLSX.writeFile(wb, 'facturacion_'+hoy()+'.xlsx');
+}
+/* Panel colapsable arriba del formulario manual -- puramente aditivo,
+   no toca enviarC()/resetC() ni el resto de rContrato(). Solo se ve si
+   Gerencia le dio a este usuario el permiso opcional 'excel'. */
+(function(){
+  var _r = window.rContrato;
+  window.rContrato = function(){
+    var html = _r.apply(this, arguments);
+    if(!perms().includes('excel')) return html;
+    var panel =
+      '<div class="card">'
+      + '<details>'
+      +   '<summary style="cursor:pointer"><b>📊 Importar / Exportar Excel</b> <span style="font-size:11px;color:var(--k-mist);font-weight:400">(para no digitar uno por uno)</span></summary>'
+      +   '<div style="margin-top:12px;font-size:12px;color:var(--k-mist)">Cada fila importada se crea como una venta nueva y entra al <b>Buzón</b> como <b>pendiente de aprobación</b> -- después hay que completarle la foto de cédula y el GPS desde el celular antes de aprobarla.</div>'
+      +   '<div style="margin:10px 0;font-size:12px;color:var(--k-mist)">Columnas: <b>Cliente, Cédula, Teléfono 1/2, Correo, Institución, Barrio, Referencia, Dirección, Zona, Promotor, Tipo (Crédito/Contado), Plazo (días), Productos, Monto, Descuento, Observaciones</b>.</div>'
+      +   '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
+      +     '<input type="file" id="fac-excel-file" accept=".xlsx,.xls">'
+      +     '<button type="button" class="bs" onclick="facPlantillaExcel()">⬇️ Descargar plantilla</button>'
+      +     '<button type="button" class="bg" id="fac-excel-btn">📥 Importar Excel</button>'
+      +     '<button type="button" class="bs" onclick="facExportarExcel()">⬇️ Exportar facturación actual</button>'
+      +   '</div>'
+      +   '<pre id="fac-excel-log" style="white-space:pre-wrap;font-family:inherit;font-size:12px;background:rgba(0,0,0,.03);border-radius:8px;padding:10px;min-height:20px;max-height:220px;overflow-y:auto">Esperando archivo…</pre>'
+      + '</details>'
+      + '</div>';
+    return panel + html;
+  };
+})();
+(function(){
+  document.addEventListener('change', function(ev){
+    if(ev.target && ev.target.id==='fac-excel-file') facImportarExcel(ev);
+  });
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   GESTIÓN DE PRODUCTOS — no existía pantalla (solo la API en db.js/
+   server.js, ya construida en la Etapa 2). Lista, crear, editar precio/
+   nombre/categoría, desactivar/reactivar. Importar/Exportar Excel solo
+   si Gerencia le dio a este usuario el permiso opcional 'excel'.
+══════════════════════════════════════════════════════════════════ */
+function rProductosAdmin(){
+  var activos = PRODUCTOS_ADMIN.filter(function(p){return p.activo;});
+  var inactivos = PRODUCTOS_ADMIN.filter(function(p){return !p.activo;});
+  var cats = {};
+  activos.forEach(function(p){ var k=p.categoria||'Otros'; (cats[k]=cats[k]||[]).push(p); });
+  var body = '<div style="display:flex;gap:8px;margin-bottom:14px"><button class="bg" onclick="prodAbrirNuevo()"><i class="ti ti-plus"></i> Nuevo producto</button></div>';
+  Object.keys(cats).sort().forEach(function(cat){
+    body += '<div class="sl">'+cat+'</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Producto</th><th class="tr">Precio referencia</th><th>Acciones</th></tr></thead><tbody>'
+      + cats[cat].map(function(p){
+          return '<tr><td style="font-weight:600">'+p.nombre+'</td><td class="tr">'+fM(Number(p.precio_referencia)||0)+'</td>'
+            + '<td><button class="bsm" onclick="prodAbrirEdicion('+p.id+')"><i class="ti ti-edit"></i></button> '
+            + '<button class="bsm" style="color:var(--er)" onclick="prodDesactivar('+p.id+')"><i class="ti ti-trash"></i></button></td></tr>';
+        }).join('')
+      + '</tbody></table></div>';
+  });
+  if(!activos.length) body += '<div class="empty"><i class="ti ti-tag"></i><p>Sin productos activos</p></div>';
+  if(inactivos.length){
+    body += '<details style="margin-top:14px"><summary style="cursor:pointer">🗄️ Desactivados ('+inactivos.length+')</summary>'
+      + '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Producto</th><th class="tr">Precio</th><th>Acciones</th></tr></thead><tbody>'
+      + inactivos.map(function(p){ return '<tr style="opacity:.6"><td>'+p.nombre+'</td><td class="tr">'+fM(Number(p.precio_referencia)||0)+'</td>'
+        + '<td><button class="bsm" onclick="prodReactivar('+p.id+')"><i class="ti ti-rotate"></i> Reactivar</button></td></tr>'; }).join('')
+      + '</tbody></table></div></details>';
+  }
+  var html = '<div class="card"><div class="ct"><i class="ti ti-tag" style="color:var(--gold);font-size:18px"></i>Gestión de Productos'
+    + '<span class="pill" style="margin-left:auto">'+activos.length+' activo'+(activos.length!==1?'s':'')+'</span></div>'
+    + '<div class="cs">Precios y catálogo usados en Facturación, Pedidos y Almacén.</div>'
+    + body + '</div>';
+  if(perms().includes('excel')){
+    html += '<div class="card"><details>'
+      + '<summary style="cursor:pointer"><b>📊 Importar / Exportar Excel</b></summary>'
+      + '<div style="margin:10px 0;font-size:12px;color:var(--k-mist)">Columnas: <b>Producto, Categoría, Precio</b>. Si el producto ya existe (mismo nombre) se actualiza el precio y la categoría; si no, se crea.</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
+      + '<input type="file" id="prod-excel-file" accept=".xlsx,.xls">'
+      + '<button type="button" class="bs" onclick="prodPlantillaExcel()">⬇️ Descargar plantilla</button>'
+      + '<button type="button" class="bs" onclick="prodExportarExcel()">⬇️ Exportar catálogo</button>'
+      + '</div><pre id="prod-excel-log" style="white-space:pre-wrap;font-family:inherit;font-size:12px;background:rgba(0,0,0,.03);border-radius:8px;padding:10px;min-height:20px;max-height:220px;overflow-y:auto">Esperando archivo…</pre>'
+      + '</details></div>';
+  }
+  return html;
+}
+var _prodEditando=null;
+function prodAbrirNuevo(){ _prodEditando=null; _prodModal('Nuevo producto','','',''); }
+function prodAbrirEdicion(id){
+  var p=PRODUCTOS_ADMIN.find(function(x){return x.id===id;}); if(!p) return;
+  _prodEditando=id; _prodModal('Editar producto', p.nombre, p.categoria||'', Number(p.precio_referencia)||0);
+}
+function _prodModal(titulo, nombre, categoria, precio){
+  var ov=document.createElement('div');
+  ov.id='prod_modal_ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  ov.innerHTML=
+    '<div style="background:#fff;border-radius:16px;width:100%;max-width:420px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
+    + '<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">'+titulo+'</div>'
+    + '<div style="padding:18px 20px">'
+    +   '<div class="fi"><label>Nombre del producto *</label><input id="pd_nm" value="'+(nombre||'').replace(/"/g,'&quot;')+'"></div>'
+    +   '<div class="fi" style="margin-top:10px"><label>Categoría</label><input id="pd_cat" value="'+(categoria||'').replace(/"/g,'&quot;')+'" placeholder="Ej: Duo Kit 10 oz, Tratamientos..."></div>'
+    +   '<div class="fi" style="margin-top:10px"><label>Precio de referencia RD$</label><input id="pd_pr" type="number" step="0.01" value="'+(precio||0)+'"></div>'
+    + '</div>'
+    + '<div style="padding:14px 20px;border-top:1px solid var(--br);display:flex;justify-content:flex-end;gap:8px">'
+    +   '<button class="bs" onclick="document.getElementById(\'prod_modal_ov\').remove()">Cancelar</button>'
+    +   '<button class="bg" onclick="prodGuardar()">Guardar</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  setTimeout(function(){var el=document.getElementById('pd_nm');if(el)el.focus();},50);
+}
+async function prodGuardar(){
+  var nombre=(document.getElementById('pd_nm')?.value||'').trim();
+  var categoria=(document.getElementById('pd_cat')?.value||'').trim();
+  var precio=parseFloat(document.getElementById('pd_pr')?.value)||0;
+  if(!nombre){ alert('Falta el nombre del producto.'); return; }
+  try{
+    if(_prodEditando!=null){
+      await apiFetch('/api/productos/'+_prodEditando,{method:'PATCH',body:{nombre:nombre,precioReferencia:precio,categoria:categoria}});
+    } else {
+      await apiFetch('/api/productos',{method:'POST',body:{nombre:nombre,precioReferencia:precio,categoria:categoria}});
+    }
+  }catch(e){ alert('No se pudo guardar: '+e.message); return; }
+  document.getElementById('prod_modal_ov')?.remove();
+  await cargarProductosAdmin(); await cargarProductos();
+  if(pag==='productos') document.getElementById('main').innerHTML=rProductosAdmin();
+  if(typeof showToast==='function') showToast('Producto guardado ✅');
+}
+async function prodDesactivar(id){
+  var p=PRODUCTOS_ADMIN.find(function(x){return x.id===id;}); if(!p) return;
+  if(!confirm('¿Desactivar "'+p.nombre+'"? Deja de aparecer para nuevas ventas, pero no se borra su historial.')) return;
+  try{ await apiFetch('/api/productos/'+id+'/desactivar',{method:'POST'}); }
+  catch(e){ alert('No se pudo desactivar: '+e.message); return; }
+  await cargarProductosAdmin(); await cargarProductos();
+  if(pag==='productos') document.getElementById('main').innerHTML=rProductosAdmin();
+}
+async function prodReactivar(id){
+  try{ await apiFetch('/api/productos/'+id+'/reactivar',{method:'POST'}); }
+  catch(e){ alert('No se pudo reactivar: '+e.message); return; }
+  await cargarProductosAdmin(); await cargarProductos();
+  if(pag==='productos') document.getElementById('main').innerHTML=rProductosAdmin();
+}
+function prodPlantillaExcel(){
+  if(typeof XLSX==='undefined'){ alert('Recarga la página: el lector de Excel no cargó.'); return; }
+  var datos=[['Producto','Categoría','Precio RD$'],['Duo Kit 10 oz','Duo Kit 10 oz',4900]];
+  var ws=XLSX.utils.aoa_to_sheet(datos);
+  ws['!cols']=[{wch:28},{wch:20},{wch:12}];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+  XLSX.writeFile(wb, 'plantilla_productos.xlsx');
+}
+function prodExportarExcel(){
+  if(typeof XLSX==='undefined'){ alert('Recarga la página: el lector de Excel no cargó.'); return; }
+  var datos=[['Producto','Categoría','Precio RD$','Activo']];
+  PRODUCTOS_ADMIN.forEach(function(p){ datos.push([p.nombre, p.categoria||'', Number(p.precio_referencia)||0, p.activo?'Sí':'No']); });
+  var ws=XLSX.utils.aoa_to_sheet(datos);
+  ws['!cols']=[{wch:28},{wch:20},{wch:12},{wch:8}];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+  XLSX.writeFile(wb, 'productos_'+hoy()+'.xlsx');
+}
+function _prodLog(msg){ var log=document.getElementById('prod-excel-log'); if(log) log.textContent += (log.textContent?'\n':'')+msg; }
+async function prodImportarExcel(ev){
+  var f = ev.target.files && ev.target.files[0];
+  if(!f) return;
+  var log=document.getElementById('prod-excel-log'); if(log) log.textContent='';
+  if(typeof XLSX==='undefined'){ _prodLog('❌ No se pudo cargar el lector de Excel.'); ev.target.value=''; return; }
+  var r=new FileReader();
+  r.onload=async function(e){
+    var filas=[];
+    try{
+      var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      filas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
+      _prodLog(filas.length+' fila(s) leída(s)');
+    }catch(err){ _prodLog('❌ Error al leer el Excel: '+err.message); ev.target.value=''; return; }
+
+    var creados=0, actualizados=0, conError=0;
+    for (var i=0;i<filas.length;i++){
+      var g={}; Object.keys(filas[i]).forEach(function(k){ g[_cbNorm(k)]=filas[i][k]; });
+      var nombre=String(g.producto||g.nombre||'').trim();
+      var categoria=String(g.categoria||'').trim();
+      var precio=_cbNum(g.preciord||g.precioreferencia||g.precioreferenciard||g.precio||g.valor)||0;
+      if(!nombre) continue;
+      var existente=PRODUCTOS_ADMIN.find(function(p){ return _cbNorm(p.nombre)===_cbNorm(nombre); });
+      try{
+        if(existente){
+          await apiFetch('/api/productos/'+existente.id,{method:'PATCH',body:{nombre:nombre,precioReferencia:precio,categoria:categoria||existente.categoria}});
+          actualizados++;
+          _prodLog('🔄 Fila '+(i+2)+': '+nombre+' → precio actualizado');
+        } else {
+          await apiFetch('/api/productos',{method:'POST',body:{nombre:nombre,precioReferencia:precio,categoria:categoria}});
+          creados++;
+          _prodLog('✅ Fila '+(i+2)+': '+nombre+' → creado');
+        }
+      }catch(err){ conError++; _prodLog('❌ Fila '+(i+2)+' ('+nombre+'): '+err.message); }
+    }
+    await cargarProductosAdmin(); await cargarProductos();
+    if(pag==='productos') document.getElementById('main').innerHTML=rProductosAdmin();
+    _prodLog('');
+    _prodLog('✅ '+creados+' nuevo(s), 🔄 '+actualizados+' actualizado(s)'+(conError?', ❌ '+conError+' con error':''));
+    if(typeof showToast==='function') showToast('Excel de productos importado');
+    ev.target.value='';
+  };
+  r.onerror=function(){ _prodLog('❌ No se pudo abrir el archivo.'); ev.target.value=''; };
+  r.readAsArrayBuffer(f);
+}
+(function(){
+  document.addEventListener('change', function(ev){
+    if(ev.target && ev.target.id==='prod-excel-file') prodImportarExcel(ev);
+  });
 })();
 </script>
 
@@ -7111,6 +7508,50 @@ function nuevoContratoDesdeCobrador(v){
    real, sin duplicar facturas que ya existan. A diferencia de la versión
    anterior, esto SÍ queda guardado de verdad (antes solo vivía en
    memoria y se perdía al recargar). */
+/* Sube una lista de clientes del Cobrador (forma {no,nombre,tel,tel2,
+   monto,saldo,limite,promesa,notas}) contra la base de datos real:
+   si la factura ya existe, solo rellena datos de cobranza (nunca
+   monto/saldo); si no existe, la crea como deuda migrada. La usan
+   migrarCobrador() (una vez, al abrir) y el importador de Excel del
+   Cobrador (cuando el usuario sube un archivo a mano). */
+async function _cobradorSubirLote(lista){
+  var nuevos=0, existentes=0, errores=0, detalle=[];
+  for (var idx=0; idx<lista.length; idx++){
+    var v = lista[idx];
+    if(!v || !v.no || !v.nombre) continue;
+    var c = buscarContratoPorFac(v.no);
+    if(c){
+      existentes++;
+      try{
+        await apiFetch(`/api/contratos/${c.id}/cobranza`,{method:'PATCH',body:{
+          telefono2: c.tel2 || v.tel2 || '',
+          fechaLimite: c.lim || v.limite || null,
+          promesaPago: c.promesa || v.promesa || null,
+          notas: (v.notas && String(c.obs||'').indexOf(v.notas)<0) ? ((c.obs?c.obs+' | ':'')+v.notas) : (c.obs||null)
+        }});
+      }catch(e){}
+      detalle.push('· '+v.no+' '+v.nombre+' → ya existía, no se duplicó');
+    } else {
+      try{
+        await apiFetch('/api/contratos/migrar-cobrador',{method:'POST',body:{
+          numeroFactura: v.no, nombre: v.nombre, telefono1: v.tel, telefono2: v.tel2,
+          monto: v.monto, saldo: v.saldo, fechaLimite: v.limite||null, promesaPago: v.promesa||null, notas: v.notas||null
+        }});
+        nuevos++;
+        detalle.push('· '+v.no+' '+v.nombre+' → creado');
+      }catch(e){ errores++; detalle.push('· '+v.no+' '+v.nombre+' → ERROR: '+e.message); }
+    }
+  }
+  await cargarContratos();
+  return {nuevos:nuevos, existentes:existentes, errores:errores, detalle:detalle};
+}
+
+/* ══ MIGRACIÓN (una sola vez, por navegador) ══
+   Pasa los clientes viejos del Cobrador (localStorage de este navegador,
+   o si no hay nada ahí, los 10 de CB_DATOS_INICIALES) a la base de datos
+   real, sin duplicar facturas que ya existan. A diferencia de la versión
+   anterior, esto SÍ queda guardado de verdad (antes solo vivía en
+   memoria y se perdía al recargar). */
 async function migrarCobrador(){
   var yaHecha = false;
   try{ yaHecha = localStorage.getItem('kv_migracion_cobrador')==='1'; }catch(e){}
@@ -7126,42 +7567,14 @@ async function migrarCobrador(){
     return {nuevos:0, existentes:0, ya:false};
   }
 
-  var nuevos=0, existentes=0, errores=0, detalle=[];
-  for (var idx=0; idx<viejos.length; idx++){
-    var v = viejos[idx];
-    if(!v || !v.no || !v.nombre) continue;
-    var c = buscarContratoPorFac(v.no);
-    if(c){
-      // ── YA EXISTE: no se duplica. Solo se rellenan campos vacíos de cobranza. ──
-      existentes++;
-      try{
-        await apiFetch(`/api/contratos/${c.id}/cobranza`,{method:'PATCH',body:{
-          telefono2: c.tel2 || v.tel2 || '',
-          fechaLimite: c.lim || v.limite || null,
-          promesaPago: c.promesa || v.promesa || null,
-          notas: (v.notas && String(c.obs||'').indexOf(v.notas)<0) ? ((c.obs?c.obs+' | ':'')+v.notas) : (c.obs||null)
-        }});
-      }catch(e){}
-      detalle.push('· '+v.no+' '+v.nombre+' → ya existía, no se duplicó');
-    } else {
-      // ── NUEVO: se crea de verdad en la base de datos. ──
-      try{
-        await apiFetch('/api/contratos/migrar-cobrador',{method:'POST',body:{
-          numeroFactura: v.no, nombre: v.nombre, telefono1: v.tel, telefono2: v.tel2,
-          monto: v.monto, saldo: v.saldo, fechaLimite: v.limite||null, promesaPago: v.promesa||null, notas: v.notas||null
-        }});
-        nuevos++;
-        detalle.push('· '+v.no+' '+v.nombre+' → creado');
-      }catch(e){ errores++; detalle.push('· '+v.no+' '+v.nombre+' → ERROR: '+e.message); }
-    }
-  }
-  await cargarContratos();
+  var res = await _cobradorSubirLote(viejos);
   try{
     localStorage.setItem('kv_migracion_cobrador','1');
     localStorage.setItem('cobrador_clientes_respaldo', JSON.stringify(viejos));   // respaldo por si acaso
   }catch(e){}
-  console.log('MIGRACIÓN COBRADOR → CONTRATOS\n'+detalle.join('\n'));
-  return {nuevos:nuevos, existentes:existentes, errores:errores, ya:false, detalle:detalle};
+  console.log('MIGRACIÓN COBRADOR → CONTRATOS\n'+res.detalle.join('\n'));
+  res.ya=false;
+  return res;
 }
 
 /* ══ UN SOLO REGISTRO DE PAGO PARA TODO EL SISTEMA ══
@@ -7224,11 +7637,12 @@ CB_cargar = function(){
 };
 
 /* CB_guardarCliente() y CB_borrarCliente() (más arriba en el archivo) ya
-   llaman directo a la API (PATCH /cobranza y DELETE) y refrescan con
-   cargarContratos() -- ya no hace falta un CB_guardar() que sincronice
-   contratos[] a mano. CB_cobrar() y CB_mergeClientes() (pestaña Cargar,
-   pendiente de conectar en la Etapa 5 de Excel) siguen usando el
-   CB_guardar() original de arriba (solo localStorage, dato no crítico). */
+   llaman directo a la API (PATCH /cobranza y DELETE), y los 3 importadores
+   de la pestaña Cargar (Excel, fotos con IA, lote JSON/CSV) ya suben todo
+   de verdad via _cobradorSubirLote() -- ya no hace falta un CB_guardar()
+   que sincronice contratos[] a mano. Solo CB_cobrar() (marca de "último
+   cobro enviado por WhatsApp", dato no crítico) sigue usando el
+   CB_guardar() original de arriba (solo localStorage). */
 
 /* Cobrar / abonar en el Cobrador → pasa por registrarPago() */
 CB_registrarAbono = async function(i){
