@@ -293,7 +293,7 @@ async function decidirContrato(id, decision, comentario, usuarioId, usuarioNombr
     const contrato = rows[0];
     if (!contrato) { await cliente.query('ROLLBACK'); return null; }
 
-    if (decision === 'aprobado' && contrato.promotor_id) {
+    if (decision === 'aprobado' && contrato.promotor_nombre && Number(contrato.monto) > 0) {
       const ya = await cliente.query(
         `SELECT id FROM comisiones_semanas WHERE contrato_id = $1`, [id]
       );
@@ -482,6 +482,121 @@ async function registrarMovimientoAlmacen({ tipo, clienteTexto, items }, usuario
   }
 }
 
+// ── COMISIONES ────────────────────────────────────────────────────
+async function listarComisionesSemanas() {
+  const { rows } = await pool.query(
+    `SELECT s.*,
+            COALESCE(
+              (SELECT json_agg(json_build_object(
+                 'nombre',sp.promotor_nombre,'vc',sp.venta_credito,'vo',sp.venta_contado,
+                 'c8',sp.comision_8,'c16',sp.comision_16,'tot',sp.total
+               ))
+               FROM comisiones_semana_promotores sp WHERE sp.semana_id = s.id), '[]'
+            ) AS promotores
+     FROM comisiones_semanas s
+     ORDER BY s.creado_en DESC`
+  );
+  return rows;
+}
+
+async function crearSemanaComisionManual({ fechaDesde, fechaHasta, mesPago, promotores }, usuarioId) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const total = promotores.reduce((s, p) => s + (Number(p.c8) || 0) + (Number(p.c16) || 0), 0);
+    const { rows } = await cliente.query(
+      `INSERT INTO comisiones_semanas (fecha_desde, fecha_hasta, mes_pago, automatica, total, pagado, registrado_por)
+       VALUES ($1,$2,$3,FALSE,$4,FALSE,$5) RETURNING id`,
+      [fechaDesde, fechaHasta || fechaDesde, mesPago || null, total, usuarioId]
+    );
+    const semanaId = rows[0].id;
+    for (const p of promotores) {
+      const c8 = Math.round((Number(p.venta_credito) || 0) * 0.08);
+      const c16 = Math.round((Number(p.venta_contado) || 0) * 0.16);
+      if (c8 + c16 <= 0) continue;
+      await cliente.query(
+        `INSERT INTO comisiones_semana_promotores (semana_id, promotor_nombre, venta_credito, venta_contado, comision_8, comision_16, total)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [semanaId, p.nombre, Number(p.venta_credito) || 0, Number(p.venta_contado) || 0, c8, c16, c8 + c16]
+      );
+    }
+    await cliente.query('COMMIT');
+    return { id: semanaId };
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
+async function marcarComisionesSemanasPagadas(usuarioId) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const pendientes = await cliente.query(
+      `SELECT id, total, mes_pago FROM comisiones_semanas WHERE pagado = FALSE FOR UPDATE`
+    );
+    if (!pendientes.rows.length) { await cliente.query('ROLLBACK'); return null; }
+    const total = pendientes.rows.reduce((s, r) => s + Number(r.total), 0);
+    const meses = [...new Set(pendientes.rows.map((r) => r.mes_pago).filter(Boolean))].join(', ');
+    await cliente.query(`UPDATE comisiones_semanas SET pagado = TRUE WHERE pagado = FALSE`);
+    const pago = await cliente.query(
+      `INSERT INTO comisiones_pagos (mes, cantidad_semanas, total, registrado_por) VALUES ($1,$2,$3,$4) RETURNING *`,
+      [meses, pendientes.rows.length, total, usuarioId]
+    );
+    await cliente.query('COMMIT');
+    return pago.rows[0];
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
+async function listarComisionesPagos() {
+  const { rows } = await pool.query(
+    `SELECT p.*, u.nombre AS registrado_por_nombre FROM comisiones_pagos p
+     LEFT JOIN usuarios u ON u.id = p.registrado_por ORDER BY p.creado_en DESC`
+  );
+  return rows;
+}
+
+// Red de seguridad: crea la comision automatica de cualquier contrato
+// aprobado que por algun motivo no la tenga todavia (ej. importado
+// directo como aprobado). decidirContrato() ya la genera al aprobar
+// normalmente -- esto es solo para casos que se saltaron ese camino.
+async function regenerarComisionesFaltantes(usuarioId) {
+  const { rows: faltantes } = await pool.query(
+    `SELECT c.* FROM contratos c
+     WHERE c.estado = 'aprobado' AND c.promotor_nombre IS NOT NULL AND c.monto > 0
+       AND NOT EXISTS (SELECT 1 FROM comisiones_semanas s WHERE s.contrato_id = c.id)`
+  );
+  let agregadas = 0;
+  for (const contrato of faltantes) {
+    const mesNom = MESES[new Date(contrato.fecha).getMonth()] + ' ' + new Date(contrato.fecha).getFullYear();
+    const monto = Number(contrato.monto) || 0;
+    const esCredito = contrato.tipo_venta === 'credito';
+    const c8 = esCredito ? Math.round(monto * 0.08) : 0;
+    const c16 = esCredito ? 0 : Math.round(monto * 0.16);
+    const total = c8 + c16;
+    const { rows } = await pool.query(
+      `INSERT INTO comisiones_semanas (fecha_desde, fecha_hasta, mes_pago, automatica, contrato_id,
+         factura_texto, tipo_venta, monto_venta, total, pagado, registrado_por)
+       VALUES ($1,$1,$2,TRUE,$3,$4,$5,$6,$7,FALSE,$8) RETURNING id`,
+      [contrato.fecha, mesNom, contrato.id, contrato.numero_factura, contrato.tipo_venta, monto, total, usuarioId]
+    );
+    await pool.query(
+      `INSERT INTO comisiones_semana_promotores (semana_id, promotor_nombre, venta_credito, venta_contado, comision_8, comision_16, total)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [rows[0].id, contrato.promotor_nombre, esCredito ? monto : 0, esCredito ? 0 : monto, c8, c16, total]
+    );
+    agregadas++;
+  }
+  return agregadas;
+}
+
 module.exports = {
   pool,
   init,
@@ -512,4 +627,9 @@ module.exports = {
   registrarEntradaAlmacen,
   listarEntradasAlmacen,
   registrarMovimientoAlmacen,
+  listarComisionesSemanas,
+  crearSemanaComisionManual,
+  marcarComisionesSemanasPagadas,
+  listarComisionesPagos,
+  regenerarComisionesFaltantes,
 };

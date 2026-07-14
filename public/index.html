@@ -745,6 +745,23 @@ async function cargarStock(){
     lista.forEach(p=>{almP[p.nombre]=Number(p.bodega)||0;almM[p.nombre]=Number(p.ruta)||0;});
   }catch(e){console.error('No se pudo cargar el stock de almacén:',e);}
 }
+function mapSemanaComisionApi(s){
+  return{id:s.id,facRef:s.contrato_id,fac:s.factura_texto,de:(s.fecha_desde||'').slice(0,10),
+    ha:(s.fecha_hasta||'').slice(0,10),mes:s.mes_pago,
+    proms:(s.promotores||[]).map(p=>({n:p.nombre,vc:Number(p.vc)||0,vo:Number(p.vo)||0,c8:Number(p.c8)||0,c16:Number(p.c16)||0,tot:Number(p.tot)||0})),
+    tot:Number(s.total)||0,q:'',hora:'',pag:s.pagado,auto:s.automatica,
+    promotor:s.promotores&&s.promotores[0]?s.promotores[0].nombre:'',tipo:s.tipo_venta,monto:Number(s.monto_venta)||0};
+}
+async function cargarComisionesSemanas(){
+  try{const lista=await apiFetch('/api/comisiones/semanas');semanas=lista.map(mapSemanaComisionApi);}
+  catch(e){console.error('No se pudieron cargar las comisiones:',e);}
+}
+async function cargarComisionesPagos(){
+  try{
+    const lista=await apiFetch('/api/comisiones/pagos');
+    pagos=lista.map(p=>({id:p.id,fecha:(p.fecha||'').slice(0,10),mes:p.mes,ns:p.cantidad_semanas,tot:Number(p.total)||0,q:p.registrado_por_nombre||''}));
+  }catch(e){console.error('No se pudieron cargar los pagos de comisiones:',e);}
+}
 
 // ── INDEXEDDB ──────────────────────────────────────────────────────
 const DB='keraven2';
@@ -763,12 +780,12 @@ async function dbLoad(k){try{const db=await openDB();return new Promise(r=>{cons
 // (almacén, comisiones, nómina, etc.) todavía no está migrado, así
 // que sigue yendo a IndexedDB hasta que les toque su turno.
 async function guardar(){
-  await dbSave('data',{semanas,pagos,facN,movAlm,despachos,arqueos,solic,empleados,nominas,pagar,crm,asientos});
+  await dbSave('data',{facN,movAlm,despachos,arqueos,solic,empleados,nominas,pagar,crm,asientos});
   if(window._fbSync)window._fbSync();
 }
 async function cargar(){
   const d=await dbLoad('data');
-  if(d){semanas=d.semanas||[];pagos=d.pagos||[];facN=d.facN||1;movAlm=d.movAlm||[];despachos=d.despachos||[];arqueos=d.arqueos||[];solic=d.solic||[];empleados=d.empleados||[];nominas=d.nominas||[];pagar=d.pagar||[];crm=d.crm||[];asientos=d.asientos||[];}
+  if(d){facN=d.facN||1;movAlm=d.movAlm||[];despachos=d.despachos||[];arqueos=d.arqueos||[];solic=d.solic||[];empleados=d.empleados||[];nominas=d.nominas||[];pagar=d.pagar||[];crm=d.crm||[];asientos=d.asientos||[];}
 }
 
 // ── LOGIN ──────────────────────────────────────────────────────────
@@ -806,6 +823,8 @@ async function login(){
   await cargarProductos();
   await cargarContratos();
   await cargarStock();
+  await cargarComisionesSemanas();
+  await cargarComisionesPagos();
   await cargar();
   buildNav();buildBotNav();ir('dash');
 }
@@ -879,7 +898,7 @@ function render(id){
   else if(id==='arqueo'){m.innerHTML=rArqueo();setTimeout(()=>aTab('sal'),0);}
   else if(id==='almp'){m.innerHTML=rAlmP();setTimeout(()=>apTab('stk'),0);}
   else if(id==='almm'){m.innerHTML=rAlmM();setTimeout(()=>amTab('inv'),0);}
-  else if(id==='com'){const rg=regenComisiones();m.innerHTML=rCom();setTimeout(()=>cTab('sem'),0);if(rg>0)setTimeout(()=>cTab('sem'),50);}
+  else if(id==='com'){m.innerHTML=rCom();setTimeout(()=>cTab('sem'),0);regenComisiones().then(rg=>{if(rg>0&&pag==='com')cTab('sem');});}
   else if(id==='miscom'){regenComisiones();m.innerHTML=rMisCom();setTimeout(()=>misCom_tab('prom'),0);}
   else if(id==='delfac')m.innerHTML=rDelFac();
   else if(id==='rendimiento'){m.innerHTML=rRendimiento();setTimeout(()=>rend_tab('vendedor'),0);}
@@ -2070,21 +2089,25 @@ function calcC(i){
   PROMS.forEach((_,j)=>{const c=Number($('cc_'+j)?.value||0),o=Number($('co_'+j)?.value||0);tcc+=c;tco+=o;tc8+=Math.round(c*0.08);tc16+=Math.round(o*0.16);tg+=Math.round(c*0.08)+Math.round(o*0.16);});
   if($('tot_cc'))$('tot_cc').textContent=fM(tcc);if($('tot_c8'))$('tot_c8').textContent=fM(tc8);if($('tot_co'))$('tot_co').textContent=fM(tco);if($('tot_c16'))$('tot_c16').textContent=fM(tc16);if($('tot_gt'))$('tot_gt').textContent=fM(tg);
 }
-function gSemCom(){
+async function gSemCom(){
   const de=$('cs_de')?.value,ha=$('cs_ha')?.value,mes=$('cs_ms')?.value||'Sin mes';
   if(!de){alert('Selecciona la fecha de inicio.');return;}
-  const proms=PROMS.map((n,i)=>{const vc=Number($('cc_'+i)?.value||0),vo=Number($('co_'+i)?.value||0),c8=Math.round(vc*0.08),c16=Math.round(vo*0.16),tot=c8+c16;return{n,vc,vo,c8,c16,tot};});
-  const tot=proms.reduce((s,p)=>s+p.tot,0);
-  if(!tot){alert('Ingresa al menos una venta.');return;}
-  semanas.unshift({id:Date.now(),de,ha:ha||de,mes,proms,tot,q:ses.n,hora:now(),pag:false});
-  guardar();alert('Semana guardada.');cTab('d5');
+  const proms=PROMS.map((n,i)=>({nombre:n,venta_credito:Number($('cc_'+i)?.value||0),venta_contado:Number($('co_'+i)?.value||0)}));
+  const tieneVenta=proms.some(p=>p.venta_credito>0||p.venta_contado>0);
+  if(!tieneVenta){alert('Ingresa al menos una venta.');return;}
+  try{await apiFetch('/api/comisiones/semanas',{method:'POST',body:{fechaDesde:de,fechaHasta:ha||de,mesPago:mes,promotores:proms}});}
+  catch(e){alert('No se pudo guardar la semana: '+e.message);return;}
+  await cargarComisionesSemanas();
+  alert('Semana guardada.');cTab('d5');
 }
-function marcarPag(){
+async function marcarPag(){
   const pend=semanas.filter(s=>!s.pag),tot=pend.reduce((s,w)=>s+w.tot,0),mes=[...new Set(pend.map(w=>w.mes))].join(', ');
   if(!confirm(`¿Confirmar pago de ${fM(tot)} — ${pend.length} semana${pend.length!==1?'s':''} — ${mes}?`))return;
-  pend.forEach(s=>s.pag=true);
-  pagos.unshift({id:Date.now(),fecha:hoy(),mes,ns:pend.length,tot,q:ses.n,hora:now()});
-  guardar();cTab('d5');
+  try{await apiFetch('/api/comisiones/pagar',{method:'POST'});}
+  catch(e){alert('No se pudo confirmar el pago: '+e.message);return;}
+  await cargarComisionesSemanas();
+  await cargarComisionesPagos();
+  cTab('d5');
 }
 
 // ── USUARIOS ───────────────────────────────────────────────────────
@@ -3782,26 +3805,17 @@ function pn(i){var v=document.getElementById('p'+i).value.replace(/\D/,'');docum
 <script>
 
 // ── regenComisiones ──────────────────────────────────────────────
-function regenComisiones(){
-  var added=0;
-  contratos.filter(function(c){return c.status==='aprobado'&&c.promotor&&c.monto;}).forEach(function(c){
-    var ya=semanas.find(function(s){return s.facRef===c.id;});
-    if(!ya){
-      var fecha=c.fecha||hoy();
-      var meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-      var mesNom=meses[new Date(fecha+'T00:00:00').getMonth()]+' '+new Date(fecha+'T00:00:00').getFullYear();
-      var monto=Number(c.monto)||0;
-      var esCred=c.tipo==='credito';
-      var vc=esCred?monto:0,vo=esCred?0:monto;
-      var c8=Math.round(vc*0.08),c16=Math.round(vo*0.16),totCom=c8+c16;
-      var promsArr=[{n:c.promotor,vc:vc,vo:vo,c8:c8,c16:c16,tot:totCom}];
-      semanas.push({id:'AUTO-'+c.id,facRef:c.id,fac:c.fac,de:fecha,ha:fecha,mes:mesNom,
-        proms:promsArr,tot:totCom,q:'Sistema',hora:hoy(),pag:false,auto:true,
-        promotor:c.promotor,tipo:c.tipo,monto:monto});
-      added++;
-    }
-  });
-  if(added>0){guardar();}
+// Red de seguridad: crea en el servidor la comision de cualquier
+// contrato aprobado que por algun motivo no la tenga (normalmente
+// decidir() ya la genera al aprobar -- esto cubre casos como
+// contratos importados directo como aprobados).
+async function regenComisiones(){
+  let added=0;
+  try{
+    const r=await apiFetch('/api/comisiones/regenerar',{method:'POST'});
+    added=r.agregadas||0;
+    if(added>0)await cargarComisionesSemanas();
+  }catch(e){console.error('No se pudo regenerar comisiones:',e);}
   return added;
 }
 

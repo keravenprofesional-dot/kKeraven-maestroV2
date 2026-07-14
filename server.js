@@ -259,6 +259,32 @@ app.post('/api/almacen/movimientos', requireAuth, requirePermiso('almm'), h(asyn
   res.status(201).json(resultado);
 }));
 
+// ── COMISIONES ─────────────────────────────────────────────────────
+app.get('/api/comisiones/semanas', requireAuth, requireAnyPermiso('com', 'miscom'), h(async (req, res) => {
+  res.json(await db.listarComisionesSemanas());
+}));
+
+app.post('/api/comisiones/semanas', requireAuth, requirePermiso('com'), h(async (req, res) => {
+  const { fechaDesde, fechaHasta, mesPago, promotores } = req.body || {};
+  if (!fechaDesde) return res.status(400).json({ error: 'Falta la fecha de inicio' });
+  if (!Array.isArray(promotores) || !promotores.length) return res.status(400).json({ error: 'Ingresa al menos una venta' });
+  res.status(201).json(await db.crearSemanaComisionManual({ fechaDesde, fechaHasta, mesPago, promotores }, req.usuario.id));
+}));
+
+app.post('/api/comisiones/regenerar', requireAuth, requirePermiso('com'), h(async (req, res) => {
+  res.json({ agregadas: await db.regenerarComisionesFaltantes(req.usuario.id) });
+}));
+
+app.post('/api/comisiones/pagar', requireAuth, requirePermiso('com'), h(async (req, res) => {
+  const pago = await db.marcarComisionesSemanasPagadas(req.usuario.id);
+  if (!pago) return res.status(400).json({ error: 'No hay semanas pendientes de pago' });
+  res.json(pago);
+}));
+
+app.get('/api/comisiones/pagos', requireAuth, requirePermiso('com'), h(async (req, res) => {
+  res.json(await db.listarComisionesPagos());
+}));
+
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: 'Error interno del servidor' });
