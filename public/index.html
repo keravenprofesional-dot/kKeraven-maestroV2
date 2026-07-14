@@ -3681,7 +3681,7 @@ function rCRMBody(){
       </div>`;
     }
     return`<div class="cc${isE?' exp':''}">
-      <div class="cc-hd" onclick="crmToggle('${cl.id}')">
+      <div class="cc-hd" onclick="crmToggle(${cl.id})">
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600">${cl.nombre}</div>
           <div style="font-size:10px;color:var(--t2)">${cl.tel||''} · ${cl.cedula||''}</div>
@@ -3791,7 +3791,7 @@ function rPagar(){
       </div>`;
     }
     h+=`<div class="cobc${isE?' exp':''}">
-      <div class="cob-hd" onclick="pagToggle('${p.id}')" style="border-left:3px solid ${vencida?'var(--red)':p.estado==='pagado'?'var(--green)':'var(--gold)'}">
+      <div class="cob-hd" onclick="pagToggle(${p.id})" style="border-left:3px solid ${vencida?'var(--red)':p.estado==='pagado'?'var(--green)':'var(--gold)'}">
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600">${p.proveedor}</div>
           <div style="font-size:10px;color:var(--t2)">${p.concepto||''}${p.vence?' · Vence: '+fD(p.vence):''}${vencida?' ⚠️':''}</div>
