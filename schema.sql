@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS contrato_abonos (
   contrato_id   INTEGER NOT NULL REFERENCES contratos(id) ON DELETE CASCADE,
   fecha         DATE NOT NULL DEFAULT CURRENT_DATE,
   monto         NUMERIC(12,2) NOT NULL,
+  via           TEXT, -- 'cobros' | 'ruta' | 'cobrador' | 'manual' -- de donde vino el pago
   nota          TEXT,
   registrado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
   creado_en     TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -372,6 +373,7 @@ CREATE TABLE IF NOT EXISTS config_ia (
 
 -- ── MIGRACIONES (para bases de datos que ya existían antes de este cambio) ──
 ALTER TABLE contratos ADD COLUMN IF NOT EXISTS canal TEXT NOT NULL DEFAULT 'ruta';
+ALTER TABLE contrato_abonos ADD COLUMN IF NOT EXISTS via TEXT;
 DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conname = 'contratos_canal_check'

@@ -227,6 +227,14 @@ app.post('/api/contratos/:id/decidir', requireAuth, requirePermiso('buzon'), h(a
   res.json(contrato);
 }));
 
+app.post('/api/contratos/:id/abonar', requireAuth, requireAnyPermiso('cobros', 'cobrador', 'ruta'), h(async (req, res) => {
+  const { monto, via, nota } = req.body || {};
+  if (monto == null || Number(monto) < 0) return res.status(400).json({ error: 'Monto inválido' });
+  const contrato = await db.registrarAbonoContrato(req.params.id, monto, { via, nota }, req.usuario.id);
+  if (!contrato) return res.status(404).json({ error: 'Contrato no encontrado' });
+  res.json(contrato);
+}));
+
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: 'Error interno del servidor' });

@@ -730,7 +730,7 @@ function mapContratoApi(c){
     fF:c.foto_frente_url,fR:c.foto_reverso_url,fFac:c.foto_factura_url,canal:c.canal||'ruta',
     status:c.estado,por:'',hora:'',
     dec:c.decidido_en?{q:'',h:new Date(c.decidido_en).toLocaleString('es-DO'),c:''}:null,
-    abonos:(c.abonos||[]).map(a=>({f:a.fecha,m:Number(a.monto),nota:a.nota}))};
+    abonos:(c.abonos||[]).map(a=>({f:(a.fecha||'').slice(0,10),m:Number(a.monto),q:a.registrado_por_nombre||'—',via:a.via,nota:a.nota}))};
 }
 async function cargarContratos(){
   try{
@@ -1768,7 +1768,15 @@ function cobCard(c){
 function togCob(id){expId=expId===('c'+id)?null:'c'+id;$('main').innerHTML=rCobros();}
 function abonar(id){const c=contratos.find(x=>x.id===id);if(!c)return;const m=parseFloat($('abo_'+id)?.value)||0;if(m<=0){alert('Monto inválido.');return;}if(!c.abonos)c.abonos=[];c.abonos.push({f:hoy(),m,q:ses.n});c.saldo=Math.max(0,(c.saldo||0)-m);guardar();$('main').innerHTML=rCobros();}
 function saldar(id){const c=contratos.find(x=>x.id===id);if(!c||!confirm('¿Marcar como saldado?'))return;if(!c.abonos)c.abonos=[];c.abonos.push({f:hoy(),m:c.saldo||0,q:ses.n,nota:'Saldado'});c.saldo=0;guardar();$('main').innerHTML=rCobros();}
-function noPago(id){const c=contratos.find(x=>x.id===id);if(!c)return;if(!c.abonos)c.abonos=[];c.abonos.push({f:hoy(),m:0,q:ses.n,nota:'No pagó'});guardar();$('main').innerHTML=rCobros();}
+async function noPago(id){
+  const c=contratos.find(x=>x.id===id);if(!c)return;
+  // monto 0 a propósito: deja una visita registrada sin afectar el saldo
+  // (no pasa por registrarPago() porque esa función descarta los montos <= 0).
+  try{await apiFetch(`/api/contratos/${id}/abonar`,{method:'POST',body:{monto:0,via:'cobros',nota:'No pagó'}});}
+  catch(e){alert('No se pudo registrar la visita: '+e.message);return;}
+  if(!c.abonos)c.abonos=[];c.abonos.push({f:hoy(),m:0,q:ses.n,nota:'No pagó'});
+  $('main').innerHTML=rCobros();
+}
 
 // ── ARQUEO ─────────────────────────────────────────────────────────
 function rArqueo(){
@@ -6966,17 +6974,18 @@ async function registrarPago(idOFac, monto, opts){
   var m = Math.max(0, Math.min(Number(monto)||0, deuda));
   if(m<=0) return null;
 
-  if(!c.abonos) c.abonos=[];
-  c.abonos.push({
-    f: hoy(), m: m,
-    q: (typeof ses!=='undefined'&&ses)?ses.n:'Sistema',
-    via: opts.via||'manual',          // 'cobrador' | 'ruta' | 'cobros'
-    nota: opts.nota||''
-  });
-  c.saldo = Math.max(0, deuda - m);
-  if(c.saldo===0) c.fechaSaldado = hoy();
+  let actualizado;
+  try{
+    actualizado=await apiFetch(`/api/contratos/${c.id}/abonar`,{method:'POST',body:{monto:m,via:opts.via||'manual',nota:opts.nota||''}});
+  }catch(e){alert('No se pudo registrar el pago: '+e.message);return null;}
 
-  await guardar();
+  // Mutar el MISMO objeto que ya tenían los llamadores (abonar/saldar/
+  // rtCobrado/etc. leen c.saldo despues del await sobre esta misma
+  // referencia) en vez de reemplazarlo, para no romper esos flujos.
+  if(!c.abonos) c.abonos=[];
+  c.abonos.push({f:hoy(),m,q:ses?ses.n:'Sistema',via:opts.via||'manual',nota:opts.nota||''});
+  c.saldo=Number(actualizado.saldo)||0;
+  if(c.saldo===0)c.fechaSaldado=hoy();
   return c;
 }
 /* Total cobrado en un período (lo usa Contabilidad y Rendimiento) */

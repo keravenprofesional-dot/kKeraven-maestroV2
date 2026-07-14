@@ -260,8 +260,12 @@ async function listarContratos({ estado } = {}) {
                JOIN productos p ON p.id = cp.producto_id WHERE cp.contrato_id = c.id), '[]'
             ) AS productos,
             COALESCE(
-              (SELECT json_agg(json_build_object('id',a.id,'fecha',a.fecha,'monto',a.monto,'nota',a.nota) ORDER BY a.fecha)
-               FROM contrato_abonos a WHERE a.contrato_id = c.id), '[]'
+              (SELECT json_agg(json_build_object(
+                 'id',a.id,'fecha',a.fecha,'monto',a.monto,'via',a.via,'nota',a.nota,
+                 'registrado_por_nombre',u.nombre
+               ) ORDER BY a.fecha)
+               FROM contrato_abonos a LEFT JOIN usuarios u ON u.id = a.registrado_por
+               WHERE a.contrato_id = c.id), '[]'
             ) AS abonos
      FROM contratos c
      JOIN clientes cl ON cl.id = c.cliente_id
@@ -324,6 +328,39 @@ async function decidirContrato(id, decision, comentario, usuarioId, usuarioNombr
   }
 }
 
+// Registra un abono contra un contrato (usado por Cobros, Ruta y
+// Cobrador -- mismo endpoint para los 3). FOR UPDATE evita que dos
+// cobros simultaneos sobre el mismo contrato se pisen el saldo.
+// monto=0 es valido (ej. "No pagó" -- deja una visita en el
+// historial sin afectar el saldo); solo se rechaza si es negativo.
+async function registrarAbonoContrato(contratoId, monto, { via, nota }, usuarioId) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const { rows } = await cliente.query(
+      `SELECT saldo FROM contratos WHERE id = $1 FOR UPDATE`, [contratoId]
+    );
+    if (!rows[0]) { await cliente.query('ROLLBACK'); return null; }
+    const deuda = Math.max(0, Number(rows[0].saldo) || 0);
+    const m = Math.max(0, Math.min(Number(monto) || 0, deuda));
+
+    await cliente.query(
+      `INSERT INTO contrato_abonos (contrato_id, monto, via, nota, registrado_por) VALUES ($1,$2,$3,$4,$5)`,
+      [contratoId, m, via || 'manual', nota || '', usuarioId]
+    );
+    const { rows: actualizado } = m > 0
+      ? await cliente.query(`UPDATE contratos SET saldo = saldo - $2 WHERE id = $1 RETURNING *`, [contratoId, m])
+      : await cliente.query(`SELECT * FROM contratos WHERE id = $1`, [contratoId]);
+    await cliente.query('COMMIT');
+    return actualizado[0];
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
 module.exports = {
   pool,
   init,
@@ -349,4 +386,5 @@ module.exports = {
   crearContrato,
   listarContratos,
   decidirContrato,
+  registrarAbonoContrato,
 };
