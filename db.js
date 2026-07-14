@@ -328,6 +328,63 @@ async function decidirContrato(id, decision, comentario, usuarioId, usuarioNombr
   }
 }
 
+// Edita los datos del cliente de un contrato ya aprobado. Como
+// contratos.cliente_id apunta a la tabla `clientes` compartida con
+// CRM/Cobrador, esto actualiza el cliente real -- el cambio se ve
+// automaticamente en todos los modulos que lo referencian, no solo en
+// este contrato. Exclusivo Gerente/Sub-Gerente (ver requireRol en la
+// ruta). El motivo de la correccion queda en contratos.observaciones.
+async function editarClienteDeContrato(contratoId, datosCliente, motivo) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const { rows } = await cliente.query(`SELECT cliente_id FROM contratos WHERE id = $1 FOR UPDATE`, [contratoId]);
+    if (!rows[0]) { await cliente.query('ROLLBACK'); return null; }
+    await cliente.query(
+      `UPDATE clientes SET
+         nombre = $2, cedula = $3, telefono1 = $4, telefono2 = $5, email = $6,
+         institucion = $7, barrio = $8, referencia = $9, direccion = $10
+       WHERE id = $1`,
+      [rows[0].cliente_id, datosCliente.nombre, datosCliente.cedula, datosCliente.telefono1 || null,
+       datosCliente.telefono2 || null, datosCliente.email || null, datosCliente.institucion || null,
+       datosCliente.barrio || null, datosCliente.referencia || null, datosCliente.direccion || null]
+    );
+    const { rows: actualizado } = await cliente.query(
+      `UPDATE contratos SET observaciones = $2 WHERE id = $1 RETURNING *`,
+      [contratoId, motivo || null]
+    );
+    await cliente.query('COMMIT');
+    return actualizado[0];
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
+// Elimina una factura por completo (accion irreversible, solo
+// Gerente/Sub-Gerente, con PIN reverificado en la ruta). Tambien
+// elimina la comision automatica asociada, si la tiene -- mismo
+// comportamiento que decidir() en el HTML original.
+async function eliminarContrato(id) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const { rows } = await cliente.query(`SELECT numero_factura FROM contratos WHERE id = $1 FOR UPDATE`, [id]);
+    if (!rows[0]) { await cliente.query('ROLLBACK'); return null; }
+    await cliente.query(`DELETE FROM comisiones_semanas WHERE contrato_id = $1`, [id]);
+    await cliente.query(`DELETE FROM contratos WHERE id = $1`, [id]);
+    await cliente.query('COMMIT');
+    return { numeroFactura: rows[0].numero_factura };
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
 // Registra un abono contra un contrato (usado por Cobros, Ruta y
 // Cobrador -- mismo endpoint para los 3). FOR UPDATE evita que dos
 // cobros simultaneos sobre el mismo contrato se pisen el saldo.
@@ -874,6 +931,8 @@ module.exports = {
   crearContrato,
   listarContratos,
   decidirContrato,
+  editarClienteDeContrato,
+  eliminarContrato,
   registrarAbonoContrato,
   listarStock,
   registrarEntradaAlmacen,

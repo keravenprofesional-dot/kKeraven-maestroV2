@@ -1683,7 +1683,8 @@ function ccCard(c){
         <textarea id="cr_${c.id}" placeholder="Motivo del rechazo..."></textarea>
         <button class="bre" onclick="decidir(${c.id},'rechazado')"><i class="ti ti-circle-x" style="font-size:16px"></i>RECHAZAR</button></div>
       </div>`;}
-    else if(c.status==='aprobado')ac=`<div class="ra"><i class="ti ti-circle-check" style="font-size:17px"></i><div><b>Aprobado por ${c.dec.q}</b> — ${c.dec.h}${c.dec.c?' · "'+c.dec.c+'"':''}</div></div>`;
+    else if(c.status==='aprobado')ac=`<div class="ra"><i class="ti ti-circle-check" style="font-size:17px"></i><div><b>Aprobado por ${c.dec.q}</b> — ${c.dec.h}${c.dec.c?' · "'+c.dec.c+'"':''}</div></div>`
+      +(ses&&['gerente','subgerente'].includes(ses.rol)?`<button class="bsm" style="margin-top:8px" onclick="editarContrato(${c.id})"><i class="ti ti-edit"></i> Editar datos del cliente</button>`:'');
     else ac=`<div class="rr"><i class="ti ti-circle-x" style="font-size:17px"></i><div><b>Rechazado por ${c.dec.q}</b> — ${c.dec.h}${c.dec.c?' · "'+c.dec.c+'"':''}</div></div>`;
     body=`<div class="cc-bd">
       <div class="dg">
@@ -4286,24 +4287,24 @@ async function guardarEdicionCliente(id){
   var nm=document.getElementById('ec_nm')?.value?.trim();
   var ce=document.getElementById('ec_ce')?.value?.trim();
   if(!nm||!ce){showToast('Nombre y cédula son obligatorios','err');return;}
-  // Actualizar datos del contrato
-  c.cliente=nm;
-  c.cedula=ce;
-  c.tel1=document.getElementById('ec_t1')?.value||c.tel1;
-  c.tel2=document.getElementById('ec_t2')?.value||c.tel2;
-  c.email=document.getElementById('ec_em')?.value||c.email;
-  c.inst=document.getElementById('ec_in')?.value||c.inst;
-  c.barrio=document.getElementById('ec_br')?.value||c.barrio;
-  c.ref=document.getElementById('ec_rf')?.value||c.ref;
-  c.dir=document.getElementById('ec_dir')?.value||c.dir;
-  c.obs=(document.getElementById('ec_obs')?.value||'').trim();
-  c.ultimaEdicion={q:ses.n,h:now(),motivo:c.obs};
-  c.editado=true;
-  await guardar();
+  try{
+    await apiFetch(`/api/contratos/${id}/cliente`,{method:'PATCH',body:{
+      nombre:nm,cedula:ce,
+      telefono1:document.getElementById('ec_t1')?.value||c.tel1,
+      telefono2:document.getElementById('ec_t2')?.value||c.tel2,
+      email:document.getElementById('ec_em')?.value||c.email,
+      institucion:document.getElementById('ec_in')?.value||c.inst,
+      barrio:document.getElementById('ec_br')?.value||c.barrio,
+      referencia:document.getElementById('ec_rf')?.value||c.ref,
+      direccion:document.getElementById('ec_dir')?.value||c.dir,
+      motivo:(document.getElementById('ec_obs')?.value||'').trim()}});
+  }catch(e){showToast('No se pudo guardar: '+e.message,'err');return;}
+  await cargarContratos();
   document.getElementById('ec_modal_ov')?.remove();
   buildBotNav();
   document.getElementById('main').innerHTML=rBuzon();
-  showToast('Datos actualizados ✅ — ahora puedes re-aprobar el contrato');
+  if(typeof bzTab==='function')bzTab('apro');
+  showToast('Datos del cliente actualizados ✅');
 }
 
 // Override rBuzon to show tabs: Pendientes | Aprobados | Rechazados
@@ -5358,7 +5359,7 @@ function rCXC(){
 // ── DELFAC ───────────────────────────────────────────────────────
 var _delFacId=null,_delPinIntento=0;
 function rDelFac(){
-  if(!ses||ses.rol!=='gerente')return'<div class="card" style="text-align:center;padding:48px"><div style="font-size:48px">🔒</div><div style="font-size:18px;font-weight:700;color:var(--er);margin-top:12px">Solo el Gerente General puede eliminar facturas.</div></div>';
+  if(!ses||!['gerente','subgerente'].includes(ses.rol))return'<div class="card" style="text-align:center;padding:48px"><div style="font-size:48px">🔒</div><div style="font-size:18px;font-weight:700;color:var(--er);margin-top:12px">Solo el Gerente General o la Sub-Gerente pueden eliminar facturas.</div></div>';
   setTimeout(function(){delFacRender();},50);
   return'<div class="card">'+
     '<div class="ct"><i class="ti ti-trash" style="color:#C62828;font-size:18px"></i>Eliminar Factura'+
@@ -5427,14 +5428,16 @@ async function delPinConfirm(){
     return;
   }
   if(!_delFacId){delPinCerrar();return;}
-  var c=contratos.find(function(x){return x.id===_delFacId;}),facN=c?c.fac:'';
-  contratos=contratos.filter(function(x){return x.id!==_delFacId;});
-  semanas=semanas.filter(function(s){return s.facRef!==_delFacId;});
-  await guardar();
+  var idBorrar=_delFacId;
+  var resultado;
+  try{resultado=await apiFetch(`/api/contratos/${idBorrar}`,{method:'DELETE'});}
+  catch(e){if(err)err.textContent='❌ '+e.message;return;}
+  await cargarContratos();
+  await cargarComisionesSemanas();
   delPinCerrar();_delFacId=null;
   document.getElementById('main').innerHTML=rDelFac();
   setTimeout(function(){delFacRender();},50);
-  showToast('Factura '+facN+' eliminada ✅');
+  showToast('Factura '+resultado.numeroFactura+' eliminada ✅');
 }
 
 </script>

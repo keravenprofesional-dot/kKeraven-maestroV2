@@ -227,6 +227,30 @@ app.post('/api/contratos/:id/decidir', requireAuth, requirePermiso('buzon'), h(a
   res.json(contrato);
 }));
 
+// Editar los datos del cliente de un contrato ya aprobado -- exclusivo
+// Gerente/Sub-Gerente (regla confirmada por el usuario: solo esos dos
+// roles editan lo que otros ya crearon, no solo lo aprueban).
+app.patch('/api/contratos/:id/cliente', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const { nombre, cedula, telefono1, telefono2, email, institucion, barrio, referencia, direccion, motivo } = req.body || {};
+  if (!nombre || !cedula) return res.status(400).json({ error: 'Nombre y cédula son obligatorios' });
+  const contrato = await db.editarClienteDeContrato(
+    req.params.id,
+    { nombre, cedula, telefono1, telefono2, email, institucion, barrio, referencia, direccion },
+    motivo
+  );
+  if (!contrato) return res.status(404).json({ error: 'Contrato no encontrado' });
+  res.json(contrato);
+}));
+
+// Eliminar factura -- accion irreversible, exclusiva Gerente/Sub-Gerente.
+// El frontend ya revalida el PIN por separado (/api/verificar-pin)
+// antes de llamar a esto; el requireRol de aca es la segunda capa.
+app.delete('/api/contratos/:id', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const resultado = await db.eliminarContrato(req.params.id);
+  if (!resultado) return res.status(404).json({ error: 'Contrato no encontrado' });
+  res.json(resultado);
+}));
+
 app.post('/api/contratos/:id/abonar', requireAuth, requireAnyPermiso('cobros', 'cobrador', 'ruta'), h(async (req, res) => {
   const { monto, via, nota } = req.body || {};
   if (monto == null || Number(monto) < 0) return res.status(400).json({ error: 'Monto inválido' });
