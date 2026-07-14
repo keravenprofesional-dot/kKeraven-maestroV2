@@ -50,6 +50,28 @@ async function buscarUsuarioPorId(id) {
   return rows[0] || null;
 }
 
+// Lista completa para el panel de administracion (incluye inactivos, sin pin_hash)
+async function listarUsuariosCompleto() {
+  const { rows } = await pool.query(
+    `SELECT id, nombre, rol, rol_label, color, activo, editable, permisos_custom
+     FROM usuarios ORDER BY id`
+  );
+  return rows;
+}
+
+async function actualizarUsuario(id, { nombre, rol, rolLabel }) {
+  const { rows } = await pool.query(
+    `UPDATE usuarios SET
+       nombre = COALESCE($2, nombre),
+       rol = COALESCE($3, rol),
+       rol_label = COALESCE($4, rol_label)
+     WHERE id = $1
+     RETURNING id, nombre, rol, rol_label, color, activo, editable, permisos_custom`,
+    [id, nombre, rol, rolLabel]
+  );
+  return rows[0] || null;
+}
+
 // Verifica PIN contra el hash guardado. Aplica limite de intentos: tras
 // MAX_INTENTOS fallidos seguidos, bloquea el usuario por BLOQUEO_MINUTOS.
 // Esto es lo que reemplaza la comparacion en el navegador (linea 701-707
@@ -162,6 +184,8 @@ module.exports = {
   PERMS_POR_ROL,
   permisosEfectivos,
   listarUsuariosActivos,
+  listarUsuariosCompleto,
+  actualizarUsuario,
   buscarUsuarioPorId,
   verificarLogin,
   crearUsuario,

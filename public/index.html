@@ -593,19 +593,19 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 
 'use strict';
 // ── DATOS ──────────────────────────────────────────────────────────
-const PRODS=['MASCARILLA COCO 10OZ','MASCARILLA CACAO 10OZ','MASCARILLA ZANAHORIA 10OZ','MASCARILLA BANANA 10OZ','MASCARILLA DETOX NEGRO 10OZ','MASCARILLA JENGIBRE 10OZ','MASCARILLA COCO 32OZ','MASCARILLA CACAO 32OZ','MASCARILLA ZANAHORIA 32OZ','MASCARILLA BANANA 32OZ','MASCARILLA DETOX 32OZ','MASCARILLA JENGIBRE 32OZ','SHAMPOO COCO 10OZ','SHAMPOO CACAO 10OZ','SHAMPOO ZANAHORIA 10OZ','SHAMPOO BANANA 10OZ','SHAMPOO DETOX 10OZ','SHAMPOO JENGIBRE 10OZ','SHAMPOO COCO 32OZ','SHAMPOO CACAO 32OZ','SHAMPOO ZANAHORIA 32OZ','SHAMPOO BANANA 32OZ','SHAMPOO DETOX 32OZ','SHAMPOO JENGIBRE 32OZ','SHAMPOO GOLDEN BLACK','BALSAMO GOLDEN BLACK 32OZ','ESCULTOR RIZOS 16OZ','SPRAY RIZOS 4OZ','SHAMPOO RIZOS 16OZ','MASCARILLA RIZOS 16OZ','GOTERO CRECIMIENTO 4OZ','GOTICA BRILLO 4OZ','LEAVEN IN 8OZ','LACEADOR 8OZ','GEL INTIMO 8OZ','CIRUGIA CAPILAR 16OZ','LINEA GOLDEN BLACK','LINEA CURATIVA','LINEA RIZOS'];
+// PRODS y USUARIOS ya no son fijos: se cargan desde el backend
+// (cargarProductos()/cargarUsuariosLogin()) al iniciar. Quedan como
+// variables normales para que el resto del código (que los usa en
+// decenas de lugares) siga funcionando sin cambios.
+let PRODS=[];
 
-let USUARIOS=[
-  {id:'u1',n:'José Durán',rol:'gerente',rl:'Gerente General',pin:'1234',on:true,ed:false,c:'#B8860B'},
-  {id:'u2',n:'Leticia López',rol:'subgerente',rl:'Sub Gerente',pin:'1234',on:true,ed:false,c:'#856408'},
-  {id:'u3',n:'Manuel Ventura',rol:'coordinador',rl:'Coordinador Operativo',pin:'2345',on:true,ed:true,c:'#185FA5'},
-  {id:'u4',n:'Supervisor',rol:'supervisor',rl:'Supervisor de Ruta',pin:'3456',on:true,ed:true,c:'#0F6E56'},
-  {id:'u5',n:'Encargado Almacén',rol:'almacen',rl:'Encargado de Almacén',pin:'6789',on:true,ed:true,c:'#5B4E8A'},
-  {id:'u6',n:'Promotor A',rol:'promotor',rl:'Promotor',pin:'4444',on:true,ed:true,c:'#C05621'},
-  {id:'u7',n:'Promotor B',rol:'promotor',rl:'Promotor',pin:'5555',on:true,ed:true,c:'#2C7A7B'},
-  {id:'u8',n:'Promotor C',rol:'promotor',rl:'Promotor',pin:'6666',on:true,ed:true,c:'#702459'},
-];
+let USUARIOS=[];
 
+// Copia local de los permisos por defecto de cada rol, solo para
+// mostrar valores iniciales en el editor de permisos (Usuarios). La
+// autorizacion real SIEMPRE la decide el servidor (sesPermisos, mas
+// abajo, viene de /api/login) — esta tabla nunca se usa para dejar
+// pasar o bloquear una accion.
 const PERMS={
   gerente:    ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta'],
   subgerente: ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta'],
@@ -651,11 +651,11 @@ const BNLAB={dash:'Inicio',contrato:'Venta',buzon:'Buzón',cobros:'Cobros',com:'
 
 // ── ESTADO ─────────────────────────────────────────────────────────
 let ses=null, pag='dash';
+let sesPermisos=[]; // permisos reales del usuario logueado, calculados por el servidor
 let contratos=[],semanas=[],pagos=[],facN=1;
 let almM={},almP={},movAlm=[],entAlm=[],despachos=[],arqueos=[],solic=[];
 let selP=[],fotos={f:null,r:null},gps=null,tventa='credito';
 let editU=null,expId=null;
-let uctr=9;
 const COLS=['#B8860B','#185FA5','#0F6E56','#A32D2D','#5B4E8A','#C05621','#2C7A7B','#702459'];
 
 // ── HELPERS ────────────────────────────────────────────────────────
@@ -667,7 +667,55 @@ const hoy=()=>new Date().toISOString().split('T')[0];
 const pad=n=>String(n).padStart(4,'0');
 const addD=(d,n)=>{const r=new Date(d+'T00:00:00');r.setDate(r.getDate()+n);return r.toISOString().split('T')[0];};
 const upper=el=>{const s=el.selectionStart,e=el.selectionEnd;el.value=el.value.toUpperCase();try{el.setSelectionRange(s,e);}catch(x){}};
-const perms=()=>PERMS[ses?.rol]||[];
+const perms=()=>sesPermisos;
+
+// ── API ────────────────────────────────────────────────────────────
+// Helper unico para hablar con el backend. Siempre manda la cookie de
+// sesion (credentials:'include') y lanza un error legible si la
+// respuesta no es 2xx, para que cada llamador solo tenga que
+// try/catch y mostrar el mensaje.
+async function apiFetch(url,opts={}){
+  const r=await fetch(url,{
+    ...opts,
+    headers:{'Content-Type':'application/json',...(opts.headers||{})},
+    credentials:'include',
+    body:opts.body?JSON.stringify(opts.body):undefined,
+  });
+  let data=null;
+  try{data=await r.json();}catch(e){}
+  if(!r.ok){
+    const err=new Error(data?.error||('Error '+r.status));
+    err.status=r.status;err.data=data;throw err;
+  }
+  return data;
+}
+
+// Convierte la forma que devuelve el backend (nombre, rol_label,
+// activo, editable) a la forma corta que usa el resto del codigo
+// desde siempre (n, rl, on, ed) para no tener que reescribir cada
+// pantalla que ya lee usuarios con esos nombres de campo.
+function mapUsuarioApi(u){
+  return{id:u.id,n:u.nombre,rol:u.rol,rl:u.rol_label,c:u.color||'#B8860B',
+    on:u.activo!==false,ed:u.editable!==false,permisos:u.permisos_custom||null};
+}
+
+async function cargarProductos(){
+  try{
+    const lista=await apiFetch('/api/productos');
+    PRODS=lista.map(p=>p.nombre);
+    PED_PRICES={};lista.forEach(p=>{PED_PRICES[p.nombre]=Number(p.precio_referencia)||0;});
+  }catch(e){console.error('No se pudo cargar el catálogo de productos:',e);}
+}
+async function cargarUsuariosLogin(){
+  try{
+    const lista=await apiFetch('/api/usuarios-login');
+    USUARIOS=lista.map(mapUsuarioApi);
+  }catch(e){console.error('No se pudo cargar la lista de usuarios:',e);USUARIOS=[];}
+}
+async function cargarUsuariosAdmin(){
+  const lista=await apiFetch('/api/usuarios');
+  USUARIOS=lista.map(mapUsuarioApi);
+}
 
 // ── INDEXEDDB ──────────────────────────────────────────────────────
 const DB='keraven2';
@@ -683,39 +731,55 @@ async function dbSave(k,v){try{const db=await openDB();const t=db.transaction('k
 async function dbLoad(k){try{const db=await openDB();return new Promise(r=>{const t=db.transaction('kv','readonly');const q=t.objectStore('kv').get(k);q.onsuccess=e=>r(e.target.result?.v??null);q.onerror=()=>r(null);});}catch(e){return null;}}
 async function guardar(){
   await dbSave('data',{contratos,semanas,pagos,facN,almM,almP,movAlm,entAlm,despachos,arqueos,solic,empleados,nominas,pagar,crm,asientos});
-  await dbSave('users',USUARIOS.filter(u=>u.ed&&u.on));
   if(window._fbSync)window._fbSync();
 }
 async function cargar(){
   const d=await dbLoad('data');
   if(d){contratos=d.contratos||[];semanas=d.semanas||[];pagos=d.pagos||[];facN=d.facN||1;almM=d.almM||{};almP=d.almP||{};movAlm=d.movAlm||[];entAlm=d.entAlm||[];despachos=d.despachos||[];arqueos=d.arqueos||[];solic=d.solic||[];empleados=d.empleados||[];nominas=d.nominas||[];pagar=d.pagar||[];crm=d.crm||[];asientos=d.asientos||[];}
-  const u=await dbLoad('users');
-  if(u&&u.length){const fij=USUARIOS.filter(x=>!x.ed);USUARIOS.splice(0,USUARIOS.length,...fij,...u.filter(x=>x.ed));}
 }
 
 // ── LOGIN ──────────────────────────────────────────────────────────
-function initLogin(){
-  const lu=$('lu');lu.innerHTML='<option value="">Seleccionar usuario...</option>';
-  USUARIOS.filter(u=>u.on).forEach(u=>{lu.innerHTML+=`<option value="${u.id}">${u.n} — ${u.rl}</option>`;});
+// El PIN ya NO se compara acá — solo se manda al servidor (/api/login)
+// y el servidor decide si es correcto. El navegador nunca vuelve a ver
+// ni guardar ningun PIN.
+async function initLogin(){
+  const lu=$('lu');lu.innerHTML='<option value="">Cargando...</option>';
+  await cargarUsuariosLogin();
+  lu.innerHTML='<option value="">Seleccionar usuario...</option>';
+  USUARIOS.forEach(u=>{lu.innerHTML+=`<option value="${u.id}">${u.n} — ${u.rl}</option>`;});
 }
-function login(){
+async function login(){
   const uid=$('lu').value,pin=$('lpin').value,err=$('lerr');
   err.textContent='';
   if(!uid){err.textContent='Selecciona tu usuario.';return;}
-  const u=USUARIOS.find(x=>x.id===uid&&x.on);
-  if(!u){err.textContent='Usuario no encontrado.';return;}
-  if(pin!==u.pin){err.textContent='PIN incorrecto.';$('lpin').value='';return;}
+  if(!pin||pin.length!==4){err.textContent='Ingresa tu PIN de 4 dígitos.';return;}
+  let resp;
+  try{
+    resp=await apiFetch('/api/login',{method:'POST',body:{usuarioId:Number(uid),pin}});
+  }catch(e){
+    if(e.status===429){err.textContent='Demasiados intentos. Cuenta bloqueada temporalmente, intenta en unos minutos.';}
+    else{err.textContent='Usuario o PIN incorrecto.';}
+    $('lpin').value='';
+    return;
+  }
+  const u=mapUsuarioApi(resp.usuario);
+  sesPermisos=resp.permisos||[];
   ses=u;
   $('login').style.display='none';
   $('app').classList.add('on');
   $('tbav').textContent=u.n[0];$('tbav').style.background=u.c;
   $('sbav').textContent=u.n[0];$('sbav').style.background=u.c;
   $('sbnm').textContent=u.n;$('sbrl').textContent=u.rl;
+  await cargarProductos();
+  await cargar();
   buildNav();buildBotNav();ir('dash');
 }
-function logout(){
-  ses=null;$('app').classList.remove('on');$('login').style.display='';
+async function logout(){
+  try{await apiFetch('/api/logout',{method:'POST'});}catch(e){}
+  ses=null;sesPermisos=[];
+  $('app').classList.remove('on');$('login').style.display='';
   $('lpin').value='';$('lerr').textContent='';cerrarMenu();
+  initLogin();
 }
 
 // ── NAVEGACIÓN ─────────────────────────────────────────────────────
@@ -785,7 +849,7 @@ function render(id){
   else if(id==='delfac')m.innerHTML=rDelFac();
   else if(id==='rendimiento'){m.innerHTML=rRendimiento();setTimeout(()=>rend_tab('vendedor'),0);}
   else if(id==='asistente')m.innerHTML=rAsistente();
-  else if(id==='users')m.innerHTML=rUsers();
+  else if(id==='users'){m.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i>Cargando usuarios...</div>';cargarUsuariosAdmin().then(()=>{if(pag==='users')m.innerHTML=rUsers();});}
   else if(id==='cfg')m.innerHTML=rCfg();
   else if(id==='nomina'){m.innerHTML=rNomina();setTimeout(()=>nomRenderTab(),0);}
   else if(id==='contab'){m.innerHTML=rContabilidad();setTimeout(()=>contRender(),0);}
@@ -1985,14 +2049,14 @@ function rUsers(){
             <option value="promotor"${editU?.rol==='promotor'?' selected':''}>Promotor</option>
             <option value="coordinador"${editU?.rol==='coordinador'?' selected':''}>Coordinador Operativo</option>
           </select></div>
-        <div class="fi"><label>PIN (4 dígitos) <span class="req">*</span></label>
-          <input type="password" id="u_pin" maxlength="4" placeholder="• • • •" value="${editU?.pin||''}" oninput="$('u_prev').textContent=this.value.split('').map(()=>'•').join(' ')||'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
-          <div class="ppin" id="u_prev">${editU?editU.pin.split('').map(()=>'•').join(' '):'—'}</div></div>
+        <div class="fi"><label>PIN (4 dígitos)${editU?'':' <span class="req">*</span>'}</label>
+          <input type="password" id="u_pin" maxlength="4" placeholder="${editU?'Dejar vacío para no cambiarlo':'• • • •'}" oninput="$('u_prev').textContent=this.value?this.value.split('').map(()=>'•').join(' '):'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
+          <div class="ppin" id="u_prev">—</div></div>
       </div>
       <div class="em" id="u_err"></div>
       <div style="display:flex;gap:6px;justify-content:flex-end">
         ${editU?`<button class="bs" onclick="editU=null;$('main').innerHTML=rUsers()"><i class="ti ti-x"></i> Cancelar</button>`:''}
-        <button class="bg" onclick="${editU?`sUser('${editU.id}')`:'aUser()'}"><i class="ti ti-${editU?'check':'user-plus'}"></i> ${editU?'Guardar':'Agregar'}</button>
+        <button class="bg" onclick="${editU?`sUser(${editU.id})`:'aUser()'}"><i class="ti ti-${editU?'check':'user-plus'}"></i> ${editU?'Guardar':'Agregar'}</button>
       </div>
     </div>`;
   }
@@ -2012,11 +2076,12 @@ function rUsers(){
         <div style="flex:1;min-width:0">
           <div class="unm">${u.n}${yo?`<span style="font-size:9px;background:var(--gold-p);border:0.5px solid var(--gold);border-radius:100px;padding:1px 5px;color:var(--gold-m)">Tú</span>`:''}</div>
           <div class="url">${u.rl}</div>
-          <div class="upin"><i class="ti ti-lock" style="font-size:9px"></i>${u.pin.split('').map(()=>'•').join('')}</div>
+          <div class="upin"><i class="ti ti-lock" style="font-size:9px"></i> PIN protegido</div>
         </div>
         <div class="uacts">
-          ${pEd?`<button class="ub" onclick="${yo?'ePinP()':'sEdit(\''+u.id+'\')'}"><i class="ti ${yo?'ti-key':'ti-edit'}"></i></button>`:''}
-          ${pEl?`<button class="ub del" onclick="delU('${u.id}')"><i class="ti ti-trash"></i></button>`:''}
+          ${esGer&&!yo?`<button class="ub" onclick="abrirPermisos(${u.id})" title="Permisos"><i class="ti ti-key"></i></button>`:''}
+          ${pEd?`<button class="ub" onclick="${yo?'ePinP()':'sEdit('+u.id+')'}"><i class="ti ${yo?'ti-key':'ti-edit'}"></i></button>`:''}
+          ${pEl?`<button class="ub del" onclick="delU(${u.id})"><i class="ti ti-trash"></i></button>`:''}
           ${!pEd&&!yo?'<span style="font-size:9px;color:var(--t3);padding:2px 5px;background:#f5f5f3;border-radius:4px">Fijo</span>':''}
         </div>
       </div>`;
@@ -2029,47 +2094,59 @@ function rUsers(){
     inac.forEach(u=>{h+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 11px;background:#f7f7f5;border:1px solid var(--br);border-radius:var(--r);margin-bottom:5px;opacity:.6">
       <div style="width:28px;height:28px;border-radius:50%;background:${u.c};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff">${u.n[0]}</div>
       <div style="flex:1"><div style="font-size:12px;font-weight:600">${u.n}</div><div style="font-size:10px;color:var(--t2)">${u.rl}</div></div>
-      <button class="bsm" onclick="reactU('${u.id}')"><i class="ti ti-user-check"></i> Reactivar</button>
+      <button class="bsm" onclick="reactU(${u.id})"><i class="ti ti-user-check"></i> Reactivar</button>
     </div>`;});
   }
   return h+'</div>';
 }
 const RLAB={supervisor:'Supervisor de Ruta',almacen:'Encargado de Almacén',promotor:'Promotor',coordinador:'Coordinador Operativo'};
 function ePinP(){editU=USUARIOS.find(u=>u.id===ses.id);$('main').innerHTML=rUsers();setTimeout(()=>{const el=$('sp');if(el)el.focus();},50);}
-function gPinP(){
+async function gPinP(){
   const pin=$('sp')?.value||'';
   if(pin.length!==4||!/^\d{4}$/.test(pin)){alert('PIN debe ser 4 dígitos numéricos.');return;}
-  if(USUARIOS.find(u=>u.pin===pin&&u.on&&u.id!==ses.id)){alert('PIN ya en uso.');return;}
-  const u=USUARIOS.find(x=>x.id===ses.id);if(!u)return;u.pin=pin;ses.pin=pin;editU=null;guardar();$('main').innerHTML=rUsers();
+  try{await apiFetch(`/api/usuarios/${ses.id}/pin`,{method:'PATCH',body:{pin}});}
+  catch(e){alert('No se pudo cambiar el PIN: '+e.message);return;}
+  editU=null;$('main').innerHTML=rUsers();showToast('PIN actualizado ✅');
 }
 function sEdit(id){editU=USUARIOS.find(u=>u.id===id);$('main').innerHTML=rUsers();}
-function sUser(id){
+async function sUser(id){
+  const nm=$('u_nm')?.value?.trim(),rl=$('u_rl')?.value,pin=$('u_pin')?.value;
+  const err=$('u_err');
+  if(!nm||!rl){err.textContent='Completa todos los campos';return;}
+  if(pin&&(pin.length!==4||!/^\d{4}$/.test(pin))){err.textContent='PIN debe ser 4 dígitos';return;}
+  try{
+    await apiFetch(`/api/usuarios/${id}`,{method:'PATCH',body:{nombre:nm,rol:rl,rolLabel:RLAB[rl]||rl}});
+    if(pin)await apiFetch(`/api/usuarios/${id}/pin`,{method:'PATCH',body:{pin}});
+  }catch(e){err.textContent=e.message;return;}
+  editU=null;await cargarUsuariosAdmin();$('main').innerHTML=rUsers();showToast('Usuario actualizado ✅');
+}
+async function aUser(){
   const nm=$('u_nm')?.value?.trim(),rl=$('u_rl')?.value,pin=$('u_pin')?.value;
   const err=$('u_err');
   if(!nm||!rl||!pin){err.textContent='Completa todos los campos';return;}
   if(pin.length!==4||!/^\d{4}$/.test(pin)){err.textContent='PIN debe ser 4 dígitos';return;}
-  if(USUARIOS.find(u=>u.pin===pin&&u.on&&u.id!==id)){err.textContent='PIN ya en uso';return;}
-  const u=USUARIOS.find(x=>x.id===id);if(!u)return;
-  u.n=nm;u.rol=rl;u.rl=RLAB[rl]||rl;u.pin=pin;editU=null;guardar();$('main').innerHTML=rUsers();
+  try{
+    await apiFetch('/api/usuarios',{method:'POST',body:{nombre:nm,rol:rl,rolLabel:RLAB[rl]||rl,pin,color:COLS[USUARIOS.length%COLS.length]}});
+  }catch(e){err.textContent=e.message;return;}
+  editU=null;await cargarUsuariosAdmin();$('main').innerHTML=rUsers();showToast('Usuario agregado ✅');
 }
-function aUser(){
-  const nm=$('u_nm')?.value?.trim(),rl=$('u_rl')?.value,pin=$('u_pin')?.value;
-  const err=$('u_err');
-  if(!nm||!rl||!pin){err.textContent='Completa todos los campos';return;}
-  if(pin.length!==4||!/^\d{4}$/.test(pin)){err.textContent='PIN debe ser 4 dígitos';return;}
-  if(USUARIOS.find(u=>u.pin===pin&&u.on)){err.textContent='PIN ya en uso';return;}
-  USUARIOS.push({id:'u'+(++uctr),n:nm,rol:rl,rl:RLAB[rl]||rl,pin,on:true,ed:true,c:COLS[uctr%COLS.length]});
-  editU=null;guardar();$('main').innerHTML=rUsers();
-}
-function aPromotor(){
+async function aPromotor(){
   const nm=prompt('Nombre del promotor:');if(!nm?.trim())return;
   const pin=prompt('PIN de 4 dígitos:');if(!pin||pin.length!==4||!/^\d{4}$/.test(pin)){alert('PIN inválido.');return;}
-  if(USUARIOS.find(u=>u.pin===pin&&u.on)){alert('PIN ya en uso.');return;}
-  USUARIOS.push({id:'u'+(++uctr),n:nm.trim().toUpperCase(),rol:'promotor',rl:'Promotor',pin,on:true,ed:true,c:COLS[uctr%COLS.length]});
-  guardar();$('main').innerHTML=rUsers();
+  try{
+    await apiFetch('/api/usuarios',{method:'POST',body:{nombre:nm.trim().toUpperCase(),rol:'promotor',rolLabel:'Promotor',pin,color:COLS[USUARIOS.length%COLS.length]}});
+  }catch(e){alert('No se pudo agregar: '+e.message);return;}
+  await cargarUsuariosAdmin();$('main').innerHTML=rUsers();showToast('Promotor agregado ✅');
 }
-function delU(id){if(!confirm('¿Desactivar usuario?'))return;const u=USUARIOS.find(x=>x.id===id);if(u)u.on=false;guardar();$('main').innerHTML=rUsers();}
-function reactU(id){const u=USUARIOS.find(x=>x.id===id);if(u)u.on=true;guardar();$('main').innerHTML=rUsers();}
+async function delU(id){
+  if(!confirm('¿Desactivar usuario?'))return;
+  try{await apiFetch(`/api/usuarios/${id}/desactivar`,{method:'POST'});}catch(e){alert('No se pudo desactivar: '+e.message);return;}
+  await cargarUsuariosAdmin();$('main').innerHTML=rUsers();
+}
+async function reactU(id){
+  try{await apiFetch(`/api/usuarios/${id}/reactivar`,{method:'POST'});}catch(e){alert('No se pudo reactivar: '+e.message);return;}
+  await cargarUsuariosAdmin();$('main').innerHTML=rUsers();
+}
 
 // ── CONFIGURACIÓN ──────────────────────────────────────────────────
 function rCfg(){
@@ -2272,8 +2349,7 @@ async function init(){
     initPedidos();
     return;
   }
-  await cargar();
-  initLogin();
+  await initLogin();
   const fb=localStorage.getItem('k_fb');
   if(fb){try{iFB(JSON.parse(fb));}catch(e){}}
 }
@@ -2284,21 +2360,10 @@ async function init(){
 // ═══════════════════════════════════════════════════════════════════
 
 // Precios por producto (keys = PRODS exactos del sistema)
-const PED_PRICES = {
-  'MASCARILLA COCO 10OZ':450,'MASCARILLA CACAO 10OZ':450,'MASCARILLA ZANAHORIA 10OZ':450,
-  'MASCARILLA BANANA 10OZ':450,'MASCARILLA DETOX NEGRO 10OZ':450,'MASCARILLA JENGIBRE 10OZ':450,
-  'MASCARILLA COCO 32OZ':900,'MASCARILLA CACAO 32OZ':900,'MASCARILLA ZANAHORIA 32OZ':900,
-  'MASCARILLA BANANA 32OZ':900,'MASCARILLA DETOX 32OZ':900,'MASCARILLA JENGIBRE 32OZ':900,
-  'SHAMPOO COCO 10OZ':450,'SHAMPOO CACAO 10OZ':450,'SHAMPOO ZANAHORIA 10OZ':450,
-  'SHAMPOO BANANA 10OZ':450,'SHAMPOO DETOX 10OZ':450,'SHAMPOO JENGIBRE 10OZ':450,
-  'SHAMPOO COCO 32OZ':900,'SHAMPOO CACAO 32OZ':900,'SHAMPOO ZANAHORIA 32OZ':900,
-  'SHAMPOO BANANA 32OZ':900,'SHAMPOO DETOX 32OZ':900,'SHAMPOO JENGIBRE 32OZ':900,
-  'SHAMPOO GOLDEN BLACK':900,'BALSAMO GOLDEN BLACK 32OZ':900,
-  'ESCULTOR RIZOS 16OZ':900,'SPRAY RIZOS 4OZ':900,'SHAMPOO RIZOS 16OZ':900,'MASCARILLA RIZOS 16OZ':900,
-  'GOTERO CRECIMIENTO 4OZ':900,'GOTICA BRILLO 4OZ':900,
-  'LEAVEN IN 8OZ':900,'LACEADOR 8OZ':900,'GEL INTIMO 8OZ':900,
-  'CIRUGIA CAPILAR 16OZ':1700,'LINEA GOLDEN BLACK':5300,'LINEA CURATIVA':4900,'LINEA RIZOS':2700
-};
+// Los precios ya no son fijos: los llena cargarProductos() al iniciar,
+// con lo que haya cargado en la base de datos (editable desde Gestión
+// de productos).
+let PED_PRICES = {};
 
 function pedGetCat(p){
   if(p.includes('LINEA'))return'Líneas Premium';
@@ -3853,26 +3918,29 @@ function xlsRendimiento(){
 }
 
 // ── canEdit / getEffectivePerms ──────────────────────────────────
+// El servidor es quien decide de verdad (ver requirePermiso en
+// server.js) — esto solo controla qué se muestra en pantalla.
 const getEffectivePerms=function(u){
   u=u||ses;
-  if(u&&u.permisos&&Object.keys(u.permisos).length>0){
-    return Object.keys(u.permisos).filter(function(k){return u.permisos[k]&&u.permisos[k]!=='none';});
-  }
+  if(u&&Array.isArray(u.permisos))return u.permisos;
   return PERMS[u?u.rol:'']||[];
 };
 const canEdit=function(modId){
   if(!ses)return false;
-  if(ses.rol==='gerente')return true;
-  if(ses.permisos&&ses.permisos[modId])return ses.permisos[modId]==='edit';
-  return(PERMS[ses.rol]||[]).includes(modId);
+  return getEffectivePerms(ses).includes(modId);
 };
 
 // ── Módulo de Permisos ────────────────────────────────────────────
+// Nota: se simplificó de un modelo "none/ver/editar" por módulo (que
+// en la versión original nunca llegaba a aplicarse de verdad en
+// ninguna pantalla) a un modelo de "tiene acceso o no" por módulo,
+// que es el mismo que ahora SÍ hace cumplir el servidor en cada
+// llamada a la API.
 var PERM_MODS=[
   {sec:'Principal',mods:[{id:'dash',lab:'Panel principal',ico:'🏠'}]},
-  {sec:'Operaciones',mods:[{id:'contrato',lab:'Facturación',ico:'📝'},{id:'buzon',lab:'Buzón',ico:'📬'},{id:'cobros',lab:'Cobros',ico:'💰'}]},
+  {sec:'Operaciones',mods:[{id:'contrato',lab:'Facturación',ico:'📝'},{id:'buzon',lab:'Buzón',ico:'📬'},{id:'cobros',lab:'Cobros',ico:'💰'},{id:'cobrador',lab:'Cobrador',ico:'📲'},{id:'ruta',lab:'Ruta con mapa',ico:'🗺️'}]},
   {sec:'Comercial',mods:[{id:'clientes',lab:'Clientes',ico:'👥'},{id:'cxc',lab:'CxC',ico:'📄'},{id:'pedidos',lab:'Pedidos',ico:'🛍️'}]},
-  {sec:'Almacén',mods:[{id:'arqueo',lab:'Arqueo',ico:'🧾'},{id:'almp',lab:'Alm. Principal',ico:'🏭'},{id:'almm',lab:'Alm. Móvil',ico:'🚐'}]},
+  {sec:'Almacén',mods:[{id:'arqueo',lab:'Arqueo',ico:'🧾'},{id:'almp',lab:'Alm. Principal',ico:'🏭'},{id:'almm',lab:'Alm. Móvil',ico:'🚐'},{id:'productos',lab:'Gestión de productos',ico:'🏷️'}]},
   {sec:'Finanzas',mods:[{id:'cxp',lab:'CxP',ico:'💳'},{id:'nomina',lab:'Nómina',ico:'👔'},{id:'contab',lab:'Contabilidad',ico:'📒'},{id:'ccrm',lab:'CRM',ico:'🤝'}]},
   {sec:'Admin',mods:[{id:'com',lab:'Comisiones',ico:'📊'},{id:'miscom',lab:'Cuadre Com.',ico:'💰'},{id:'users',lab:'Usuarios',ico:'👤'},{id:'rendimiento',lab:'Rendimiento',ico:'📈'},{id:'cfg',lab:'Config.',ico:'⚙️'},{id:'delfac',lab:'Eliminar Fac.',ico:'🗑️'}]},
   {sec:'Herramientas',mods:[{id:'asistente',lab:'Asistente IA',ico:'🤖'}]},
@@ -3880,34 +3948,26 @@ var PERM_MODS=[
 
 function abrirPermisos(uid){
   var u=USUARIOS.find(function(x){return x.id===uid;});if(!u)return;
-  if(!u.permisos)u.permisos={};
   var rolBase=PERMS[u.rol]||[];
+  var actual=Array.isArray(u.permisos)?u.permisos:null;
   var body='<div style="background:rgba(196,138,31,.08);border:1px solid rgba(196,138,31,.2);border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px">'+
-    '<i class="ti ti-info-circle" style="color:var(--gold)"></i> Los permisos personalizados anulan los del rol <b>'+u.rol+'</b>. '+
-    '<button onclick=\"resetPermisos(\'\'+uid+\'\')\" style="margin-left:8px;padding:2px 8px;background:#fff;border:1px solid var(--br);border-radius:5px;cursor:pointer;font-size:11px">↩ Restaurar rol</button>'+
+    '<i class="ti ti-info-circle" style="color:var(--gold)"></i> '+(actual?'Este usuario tiene permisos personalizados, distintos a los de su rol <b>'+u.rol+'</b>.':'Usando los permisos por defecto del rol <b>'+u.rol+'</b>.')+' '+
+    '<button onclick=\"resetPermisos('+uid+')\" style="margin-left:8px;padding:2px 8px;background:#fff;border:1px solid var(--br);border-radius:5px;cursor:pointer;font-size:11px">↩ Restaurar rol</button>'+
   '</div>';
   PERM_MODS.forEach(function(sec){
     body+='<div style="margin-bottom:14px"><div style="font-size:9px;font-weight:800;letter-spacing:.1em;color:var(--red);text-transform:uppercase;margin-bottom:6px;border-bottom:1px solid rgba(122,20,34,.1);padding-bottom:4px">'+sec.sec+'</div>';
     sec.mods.forEach(function(mod){
-      var cur=u.permisos[mod.id]||(rolBase.includes(mod.id)?'edit':'none');
+      var cur=(actual||rolBase).includes(mod.id);
       var locked=mod.id==='delfac'&&u.rol!=='gerente';
-      body+='<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:2px;background:'+(cur!=='none'?'rgba(196,138,31,.04)':'transparent')+'">'+
+      body+='<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:2px;background:'+(cur?'rgba(196,138,31,.04)':'transparent')+';cursor:'+(locked?'not-allowed':'pointer')+'">'+
+        '<input type="checkbox" name="pm_'+mod.id+'" '+(cur?'checked':'')+' '+(locked?'disabled':'')+'>'+
         '<span style="font-size:15px;width:22px">'+mod.ico+'</span>'+
         '<span style="font-size:13px;flex:1">'+mod.lab+'</span>'+
-        (locked?'<span style="font-size:10px;color:#C62828;padding:2px 8px;background:#FFEBEE;border-radius:100px">Solo Gerente</span>':
-          '<div style="display:flex;gap:3px;background:#f0f0f8;border-radius:8px;padding:3px">'+
-            ['none','view','edit'].map(function(pv){
-              var lbl=pv==='none'?'❌ Sin acceso':pv==='view'?'👁️ Ver':'✏️ Editar';
-              return'<label style="cursor:pointer"><input type="radio" name="pm_'+mod.id+'" value="'+pv+'" '+(cur===pv?'checked':'')+' style="display:none">'+
-                '<span style="display:block;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap;'+(cur===pv?'background:'+(pv==='none'?'transparent':pv==='view'?'#E3F2FD':'#E8F5E9')+';color:'+(pv==='none'?'#999':pv==='view'?'#1565C0':'#2E7D32'):'color:#999')+'" onclick="this.previousSibling.checked=true">'+lbl+'</span>'+
-              '</label>';
-            }).join('')+
-          '</div>')+
-      '</div>';
+        (locked?'<span style="font-size:10px;color:#C62828;padding:2px 8px;background:#FFEBEE;border-radius:100px">Solo Gerente</span>':'')+
+      '</label>';
     });
     body+='</div>';
   });
-  window.tmpPerm={};
   var ov=document.createElement('div');ov.id='perm_modal_ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto';
   ov.onclick=function(e){if(e.target===ov)cerrarPermModal();};
@@ -3919,25 +3979,27 @@ function abrirPermisos(uid){
     '<div style="padding:18px 22px;max-height:65vh;overflow-y:auto">'+body+'</div>'+
     '<div style="padding:12px 22px;border-top:1px solid rgba(196,138,31,.1);display:flex;justify-content:flex-end;gap:8px">'+
       '<button class="bs" onclick="cerrarPermModal()">Cancelar</button>'+
-      '<button class="bg" onclick=\"guardarPermisos(\'\'+uid+\'\')\">Guardar permisos</button>'+
+      '<button class="bg" onclick=\"guardarPermisos('+uid+')\">Guardar permisos</button>'+
     '</div></div>';
   document.body.appendChild(ov);
 }
 function cerrarPermModal(){var o=document.getElementById('perm_modal_ov');if(o)o.remove();}
 async function guardarPermisos(uid){
-  var u=USUARIOS.find(function(x){return x.id===uid;});if(!u)return;
-  var perms2={};
+  var permisos=[];
   PERM_MODS.forEach(function(sec){sec.mods.forEach(function(mod){
-    var radios=document.querySelectorAll('[name="pm_'+mod.id+'"]');
-    var val='none';radios.forEach(function(r){if(r.checked)val=r.value;});
-    perms2[mod.id]=val;
+    var cb=document.querySelector('[name="pm_'+mod.id+'"]');
+    if(cb&&cb.checked)permisos.push(mod.id);
   });});
-  u.permisos=perms2;await guardar();cerrarPermModal();
+  try{await apiFetch('/api/usuarios/'+uid+'/permisos',{method:'PATCH',body:{permisos}});}
+  catch(e){alert('No se pudieron guardar los permisos: '+e.message);return;}
+  cerrarPermModal();await cargarUsuariosAdmin();
   document.getElementById('main').innerHTML=rUsers();showToast('Permisos guardados ✅');
 }
 async function resetPermisos(uid){
-  var u=USUARIOS.find(function(x){return x.id===uid;});if(!u)return;
-  u.permisos={};await guardar();cerrarPermModal();setTimeout(function(){abrirPermisos(uid);},200);
+  try{await apiFetch('/api/usuarios/'+uid+'/permisos',{method:'PATCH',body:{permisos:null}});}
+  catch(e){alert('No se pudo restaurar: '+e.message);return;}
+  cerrarPermModal();await cargarUsuariosAdmin();
+  document.getElementById('main').innerHTML=rUsers();
 }
 
 </script>
@@ -5140,7 +5202,9 @@ function delPinCerrar(){_delFacId=null;var m=document.getElementById('del_pin_mo
 async function delPinConfirm(){
   var pin=[0,1,2,3].map(function(i){var el=document.getElementById('dp'+i);return el?el.value:'';}).join('');
   var err=document.getElementById('del_pin_err');
-  if(pin!=='1234'&&pin!==ses.pin){
+  var ok=false;
+  try{await apiFetch('/api/verificar-pin',{method:'POST',body:{pin}});ok=true;}catch(e){ok=false;}
+  if(!ok){
     _delPinIntento++;
     if(err)err.textContent='❌ PIN incorrecto (intento '+_delPinIntento+')';
     [0,1,2,3].forEach(function(i){var el=document.getElementById('dp'+i);if(el)el.value='';});

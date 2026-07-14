@@ -102,6 +102,22 @@ app.post('/api/logout', (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
 });
 
+// Reverifica el PIN del usuario YA logueado, para confirmaciones sensibles
+// (ej. eliminar una factura) sin alterar la sesión activa. Usa el mismo
+// limite de intentos que el login normal — nunca acepta un PIN maestro.
+app.post('/api/verificar-pin', requireAuth, limiteLogin, h(async (req, res) => {
+  const { pin } = req.body || {};
+  if (!pin) return res.status(400).json({ error: 'Falta el PIN' });
+  const resultado = await db.verificarLogin(req.session.usuarioId, pin);
+  if (!resultado.ok) {
+    if (resultado.motivo === 'bloqueado') {
+      return res.status(429).json({ error: 'Demasiados intentos. Cuenta bloqueada temporalmente.' });
+    }
+    return res.status(401).json({ error: 'PIN incorrecto' });
+  }
+  res.json({ ok: true });
+}));
+
 app.get('/api/session', requireAuth, h(async (req, res) => {
   const usuario = await db.buscarUsuarioPorId(req.session.usuarioId);
   if (!usuario || !usuario.activo) return res.status(401).json({ error: 'No autenticado' });
@@ -110,6 +126,17 @@ app.get('/api/session', requireAuth, h(async (req, res) => {
 }));
 
 // ── USUARIOS (administración — solo gerente/subgerente) ─────────────
+app.get('/api/usuarios', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  res.json(await db.listarUsuariosCompleto());
+}));
+
+app.patch('/api/usuarios/:id', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const { nombre, rol, rolLabel } = req.body || {};
+  const actualizado = await db.actualizarUsuario(req.params.id, { nombre, rol, rolLabel });
+  if (!actualizado) return res.status(404).json({ error: 'Usuario no encontrado' });
+  res.json(actualizado);
+}));
+
 app.post('/api/usuarios', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
   const { nombre, rol, rolLabel, pin, color } = req.body || {};
   if (!nombre || !rol || !pin) return res.status(400).json({ error: 'Faltan datos obligatorios' });
