@@ -738,6 +738,13 @@ async function cargarContratos(){
     contratos=lista.map(mapContratoApi);
   }catch(e){console.error('No se pudieron cargar los contratos:',e);}
 }
+async function cargarStock(){
+  try{
+    const lista=await apiFetch('/api/almacen/stock');
+    almP={};almM={};
+    lista.forEach(p=>{almP[p.nombre]=Number(p.bodega)||0;almM[p.nombre]=Number(p.ruta)||0;});
+  }catch(e){console.error('No se pudo cargar el stock de almacén:',e);}
+}
 
 // ── INDEXEDDB ──────────────────────────────────────────────────────
 const DB='keraven2';
@@ -756,12 +763,12 @@ async function dbLoad(k){try{const db=await openDB();return new Promise(r=>{cons
 // (almacén, comisiones, nómina, etc.) todavía no está migrado, así
 // que sigue yendo a IndexedDB hasta que les toque su turno.
 async function guardar(){
-  await dbSave('data',{semanas,pagos,facN,almM,almP,movAlm,entAlm,despachos,arqueos,solic,empleados,nominas,pagar,crm,asientos});
+  await dbSave('data',{semanas,pagos,facN,movAlm,despachos,arqueos,solic,empleados,nominas,pagar,crm,asientos});
   if(window._fbSync)window._fbSync();
 }
 async function cargar(){
   const d=await dbLoad('data');
-  if(d){semanas=d.semanas||[];pagos=d.pagos||[];facN=d.facN||1;almM=d.almM||{};almP=d.almP||{};movAlm=d.movAlm||[];entAlm=d.entAlm||[];despachos=d.despachos||[];arqueos=d.arqueos||[];solic=d.solic||[];empleados=d.empleados||[];nominas=d.nominas||[];pagar=d.pagar||[];crm=d.crm||[];asientos=d.asientos||[];}
+  if(d){semanas=d.semanas||[];pagos=d.pagos||[];facN=d.facN||1;movAlm=d.movAlm||[];despachos=d.despachos||[];arqueos=d.arqueos||[];solic=d.solic||[];empleados=d.empleados||[];nominas=d.nominas||[];pagar=d.pagar||[];crm=d.crm||[];asientos=d.asientos||[];}
 }
 
 // ── LOGIN ──────────────────────────────────────────────────────────
@@ -798,6 +805,7 @@ async function login(){
   $('sbnm').textContent=u.n;$('sbrl').textContent=u.rl;
   await cargarProductos();
   await cargarContratos();
+  await cargarStock();
   await cargar();
   buildNav();buildBotNav();ir('dash');
 }
@@ -1852,11 +1860,23 @@ function apTab(t){
     <tbody>${PRODS.map((p,i)=>`<tr><td style="font-size:11px">${p}</td><td><input type="number" id="ae_${i}" min="0" value="0" style="width:80px;padding:4px;border:1px solid var(--br2);border-radius:5px;text-align:right;font-family:inherit;font-size:12px"></td></tr>`).join('')}</tbody></table></div>
     <div class="actions"><button class="bg" onclick="gEntrada()"><i class="ti ti-check"></i> Registrar entrada</button></div>`;
   } else {
-    if(!entAlm.length){c.innerHTML=`<div class="empty"><i class="ti ti-history"></i>Sin movimientos</div>`;return;}
-    c.innerHTML=entAlm.slice().reverse().map(e=>`<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><div><b>${fD(e.fecha)}</b><div style="font-size:11px;color:var(--t2)">${e.prov} · ${e.q}</div></div><span class="pill" style="background:var(--gbg);border-color:var(--green);color:var(--gdk)">${e.items.length} prods</span></div>${e.items.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--br)"><span>${i.p}</span><b>+${i.q}</b></div>`).join('')}</div>`).join('');
+    c.innerHTML=`<div class="empty"><i class="ti ti-loader-2"></i>Cargando...</div>`;
+    apiFetch('/api/almacen/entradas').then(lista=>{
+      if($('ap_mov').className!=='bg')return; // el usuario ya cambió de pestaña
+      if(!lista.length){c.innerHTML=`<div class="empty"><i class="ti ti-history"></i>Sin movimientos</div>`;return;}
+      c.innerHTML=lista.map(e=>`<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><div><b>${fD(e.fecha)}</b><div style="font-size:11px;color:var(--t2)">${e.proveedor} · ${e.registrado_por_nombre||'—'}</div></div><span class="pill" style="background:var(--gbg);border-color:var(--green);color:var(--gdk)">${e.items.length} prods</span></div>${e.items.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--br)"><span>${i.nombre}</span><b>+${i.cantidad}</b></div>`).join('')}</div>`).join('');
+    }).catch(()=>{c.innerHTML=`<div class="empty"><i class="ti ti-alert-triangle"></i>No se pudo cargar el historial</div>`;});
   }
 }
-function gEntrada(){const prov=$('ap_prov')?.value||'Sin especificar';const items=PRODS.map((p,i)=>({p,q:parseInt($('ae_'+i)?.value)||0})).filter(x=>x.q>0);if(!items.length){alert('Ingresa cantidades.');return;}items.forEach(({p,q})=>{almP[p]=(almP[p]||0)+q;});entAlm.push({id:Date.now(),fecha:hoy(),prov,q:ses.n,items});guardar();alert('Entrada registrada.');apTab('stk');}
+async function gEntrada(){
+  const prov=$('ap_prov')?.value||'Sin especificar';
+  const items=PRODS.map((p,i)=>({nombre:p,cantidad:parseInt($('ae_'+i)?.value)||0})).filter(x=>x.cantidad>0);
+  if(!items.length){alert('Ingresa cantidades.');return;}
+  try{await apiFetch('/api/almacen/entradas',{method:'POST',body:{proveedor:prov,items}});}
+  catch(e){alert('No se pudo registrar la entrada: '+e.message);return;}
+  await cargarStock();
+  alert('Entrada registrada.');apTab('stk');
+}
 
 // ── ALMACÉN MÓVIL ──────────────────────────────────────────────────
 function rAlmM(){
@@ -1893,8 +1913,23 @@ function amTab(t){
     <div class="actions"><button class="bg" onclick="gCarga()"><i class="ti ti-truck-loading"></i> Cargar ruta</button></div>`;
   }
 }
-function gVenta(){const cli=$('am_cli')?.value||'Cliente';const items=PRODS.map((p,i)=>({p,q:parseInt($('av_'+i)?.value)||0})).filter(x=>x.q>0);if(!items.length){alert('Selecciona productos.');return;}let err=false;items.forEach(({p,q})=>{if(q>(almM[p]||0)){alert('Stock insuficiente: '+p);err=true;}});if(err)return;items.forEach(({p,q})=>{almM[p]=(almM[p]||0)-q;});movAlm.push({id:Date.now(),fecha:hoy(),tipo:'venta',cli,q:ses.n,items});guardar();alert('Venta registrada.');amTab('inv');}
-function gCarga(){const items=PRODS.map((p,i)=>({p,q:parseInt($('ac_'+i)?.value)||0})).filter(x=>x.q>0);if(!items.length){alert('Selecciona productos.');return;}let err=false;items.forEach(({p,q})=>{if(q>(almP[p]||0)){alert('Stock insuficiente en bodega: '+p);err=true;}});if(err)return;items.forEach(({p,q})=>{almP[p]=(almP[p]||0)-q;almM[p]=(almM[p]||0)+q;});movAlm.push({id:Date.now(),fecha:hoy(),tipo:'carga',q:ses.n,items});guardar();alert('Ruta cargada.');amTab('inv');}
+async function gVenta(){
+  const cli=$('am_cli')?.value||'Cliente';
+  const items=PRODS.map((p,i)=>({nombre:p,cantidad:parseInt($('av_'+i)?.value)||0})).filter(x=>x.cantidad>0);
+  if(!items.length){alert('Selecciona productos.');return;}
+  try{await apiFetch('/api/almacen/movimientos',{method:'POST',body:{tipo:'venta',clienteTexto:cli,items}});}
+  catch(e){alert('No se pudo registrar la venta: '+e.message);return;}
+  await cargarStock();
+  alert('Venta registrada.');amTab('inv');
+}
+async function gCarga(){
+  const items=PRODS.map((p,i)=>({nombre:p,cantidad:parseInt($('ac_'+i)?.value)||0})).filter(x=>x.cantidad>0);
+  if(!items.length){alert('Selecciona productos.');return;}
+  try{await apiFetch('/api/almacen/movimientos',{method:'POST',body:{tipo:'carga',items}});}
+  catch(e){alert('No se pudo cargar la ruta: '+e.message);return;}
+  await cargarStock();
+  alert('Ruta cargada.');amTab('inv');
+}
 
 // ── COMISIONES ─────────────────────────────────────────────────────
 const PROMS=['Promotor A','Promotor B','Promotor C','Promotor D'];

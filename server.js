@@ -235,6 +235,30 @@ app.post('/api/contratos/:id/abonar', requireAuth, requireAnyPermiso('cobros', '
   res.json(contrato);
 }));
 
+// ── ALMACÉN (bodega y ruta) ───────────────────────────────────────────
+app.get('/api/almacen/stock', requireAuth, requireAnyPermiso('almp', 'almm', 'arqueo'), h(async (req, res) => {
+  res.json(await db.listarStock());
+}));
+
+app.get('/api/almacen/entradas', requireAuth, requirePermiso('almp'), h(async (req, res) => {
+  res.json(await db.listarEntradasAlmacen());
+}));
+
+app.post('/api/almacen/entradas', requireAuth, requirePermiso('almp'), h(async (req, res) => {
+  const { proveedor, items } = req.body || {};
+  if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Ingresa al menos una cantidad' });
+  res.status(201).json(await db.registrarEntradaAlmacen({ proveedor, items }, req.usuario.id));
+}));
+
+app.post('/api/almacen/movimientos', requireAuth, requirePermiso('almm'), h(async (req, res) => {
+  const { tipo, clienteTexto, items } = req.body || {};
+  if (!['venta', 'carga'].includes(tipo)) return res.status(400).json({ error: 'Tipo de movimiento inválido' });
+  if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Selecciona al menos un producto' });
+  const resultado = await db.registrarMovimientoAlmacen({ tipo, clienteTexto, items }, req.usuario.id);
+  if (resultado.error) return res.status(400).json({ error: resultado.error });
+  res.status(201).json(resultado);
+}));
+
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: 'Error interno del servidor' });

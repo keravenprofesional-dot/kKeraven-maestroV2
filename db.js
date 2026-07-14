@@ -361,6 +361,127 @@ async function registrarAbonoContrato(contratoId, monto, { via, nota }, usuarioI
   }
 }
 
+// ── ALMACEN (bodega + ruta) ──────────────────────────────────────────
+// Devuelve, por producto, su stock en bodega y en ruta -- forma facil
+// de reconstruir los diccionarios almP/almM que ya usa el frontend.
+async function listarStock() {
+  const { rows } = await pool.query(
+    `SELECT p.nombre,
+            COALESCE(MAX(s.cantidad) FILTER (WHERE s.ubicacion = 'bodega'), 0) AS bodega,
+            COALESCE(MAX(s.cantidad) FILTER (WHERE s.ubicacion = 'ruta'), 0) AS ruta
+     FROM productos p
+     LEFT JOIN almacen_stock s ON s.producto_id = p.id
+     WHERE p.activo = TRUE
+     GROUP BY p.nombre
+     ORDER BY p.nombre`
+  );
+  return rows;
+}
+
+async function registrarEntradaAlmacen({ proveedor, items }, usuarioId) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const { rows } = await cliente.query(
+      `INSERT INTO almacen_entradas (proveedor, registrado_por) VALUES ($1,$2) RETURNING id`,
+      [proveedor || 'Sin especificar', usuarioId]
+    );
+    const entradaId = rows[0].id;
+    for (const { nombre, cantidad } of items) {
+      const p = await cliente.query(`SELECT id FROM productos WHERE nombre = $1`, [nombre]);
+      if (!p.rows[0] || cantidad <= 0) continue;
+      await cliente.query(
+        `INSERT INTO almacen_entrada_items (entrada_id, producto_id, cantidad) VALUES ($1,$2,$3)`,
+        [entradaId, p.rows[0].id, cantidad]
+      );
+      await cliente.query(
+        `UPDATE almacen_stock SET cantidad = cantidad + $2 WHERE producto_id = $1 AND ubicacion = 'bodega'`,
+        [p.rows[0].id, cantidad]
+      );
+    }
+    await cliente.query('COMMIT');
+    return { id: entradaId };
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
+async function listarEntradasAlmacen() {
+  const { rows } = await pool.query(
+    `SELECT e.id, e.fecha, e.proveedor, u.nombre AS registrado_por_nombre,
+            COALESCE(
+              (SELECT json_agg(json_build_object('nombre',p.nombre,'cantidad',ei.cantidad))
+               FROM almacen_entrada_items ei JOIN productos p ON p.id = ei.producto_id
+               WHERE ei.entrada_id = e.id), '[]'
+            ) AS items
+     FROM almacen_entradas e
+     LEFT JOIN usuarios u ON u.id = e.registrado_por
+     ORDER BY e.creado_en DESC`
+  );
+  return rows;
+}
+
+// tipo: 'venta' (descuenta de ruta) | 'carga' (bodega -> ruta)
+async function registrarMovimientoAlmacen({ tipo, clienteTexto, items }, usuarioId) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    // Validar stock suficiente ANTES de mover nada (con lock de fila)
+    for (const { nombre, cantidad } of items) {
+      const p = await cliente.query(`SELECT id FROM productos WHERE nombre = $1`, [nombre]);
+      if (!p.rows[0]) continue;
+      const origen = tipo === 'venta' ? 'ruta' : 'bodega';
+      const stock = await cliente.query(
+        `SELECT cantidad FROM almacen_stock WHERE producto_id = $1 AND ubicacion = $2 FOR UPDATE`,
+        [p.rows[0].id, origen]
+      );
+      if (!stock.rows[0] || Number(stock.rows[0].cantidad) < cantidad) {
+        await cliente.query('ROLLBACK');
+        return { error: `Stock insuficiente: ${nombre}` };
+      }
+    }
+    const { rows } = await cliente.query(
+      `INSERT INTO almacen_movimientos (tipo, cliente_texto, registrado_por) VALUES ($1,$2,$3) RETURNING id`,
+      [tipo, clienteTexto || null, usuarioId]
+    );
+    const movId = rows[0].id;
+    for (const { nombre, cantidad } of items) {
+      if (cantidad <= 0) continue;
+      const p = await cliente.query(`SELECT id FROM productos WHERE nombre = $1`, [nombre]);
+      if (!p.rows[0]) continue;
+      await cliente.query(
+        `INSERT INTO almacen_movimiento_items (movimiento_id, producto_id, cantidad) VALUES ($1,$2,$3)`,
+        [movId, p.rows[0].id, cantidad]
+      );
+      if (tipo === 'venta') {
+        await cliente.query(
+          `UPDATE almacen_stock SET cantidad = cantidad - $2 WHERE producto_id = $1 AND ubicacion = 'ruta'`,
+          [p.rows[0].id, cantidad]
+        );
+      } else {
+        await cliente.query(
+          `UPDATE almacen_stock SET cantidad = cantidad - $2 WHERE producto_id = $1 AND ubicacion = 'bodega'`,
+          [p.rows[0].id, cantidad]
+        );
+        await cliente.query(
+          `UPDATE almacen_stock SET cantidad = cantidad + $2 WHERE producto_id = $1 AND ubicacion = 'ruta'`,
+          [p.rows[0].id, cantidad]
+        );
+      }
+    }
+    await cliente.query('COMMIT');
+    return { id: movId };
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
 module.exports = {
   pool,
   init,
@@ -387,4 +508,8 @@ module.exports = {
   listarContratos,
   decidirContrato,
   registrarAbonoContrato,
+  listarStock,
+  registrarEntradaAlmacen,
+  listarEntradasAlmacen,
+  registrarMovimientoAlmacen,
 };
