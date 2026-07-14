@@ -597,6 +597,230 @@ async function regenerarComisionesFaltantes(usuarioId) {
   return agregadas;
 }
 
+// ── CUENTAS POR PAGAR ─────────────────────────────────────────────
+async function listarCuentasPorPagar() {
+  const { rows } = await pool.query(
+    `SELECT c.*,
+            COALESCE(
+              (SELECT json_agg(json_build_object('id',a.id,'monto',a.monto,'fecha',a.fecha,'nota',a.nota) ORDER BY a.fecha)
+               FROM cuenta_por_pagar_abonos a WHERE a.cuenta_id = c.id), '[]'
+            ) AS abonos
+     FROM cuentas_por_pagar c ORDER BY c.creado_en DESC`
+  );
+  return rows;
+}
+
+async function crearCuentaPorPagar({ proveedor, concepto, monto, vencimiento, notas }) {
+  const { rows } = await pool.query(
+    `INSERT INTO cuentas_por_pagar (proveedor, concepto, monto, vencimiento, notas)
+     VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+    [proveedor, concepto || null, monto, vencimiento || null, notas || null]
+  );
+  return rows[0];
+}
+
+async function abonarCuentaPorPagar(cuentaId, monto, nota) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const { rows } = await cliente.query(`SELECT monto FROM cuentas_por_pagar WHERE id = $1 FOR UPDATE`, [cuentaId]);
+    if (!rows[0]) { await cliente.query('ROLLBACK'); return null; }
+    await cliente.query(
+      `INSERT INTO cuenta_por_pagar_abonos (cuenta_id, monto, nota) VALUES ($1,$2,$3)`,
+      [cuentaId, monto, nota || null]
+    );
+    const { rows: sumaRows } = await cliente.query(
+      `SELECT COALESCE(SUM(monto),0) AS pagado FROM cuenta_por_pagar_abonos WHERE cuenta_id = $1`, [cuentaId]
+    );
+    const pagado = Number(sumaRows[0].pagado);
+    const estado = pagado >= Number(rows[0].monto) ? 'pagado' : 'parcial';
+    const { rows: actualizado } = await cliente.query(
+      `UPDATE cuentas_por_pagar SET estado = $2 WHERE id = $1 RETURNING *`, [cuentaId, estado]
+    );
+    await cliente.query('COMMIT');
+    return actualizado[0];
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
+// ── CRM ───────────────────────────────────────────────────────────
+// Usa la MISMA tabla `clientes` que Facturacion (via resolverCliente)
+// en vez de una tabla aparte -- asi un cliente institucional cargado
+// desde CRM es el mismo registro si despues aparece en una factura,
+// en vez de quedar duplicado como en el HTML original (arreglo `crm`
+// suelto, sin relacion con los clientes de Facturacion).
+async function listarClientesCrm() {
+  const { rows } = await pool.query(
+    `SELECT c.id, c.nombre, c.telefono1, c.cedula, c.tipo, c.notas, c.creado_en,
+            COALESCE(
+              (SELECT json_agg(json_build_object('texto',n.texto,'fecha',n.creado_en) ORDER BY n.creado_en)
+               FROM cliente_notas n WHERE n.cliente_id = c.id), '[]'
+            ) AS historial
+     FROM clientes c ORDER BY c.nombre`
+  );
+  return rows;
+}
+
+async function crearClienteCrm({ nombre, telefono1, cedula, tipo, notas }) {
+  const cedulaLimpia = (cedula || '').trim();
+  if (cedulaLimpia) {
+    const existente = await pool.query(`SELECT id FROM clientes WHERE cedula = $1`, [cedulaLimpia]);
+    if (existente.rows[0]) {
+      const { rows } = await pool.query(
+        `UPDATE clientes SET nombre = $2, telefono1 = COALESCE($3, telefono1), tipo = $4, notas = COALESCE($5, notas)
+         WHERE id = $1 RETURNING *`,
+        [existente.rows[0].id, nombre, telefono1 || null, tipo || 'Particular', notas || null]
+      );
+      return rows[0];
+    }
+  }
+  const { rows } = await pool.query(
+    `INSERT INTO clientes (nombre, telefono1, cedula, tipo, notas) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+    [nombre, telefono1 || null, cedulaLimpia || null, tipo || 'Particular', notas || null]
+  );
+  return rows[0];
+}
+
+async function agregarNotaCliente(clienteId, texto, usuarioId) {
+  const { rows } = await pool.query(
+    `INSERT INTO cliente_notas (cliente_id, texto, creado_por) VALUES ($1,$2,$3) RETURNING *`,
+    [clienteId, texto, usuarioId]
+  );
+  return rows[0];
+}
+
+// ── CONTABILIDAD ──────────────────────────────────────────────────
+async function listarAsientos() {
+  const { rows } = await pool.query(`SELECT * FROM asientos_contables ORDER BY fecha DESC, creado_en DESC`);
+  return rows;
+}
+
+async function crearAsiento({ fecha, descripcion, cuenta, tipo, debe, haber }, usuarioId) {
+  const { rows } = await pool.query(
+    `INSERT INTO asientos_contables (fecha, descripcion, cuenta, tipo, debe, haber, creado_por)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [fecha || new Date().toISOString().slice(0, 10), descripcion, cuenta || null, tipo || null, debe || 0, haber || 0, usuarioId]
+  );
+  return rows[0];
+}
+
+// ── NOMINA (Ley RD: AFP 2.87%, SFS 3.04%, ISR escalonado) ────────────
+// Mismas tablas y formula que calcISR()/calcDesc() en el HTML original
+// (linea ~2999-3013) -- se replican aca para que el calculo de
+// impuestos/descuentos de nomina sea autoritativo en el servidor, no
+// algo que el navegador podria mandar ya calculado (y potencialmente
+// alterado) al guardar.
+const ISR_TRAMOS = [
+  { hasta: 416220, tasa: 0, exceso: 0, base: 0 },
+  { hasta: 624329, tasa: 0.15, exceso: 416220.01, base: 0 },
+  { hasta: 867123, tasa: 0.20, exceso: 624329.01, base: 31212 },
+  { hasta: Infinity, tasa: 0.25, exceso: 867123.01, base: 79776 },
+];
+function calcularISR(baseAnual) {
+  for (const t of ISR_TRAMOS) {
+    if (baseAnual <= t.hasta) return t.base + Math.max(0, baseAnual - t.exceso) * t.tasa;
+  }
+  return 0;
+}
+function calcularDescuentos(bruto) {
+  const afp = bruto * 0.0287, sfs = bruto * 0.0304;
+  const baseAnual = (bruto - afp - sfs) * 12;
+  const isr = Math.max(0, calcularISR(baseAnual) / 12);
+  const tot = afp + sfs + isr;
+  const escala = baseAnual <= 416220 ? 'Exento' : baseAnual <= 624329 ? '15%' : baseAnual <= 867123 ? '20%' : '25%';
+  return { afp, sfs, isr, tot, neto: bruto - tot, escala };
+}
+
+async function listarEmpleados({ soloActivos = true } = {}) {
+  const { rows } = await pool.query(
+    `SELECT * FROM empleados ${soloActivos ? 'WHERE activo = TRUE' : ''} ORDER BY nombre`
+  );
+  return rows;
+}
+
+async function crearEmpleado({ nombre, cedula, codigo, banco, cuenta, cargo, departamento, salario, fechaIngreso }) {
+  const cod = (codigo || '').trim() || null;
+  const { rows } = await pool.query(
+    `INSERT INTO empleados (nombre, cedula, codigo, banco, cuenta, cargo, departamento, salario_bruto, fecha_ingreso)
+     VALUES ($1,$2,$3,COALESCE($4,'KRV-EMP-'||LPAD((SELECT COUNT(*)+1 FROM empleados)::text,3,'0')),$5,$6,$7,$8,$9)
+     RETURNING *`,
+    [nombre, cedula || null, cod, banco || null, cuenta || null, cargo || null, departamento || null, salario, fechaIngreso || new Date().toISOString().slice(0, 10)]
+  );
+  return rows[0];
+}
+
+async function desactivarEmpleado(id) {
+  await pool.query(`UPDATE empleados SET activo = FALSE WHERE id = $1`, [id]);
+}
+
+async function listarNominas() {
+  const { rows } = await pool.query(
+    `SELECT n.*,
+            COALESCE(
+              (SELECT json_agg(json_build_object(
+                 'nombre',d.nombre,'cedula',d.cedula,'codigo',d.codigo,'banco',d.banco,'cuenta',d.cuenta,
+                 'cargo',d.cargo,'bruto',d.bruto,'afp',d.afp,'sfs',d.sfs,'isr',d.isr,
+                 'totalDesc',d.total_descuento,'neto',d.neto,'escala',d.escala_isr
+               ))
+               FROM nomina_detalle d WHERE d.nomina_id = n.id), '[]'
+            ) AS det
+     FROM nominas n ORDER BY n.mes DESC, n.quincena DESC`
+  );
+  return rows;
+}
+
+async function procesarNomina({ mes, quincena }, usuarioId) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const existente = await cliente.query(`SELECT id FROM nominas WHERE mes = $1 AND quincena = $2`, [mes, quincena]);
+    if (existente.rows[0]) { await cliente.query('ROLLBACK'); return { error: 'Ya existe esa nómina' }; }
+    const activos = await cliente.query(`SELECT * FROM empleados WHERE activo = TRUE ORDER BY nombre`);
+    if (!activos.rows.length) { await cliente.query('ROLLBACK'); return { error: 'No hay empleados activos' }; }
+
+    const dia = quincena === 'primera' ? 15 : new Date(Number(mes.split('-')[0]), Number(mes.split('-')[1]), 0).getDate();
+    const fechaPago = `${mes}-${String(Math.min(30, dia)).padStart(2, '0')}`;
+
+    let totalNeto = 0, totalBruto = 0;
+    const detalles = activos.rows.map((e) => {
+      const bruto = Number(e.salario_bruto) / 2;
+      const d = calcularDescuentos(Number(e.salario_bruto));
+      const fila = {
+        nombre: e.nombre, cedula: e.cedula, codigo: e.codigo, banco: e.banco, cuenta: e.cuenta, cargo: e.cargo,
+        bruto, afp: d.afp / 2, sfs: d.sfs / 2, isr: d.isr / 2, totalDesc: d.tot / 2, neto: bruto - d.tot / 2, escala: d.escala,
+      };
+      totalNeto += fila.neto; totalBruto += fila.bruto;
+      return fila;
+    });
+
+    const { rows } = await cliente.query(
+      `INSERT INTO nominas (mes, quincena, fecha_pago, total_neto, total_bruto, cantidad_empleados)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [mes, quincena, fechaPago, totalNeto, totalBruto, activos.rows.length]
+    );
+    const nominaId = rows[0].id;
+    for (const emp of activos.rows) {
+      const f = detalles.find((d) => d.codigo === emp.codigo && d.nombre === emp.nombre);
+      await cliente.query(
+        `INSERT INTO nomina_detalle (nomina_id, empleado_id, nombre, cedula, codigo, banco, cuenta, cargo, bruto, afp, sfs, isr, total_descuento, neto, escala_isr)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+        [nominaId, emp.id, f.nombre, f.cedula, f.codigo, f.banco, f.cuenta, f.cargo, f.bruto, f.afp, f.sfs, f.isr, f.totalDesc, f.neto, f.escala]
+      );
+    }
+    await cliente.query('COMMIT');
+    return { id: nominaId, totalNeto };
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
 module.exports = {
   pool,
   init,
@@ -632,4 +856,17 @@ module.exports = {
   marcarComisionesSemanasPagadas,
   listarComisionesPagos,
   regenerarComisionesFaltantes,
+  listarCuentasPorPagar,
+  crearCuentaPorPagar,
+  abonarCuentaPorPagar,
+  listarClientesCrm,
+  crearClienteCrm,
+  agregarNotaCliente,
+  listarAsientos,
+  crearAsiento,
+  listarEmpleados,
+  crearEmpleado,
+  desactivarEmpleado,
+  listarNominas,
+  procesarNomina,
 };

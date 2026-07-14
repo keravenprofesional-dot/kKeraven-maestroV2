@@ -285,6 +285,81 @@ app.get('/api/comisiones/pagos', requireAuth, requirePermiso('com'), h(async (re
   res.json(await db.listarComisionesPagos());
 }));
 
+// ── CUENTAS POR PAGAR ─────────────────────────────────────────────────
+app.get('/api/cuentas-por-pagar', requireAuth, requirePermiso('cxp'), h(async (req, res) => {
+  res.json(await db.listarCuentasPorPagar());
+}));
+
+app.post('/api/cuentas-por-pagar', requireAuth, requirePermiso('cxp'), h(async (req, res) => {
+  const { proveedor, concepto, monto, vencimiento, notas } = req.body || {};
+  if (!proveedor || !monto) return res.status(400).json({ error: 'Proveedor y monto son obligatorios' });
+  res.status(201).json(await db.crearCuentaPorPagar({ proveedor, concepto, monto, vencimiento, notas }));
+}));
+
+app.post('/api/cuentas-por-pagar/:id/abonar', requireAuth, requirePermiso('cxp'), h(async (req, res) => {
+  const { monto, nota } = req.body || {};
+  if (!monto || Number(monto) <= 0) return res.status(400).json({ error: 'Monto inválido' });
+  const cuenta = await db.abonarCuentaPorPagar(req.params.id, monto, nota);
+  if (!cuenta) return res.status(404).json({ error: 'Cuenta no encontrada' });
+  res.json(cuenta);
+}));
+
+// ── CRM — CLIENTES ─────────────────────────────────────────────────────
+app.get('/api/crm/clientes', requireAuth, requirePermiso('ccrm'), h(async (req, res) => {
+  res.json(await db.listarClientesCrm());
+}));
+
+app.post('/api/crm/clientes', requireAuth, requirePermiso('ccrm'), h(async (req, res) => {
+  const { nombre, telefono1, cedula, tipo, notas } = req.body || {};
+  if (!nombre) return res.status(400).json({ error: 'Falta el nombre' });
+  res.status(201).json(await db.crearClienteCrm({ nombre, telefono1, cedula, tipo, notas }));
+}));
+
+app.post('/api/crm/clientes/:id/notas', requireAuth, requirePermiso('ccrm'), h(async (req, res) => {
+  const { texto } = req.body || {};
+  if (!texto || !texto.trim()) return res.status(400).json({ error: 'La nota no puede estar vacía' });
+  res.status(201).json(await db.agregarNotaCliente(req.params.id, texto.trim(), req.usuario.id));
+}));
+
+// ── CONTABILIDAD ───────────────────────────────────────────────────────
+app.get('/api/asientos', requireAuth, requirePermiso('contab'), h(async (req, res) => {
+  res.json(await db.listarAsientos());
+}));
+
+app.post('/api/asientos', requireAuth, requirePermiso('contab'), h(async (req, res) => {
+  const { fecha, descripcion, cuenta, tipo, debe, haber } = req.body || {};
+  if (!descripcion) return res.status(400).json({ error: 'Falta la descripción' });
+  res.status(201).json(await db.crearAsiento({ fecha, descripcion, cuenta, tipo, debe, haber }, req.usuario.id));
+}));
+
+// ── NÓMINA ─────────────────────────────────────────────────────────────
+app.get('/api/empleados', requireAuth, requirePermiso('nomina'), h(async (req, res) => {
+  res.json(await db.listarEmpleados({ soloActivos: req.query.todos !== '1' }));
+}));
+
+app.post('/api/empleados', requireAuth, requirePermiso('nomina'), h(async (req, res) => {
+  const { nombre, cedula, codigo, banco, cuenta, cargo, departamento, salario, fechaIngreso } = req.body || {};
+  if (!nombre || !salario) return res.status(400).json({ error: 'Nombre y salario son obligatorios' });
+  res.status(201).json(await db.crearEmpleado({ nombre, cedula, codigo, banco, cuenta, cargo, departamento, salario, fechaIngreso }));
+}));
+
+app.post('/api/empleados/:id/desactivar', requireAuth, requirePermiso('nomina'), h(async (req, res) => {
+  await db.desactivarEmpleado(req.params.id);
+  res.json({ ok: true });
+}));
+
+app.get('/api/nominas', requireAuth, requirePermiso('nomina'), h(async (req, res) => {
+  res.json(await db.listarNominas());
+}));
+
+app.post('/api/nominas/procesar', requireAuth, requirePermiso('nomina'), h(async (req, res) => {
+  const { mes, quincena } = req.body || {};
+  if (!mes || !['primera', 'segunda'].includes(quincena)) return res.status(400).json({ error: 'Mes o quincena inválidos' });
+  const resultado = await db.procesarNomina({ mes, quincena }, req.usuario.id);
+  if (resultado.error) return res.status(400).json({ error: resultado.error });
+  res.status(201).json(resultado);
+}));
+
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: 'Error interno del servidor' });

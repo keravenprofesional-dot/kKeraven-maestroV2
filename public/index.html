@@ -762,6 +762,47 @@ async function cargarComisionesPagos(){
     pagos=lista.map(p=>({id:p.id,fecha:(p.fecha||'').slice(0,10),mes:p.mes,ns:p.cantidad_semanas,tot:Number(p.total)||0,q:p.registrado_por_nombre||''}));
   }catch(e){console.error('No se pudieron cargar los pagos de comisiones:',e);}
 }
+async function cargarCuentasPorPagar(){
+  try{
+    const lista=await apiFetch('/api/cuentas-por-pagar');
+    pagar=lista.map(p=>({id:p.id,proveedor:p.proveedor,concepto:p.concepto||'',monto:Number(p.monto)||0,
+      vence:(p.vencimiento||'').slice(0,10),notas:p.notas||'',estado:p.estado,
+      abonos:(p.abonos||[]).map(a=>({monto:Number(a.monto),fecha:(a.fecha||'').slice(0,10),nota:a.nota})),
+      en:p.creado_en}));
+  }catch(e){console.error('No se pudieron cargar las cuentas por pagar:',e);}
+}
+async function cargarCrm(){
+  try{
+    const lista=await apiFetch('/api/crm/clientes');
+    crm=lista.map(c=>({id:c.id,nombre:c.nombre,tel:c.telefono1||'',cedula:c.cedula||'',tipo:c.tipo||'Particular',
+      notas:c.notas||'',historial:(c.historial||[]).map(h=>({texto:h.texto,fecha:(h.fecha||'').slice(0,10)})),en:c.creado_en}));
+  }catch(e){console.error('No se pudo cargar el CRM:',e);}
+}
+async function cargarAsientos(){
+  try{
+    const lista=await apiFetch('/api/asientos');
+    asientos=lista.map(a=>({id:a.id,fecha:(a.fecha||'').slice(0,10),desc:a.descripcion,cuenta:a.cuenta||'',
+      tipo:a.tipo||'',debe:Number(a.debe)||0,haber:Number(a.haber)||0,en:a.creado_en}));
+  }catch(e){console.error('No se pudieron cargar los asientos contables:',e);}
+}
+async function cargarEmpleados(){
+  try{
+    const lista=await apiFetch('/api/empleados?todos=1');
+    empleados=lista.map(e=>({id:e.id,nombre:e.nombre,cedula:e.cedula||'',codigo:e.codigo||'',banco:e.banco||'',
+      cuenta:e.cuenta||'',cargo:e.cargo||'',depto:e.departamento||'',salario:Number(e.salario_bruto)||0,
+      ingreso:(e.fecha_ingreso||'').slice(0,10),activo:e.activo,en:e.creado_en}));
+  }catch(e){console.error('No se pudieron cargar los empleados:',e);}
+}
+async function cargarNominas(){
+  try{
+    const lista=await apiFetch('/api/nominas');
+    nominas=lista.map(n=>({id:n.id,mes:n.mes,quincena:n.quincena,fechaPago:(n.fecha_pago||'').slice(0,10),
+      det:(n.det||[]).map(d=>({nombre:d.nombre,cedula:d.cedula,codigo:d.codigo,banco:d.banco,cuenta:d.cuenta,
+        cargo:d.cargo,bruto:Number(d.bruto),afp:Number(d.afp),sfs:Number(d.sfs),isr:Number(d.isr),
+        totalDesc:Number(d.totalDesc),neto:Number(d.neto),escala:d.escala})),
+      totalNeto:Number(n.total_neto)||0,totalBruto:Number(n.total_bruto)||0,empleados:n.cantidad_empleados,en:n.creado_en}));
+  }catch(e){console.error('No se pudieron cargar las nóminas:',e);}
+}
 
 // ── INDEXEDDB ──────────────────────────────────────────────────────
 const DB='keraven2';
@@ -780,12 +821,12 @@ async function dbLoad(k){try{const db=await openDB();return new Promise(r=>{cons
 // (almacén, comisiones, nómina, etc.) todavía no está migrado, así
 // que sigue yendo a IndexedDB hasta que les toque su turno.
 async function guardar(){
-  await dbSave('data',{facN,movAlm,despachos,arqueos,solic,empleados,nominas,pagar,crm,asientos});
+  await dbSave('data',{facN,movAlm,despachos,arqueos,solic});
   if(window._fbSync)window._fbSync();
 }
 async function cargar(){
   const d=await dbLoad('data');
-  if(d){facN=d.facN||1;movAlm=d.movAlm||[];despachos=d.despachos||[];arqueos=d.arqueos||[];solic=d.solic||[];empleados=d.empleados||[];nominas=d.nominas||[];pagar=d.pagar||[];crm=d.crm||[];asientos=d.asientos||[];}
+  if(d){facN=d.facN||1;movAlm=d.movAlm||[];despachos=d.despachos||[];arqueos=d.arqueos||[];solic=d.solic||[];}
 }
 
 // ── LOGIN ──────────────────────────────────────────────────────────
@@ -825,6 +866,11 @@ async function login(){
   await cargarStock();
   await cargarComisionesSemanas();
   await cargarComisionesPagos();
+  await cargarCuentasPorPagar();
+  await cargarCrm();
+  await cargarAsientos();
+  await cargarEmpleados();
+  await cargarNominas();
   await cargar();
   buildNav();buildBotNav();ir('dash');
 }
@@ -3274,7 +3320,7 @@ function nomRenderNominas(c){
           <div style="font-size:10px;color:var(--t3)">neto a pagar</div>
         </div>
       </div>
-      <button class="bsm" style="margin-top:8px" onclick="nomVerDetalle('${n.id}')"><i class="ti ti-list"></i> Ver detalle</button>
+      <button class="bsm" style="margin-top:8px" onclick="nomVerDetalle(${n.id})"><i class="ti ti-list"></i> Ver detalle</button>
     </div>`).join('');
 }
 
@@ -3349,17 +3395,26 @@ function nomOpenEmp(){
     </div>`;
   };
 }
-function nomGuardarEmp(){
+async function nomGuardarEmp(){
   const nm=$('ne_nm')?.value?.trim(),sl=$('ne_sl')?.value;
   if(!nm||!sl){alert('Nombre y salario son obligatorios.');return;}
-  const cod=$('ne_co')?.value?.trim()||`KRV-EMP-${String(empleados.length+1).padStart(3,'0')}`;
-  empleados.push({id:nuid(),nombre:nm,cedula:$('ne_ce')?.value||'',codigo:cod,banco:$('ne_bk')?.value||'',
-    cuenta:$('ne_ct')?.value||'',cargo:$('ne_ca')?.value||'',depto:$('ne_dp')?.value||'',
-    salario:Number(sl),ingreso:$('ne_in')?.value||hoy(),activo:true,en:new Date().toISOString()});
-  guardar();document.getElementById('nom_emp_modal')?.remove();
+  try{
+    await apiFetch('/api/empleados',{method:'POST',body:{
+      nombre:nm,cedula:$('ne_ce')?.value||'',codigo:$('ne_co')?.value?.trim()||null,banco:$('ne_bk')?.value||'',
+      cuenta:$('ne_ct')?.value||'',cargo:$('ne_ca')?.value||'',departamento:$('ne_dp')?.value||'',
+      salario:Number(sl),fechaIngreso:$('ne_in')?.value||hoy()}});
+  }catch(e){alert('No se pudo registrar el empleado: '+e.message);return;}
+  await cargarEmpleados();
+  document.getElementById('nom_emp_modal')?.remove();
   $('main').innerHTML=rNomina();setTimeout(()=>nomRenderTab(),0);
 }
-function nomDelEmp(id){if(!confirm('¿Desactivar este empleado?'))return;const e=empleados.find(x=>x.id===id);if(e)e.activo=false;guardar();$('main').innerHTML=rNomina();setTimeout(()=>nomRenderTab(),0);}
+async function nomDelEmp(id){
+  if(!confirm('¿Desactivar este empleado?'))return;
+  try{await apiFetch(`/api/empleados/${id}/desactivar`,{method:'POST'});}
+  catch(e){alert('No se pudo desactivar: '+e.message);return;}
+  await cargarEmpleados();
+  $('main').innerHTML=rNomina();setTimeout(()=>nomRenderTab(),0);
+}
 
 function nomOpenProc(){
   const m=$('main');
@@ -3387,22 +3442,14 @@ function nomOpenProc(){
     </div>
   </div>`);
 }
-function nomProcesar(){
+async function nomProcesar(){
   const ms=$('np_ms')?.value||mesAct(),qn=$('np_qn')?.value||'primera';
-  if(nominas.find(n=>n.mes===ms&&n.quincena===qn)){alert('Ya existe esa nómina.');return;}
-  const activos=empleados.filter(e=>e.activo);
-  if(!activos.length){alert('No hay empleados activos.');return;}
-  const det=activos.map(e=>{
-    const bruto=Number(e.salario||0)/2;
-    const d=calcDesc(Number(e.salario||0));
-    return{nombre:e.nombre,cedula:e.cedula||'',codigo:e.codigo||'',banco:e.banco||'',cuenta:e.cuenta||'',
-      cargo:e.cargo||'',bruto,afp:d.afp/2,sfs:d.sfs/2,isr:d.isr/2,totalDesc:d.tot/2,neto:bruto-d.tot/2,escala:d.escala};
-  });
-  const totalNeto=det.reduce((s,d)=>s+d.neto,0);
-  nominas.push({id:nuid(),mes:ms,quincena:qn,fechaPago:fechaPagoStr(ms,qn),det,
-    totalNeto,totalBruto:det.reduce((s,d)=>s+d.bruto,0),empleados:activos.length,en:new Date().toISOString()});
-  guardar();document.getElementById('nom_proc_modal')?.remove();
-  alert(`✅ Nómina procesada. Neto total: ${fM(totalNeto)}`);
+  let resultado;
+  try{resultado=await apiFetch('/api/nominas/procesar',{method:'POST',body:{mes:ms,quincena:qn}});}
+  catch(e){alert('No se pudo procesar: '+e.message);return;}
+  await cargarNominas();
+  document.getElementById('nom_proc_modal')?.remove();
+  alert(`✅ Nómina procesada. Neto total: ${fM(resultado.totalNeto)}`);
   $('main').innerHTML=rNomina();setTimeout(()=>nomRenderTab(),0);
 }
 
@@ -3584,12 +3631,15 @@ function contAbrirAsiento(){
   </div>`);
 }
 
-function contGuardarAsiento(){
+async function contGuardarAsiento(){
   const dc=$('ca_dc')?.value?.trim();if(!dc)return;
-  asientos.push({id:nuid(),fecha:$('ca_fe')?.value||hoy(),desc:dc,cuenta:$('ca_ct')?.value||'',
-    tipo:$('ca_tp')?.value||'',debe:parseFloat($('ca_db')?.value)||0,haber:parseFloat($('ca_hb')?.value)||0,
-    en:new Date().toISOString()});
-  guardar();document.getElementById('cont_ast_modal')?.remove();
+  try{
+    await apiFetch('/api/asientos',{method:'POST',body:{
+      fecha:$('ca_fe')?.value||hoy(),descripcion:dc,cuenta:$('ca_ct')?.value||'',
+      tipo:$('ca_tp')?.value||'',debe:parseFloat($('ca_db')?.value)||0,haber:parseFloat($('ca_hb')?.value)||0}});
+  }catch(e){alert('No se pudo guardar el asiento: '+e.message);return;}
+  await cargarAsientos();
+  document.getElementById('cont_ast_modal')?.remove();
   contRender();
 }
 
@@ -3646,12 +3696,11 @@ function rCRMBody(){
 
 function crmToggle(id){crmExpId=crmExpId===id?null:id;rCRMBody();}
 
-function crmAddNota(id){
+async function crmAddNota(id){
   const inp=$('crm_nota_'+id);const txt=inp?.value?.trim();if(!txt)return;
-  const c=crm.find(x=>x.id===id);if(!c)return;
-  if(!c.historial)c.historial=[];
-  c.historial.push({texto:txt,fecha:hoy()});
-  guardar();inp.value='';rCRMBody();
+  try{await apiFetch(`/api/crm/clientes/${id}/notas`,{method:'POST',body:{texto:txt}});}
+  catch(e){alert('No se pudo guardar la nota: '+e.message);return;}
+  await cargarCrm();rCRMBody();
 }
 
 function crmAbrirNuevo(){
@@ -3681,11 +3730,15 @@ function crmAbrirNuevo(){
   </div>`);
 }
 
-function crmGuardar(){
+async function crmGuardar(){
   const nm=$('cn_nm')?.value?.trim();if(!nm)return;
-  crm.push({id:nuid(),nombre:nm,tel:$('cn_tl')?.value||'',cedula:$('cn_ce')?.value||'',
-    tipo:$('cn_tp')?.value||'',notas:$('cn_nt')?.value||'',historial:[],en:new Date().toISOString()});
-  guardar();document.getElementById('crm_modal')?.remove();
+  try{
+    await apiFetch('/api/crm/clientes',{method:'POST',body:{
+      nombre:nm,telefono1:$('cn_tl')?.value||'',cedula:$('cn_ce')?.value||'',
+      tipo:$('cn_tp')?.value||'',notas:$('cn_nt')?.value||''}});
+  }catch(e){alert('No se pudo guardar el cliente: '+e.message);return;}
+  await cargarCrm();
+  document.getElementById('crm_modal')?.remove();
   $('main').innerHTML=rCRM();setTimeout(()=>rCRMBody(),0);
 }
 
@@ -3732,8 +3785,8 @@ function rPagar(){
         ${p.estado!=='pagado'?`
         <div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap">
           <input type="number" id="pag_abo_${p.id}" placeholder="Monto pago RD$" style="flex:1;padding:7px;border:1px solid var(--br2);border-radius:var(--r);font-family:inherit;font-size:12px">
-          <button class="bv" onclick="pagarAbonar('${p.id}')"><i class="ti ti-plus"></i> Pago</button>
-          <button class="bg" onclick="pagarSaldar('${p.id}')"><i class="ti ti-check"></i> Pagado</button>
+          <button class="bv" onclick="pagarAbonar(${p.id})"><i class="ti ti-plus"></i> Pago</button>
+          <button class="bg" onclick="pagarSaldar(${p.id})"><i class="ti ti-check"></i> Pagado</button>
         </div>`:'<div style="text-align:center;padding:7px;color:var(--green);font-size:12px;font-weight:600"><i class="ti ti-circle-check"></i> Pagado completamente</div>'}
       </div>`;
     }
@@ -3757,8 +3810,22 @@ function rPagar(){
 }
 
 function pagToggle(id){pagExpId=pagExpId===id?null:id;$('main').innerHTML=rPagar();}
-function pagarAbonar(id){const p=pagar.find(x=>x.id===id);if(!p)return;const m=parseFloat($('pag_abo_'+id)?.value)||0;if(m<=0){alert('Monto inválido.');return;}if(!p.abonos)p.abonos=[];p.abonos.push({monto:m,fecha:hoy()});const pg=p.abonos.reduce((s,a)=>s+a.monto,0);p.estado=pg>=Number(p.monto)?'pagado':'parcial';guardar();$('main').innerHTML=rPagar();}
-function pagarSaldar(id){const p=pagar.find(x=>x.id===id);if(!p||!confirm('¿Marcar como pagado completamente?'))return;if(!p.abonos)p.abonos=[];p.abonos.push({monto:Number(p.monto)||0,fecha:hoy(),nota:'Saldado'});p.estado='pagado';guardar();pagExpId=null;$('main').innerHTML=rPagar();}
+async function pagarAbonar(id){
+  const p=pagar.find(x=>x.id===id);if(!p)return;
+  const m=parseFloat($('pag_abo_'+id)?.value)||0;
+  if(m<=0){alert('Monto inválido.');return;}
+  try{await apiFetch(`/api/cuentas-por-pagar/${id}/abonar`,{method:'POST',body:{monto:m}});}
+  catch(e){alert('No se pudo registrar el pago: '+e.message);return;}
+  await cargarCuentasPorPagar();$('main').innerHTML=rPagar();
+}
+async function pagarSaldar(id){
+  const p=pagar.find(x=>x.id===id);if(!p||!confirm('¿Marcar como pagado completamente?'))return;
+  const pagado=(p.abonos||[]).reduce((s,a)=>s+a.monto,0);
+  const restante=Math.max(0,Number(p.monto)-pagado);
+  try{await apiFetch(`/api/cuentas-por-pagar/${id}/abonar`,{method:'POST',body:{monto:restante,nota:'Saldado'}});}
+  catch(e){alert('No se pudo saldar: '+e.message);return;}
+  await cargarCuentasPorPagar();pagExpId=null;$('main').innerHTML=rPagar();
+}
 
 function pagarAbrirNuevo(){
   const m=$('main');
@@ -3781,12 +3848,16 @@ function pagarAbrirNuevo(){
   </div>`);
 }
 
-function pagarGuardar(){
+async function pagarGuardar(){
   const pr=$('pg_pr')?.value?.trim(),mn=$('pg_mn')?.value;
   if(!pr||!mn){alert('Proveedor y monto son obligatorios.');return;}
-  pagar.push({id:nuid(),proveedor:pr,concepto:$('pg_co')?.value||'',monto:parseFloat(mn),
-    vence:$('pg_vc')?.value||'',notas:$('pg_nt')?.value||'',estado:'pendiente',abonos:[],en:new Date().toISOString()});
-  guardar();document.getElementById('pag_modal')?.remove();$('main').innerHTML=rPagar();
+  try{
+    await apiFetch('/api/cuentas-por-pagar',{method:'POST',body:{
+      proveedor:pr,concepto:$('pg_co')?.value||'',monto:parseFloat(mn),
+      vencimiento:$('pg_vc')?.value||null,notas:$('pg_nt')?.value||''}});
+  }catch(e){alert('No se pudo guardar: '+e.message);return;}
+  await cargarCuentasPorPagar();
+  document.getElementById('pag_modal')?.remove();$('main').innerHTML=rPagar();
 }
 
 
