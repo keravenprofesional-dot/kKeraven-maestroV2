@@ -656,33 +656,61 @@ async function abonarCuentaPorPagar(cuentaId, monto, nota) {
 async function listarClientesCrm() {
   const { rows } = await pool.query(
     `SELECT c.id, c.nombre, c.telefono1, c.cedula, c.tipo, c.notas, c.creado_en,
+            c.estado_crm, c.proximo_seguimiento, c.vendedor_id, v.nombre AS vendedor_nombre,
             COALESCE(
               (SELECT json_agg(json_build_object('texto',n.texto,'fecha',n.creado_en) ORDER BY n.creado_en)
                FROM cliente_notas n WHERE n.cliente_id = c.id), '[]'
-            ) AS historial
-     FROM clientes c ORDER BY c.nombre`
+            ) AS historial,
+            COALESCE(
+              (SELECT json_agg(json_build_object(
+                 'id',ct.id,'fac',ct.numero_factura,'fecha',ct.fecha,'monto',ct.monto,
+                 'saldo',ct.saldo,'estado',ct.estado
+               ) ORDER BY ct.fecha DESC)
+               FROM contratos ct WHERE ct.cliente_id = c.id), '[]'
+            ) AS compras
+     FROM clientes c
+     LEFT JOIN usuarios v ON v.id = c.vendedor_id
+     ORDER BY c.proximo_seguimiento NULLS LAST, c.nombre`
   );
   return rows;
 }
 
-async function crearClienteCrm({ nombre, telefono1, cedula, tipo, notas }) {
+async function crearClienteCrm({ nombre, telefono1, cedula, tipo, notas, estadoCrm, proximoSeguimiento, vendedorId }) {
   const cedulaLimpia = (cedula || '').trim();
   if (cedulaLimpia) {
     const existente = await pool.query(`SELECT id FROM clientes WHERE cedula = $1`, [cedulaLimpia]);
     if (existente.rows[0]) {
       const { rows } = await pool.query(
-        `UPDATE clientes SET nombre = $2, telefono1 = COALESCE($3, telefono1), tipo = $4, notas = COALESCE($5, notas)
+        `UPDATE clientes SET nombre = $2, telefono1 = COALESCE($3, telefono1), tipo = $4, notas = COALESCE($5, notas),
+           estado_crm = COALESCE($6, estado_crm), proximo_seguimiento = COALESCE($7, proximo_seguimiento),
+           vendedor_id = COALESCE($8, vendedor_id)
          WHERE id = $1 RETURNING *`,
-        [existente.rows[0].id, nombre, telefono1 || null, tipo || 'Particular', notas || null]
+        [existente.rows[0].id, nombre, telefono1 || null, tipo || 'Particular', notas || null,
+         estadoCrm || null, proximoSeguimiento || null, vendedorId || null]
       );
       return rows[0];
     }
   }
   const { rows } = await pool.query(
-    `INSERT INTO clientes (nombre, telefono1, cedula, tipo, notas) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [nombre, telefono1 || null, cedulaLimpia || null, tipo || 'Particular', notas || null]
+    `INSERT INTO clientes (nombre, telefono1, cedula, tipo, notas, estado_crm, proximo_seguimiento, vendedor_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+    [nombre, telefono1 || null, cedulaLimpia || null, tipo || 'Particular', notas || null,
+     estadoCrm || 'nuevo', proximoSeguimiento || null, vendedorId || null]
   );
   return rows[0];
+}
+
+// proximoSeguimiento: undefined = no tocar; null = limpiar la fecha; fecha = setearla
+async function actualizarClienteCrm(id, { estadoCrm, proximoSeguimiento, vendedorId }) {
+  const { rows } = await pool.query(
+    `UPDATE clientes SET
+       estado_crm = COALESCE($2, estado_crm),
+       proximo_seguimiento = CASE WHEN $3::boolean THEN $4::date ELSE proximo_seguimiento END,
+       vendedor_id = COALESCE($5, vendedor_id)
+     WHERE id = $1 RETURNING *`,
+    [id, estadoCrm || null, proximoSeguimiento !== undefined, proximoSeguimiento || null, vendedorId || null]
+  );
+  return rows[0] || null;
 }
 
 async function agregarNotaCliente(clienteId, texto, usuarioId) {
@@ -861,6 +889,7 @@ module.exports = {
   abonarCuentaPorPagar,
   listarClientesCrm,
   crearClienteCrm,
+  actualizarClienteCrm,
   agregarNotaCliente,
   listarAsientos,
   crearAsiento,

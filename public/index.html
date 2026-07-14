@@ -775,9 +775,14 @@ async function cargarCrm(){
   try{
     const lista=await apiFetch('/api/crm/clientes');
     crm=lista.map(c=>({id:c.id,nombre:c.nombre,tel:c.telefono1||'',cedula:c.cedula||'',tipo:c.tipo||'Particular',
-      notas:c.notas||'',historial:(c.historial||[]).map(h=>({texto:h.texto,fecha:(h.fecha||'').slice(0,10)})),en:c.creado_en}));
+      notas:c.notas||'',historial:(c.historial||[]).map(h=>({texto:h.texto,fecha:(h.fecha||'').slice(0,10)})),
+      estado:c.estado_crm||'nuevo',seguimiento:(c.proximo_seguimiento||'').slice(0,10),
+      vendedorId:c.vendedor_id||null,vendedor:c.vendedor_nombre||'',
+      compras:(c.compras||[]).map(o=>({id:o.id,fac:o.fac,fecha:(o.fecha||'').slice(0,10),monto:Number(o.monto)||0,saldo:Number(o.saldo)||0,estado:o.estado})),
+      en:c.creado_en}));
   }catch(e){console.error('No se pudo cargar el CRM:',e);}
 }
+const CRM_ETAPAS={nuevo:{lab:'Nuevo',c:'#5C5470'},contactado:{lab:'Contactado',c:'#185FA5'},interesado:{lab:'Interesado',c:'#C05621'},cliente:{lab:'Cliente',c:'#1a7a42'},inactivo:{lab:'Inactivo',c:'#9088A0'}};
 async function cargarAsientos(){
   try{
     const lista=await apiFetch('/api/asientos');
@@ -3649,33 +3654,66 @@ async function contGuardarAsiento(){
 // ═══════════════════════════════════════════════════════════════════
 let crmExpId=null;
 
+let crmFiltroEtapa='todos';
 function rCRM(){
-  const tipos=['Farmacia','Salón','Clínica','Hospital','Escuela','Municipio','Institución','Particular'];
+  const vencidos=crm.filter(cl=>cl.seguimiento&&cl.seguimiento<hoy()&&cl.estado!=='cliente'&&cl.estado!=='inactivo').length;
   return`<div class="card">
     <div class="ct"><i class="ti ti-users-group" style="color:var(--gold);font-size:18px"></i>CRM — Clientes
       <button class="bg" style="margin-left:auto" onclick="crmAbrirNuevo()"><i class="ti ti-plus"></i> Nuevo</button></div>
-    <div class="cs">Registro de clientes institucionales y personales con historial de contacto y acceso rápido a WhatsApp.</div>
+    <div class="cs">Registro de clientes con etapa, seguimiento, vendedor asignado e historial de compras real.</div>
+    <div class="sg" style="margin-bottom:10px">
+      <div class="st"><div class="sv">${crm.length}</div><div class="sl2">Total</div></div>
+      <div class="st"><div class="sv" style="color:${vencidos>0?'var(--red)':'inherit'}">${vencidos}</div><div class="sl2">Seguimiento vencido</div></div>
+      <div class="st"><div class="sv" style="color:var(--green)">${crm.filter(cl=>cl.estado==='cliente').length}</div><div class="sl2">Clientes</div></div>
+      <div class="st"><div class="sv">${crm.filter(cl=>cl.estado==='nuevo').length}</div><div class="sl2">Nuevos</div></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="${crmFiltroEtapa==='todos'?'bg':'bs'}" onclick="crmFiltroEtapa='todos';rCRMBody()">Todos</button>
+      ${Object.keys(CRM_ETAPAS).map(k=>`<button class="${crmFiltroEtapa===k?'bg':'bs'}" onclick="crmFiltroEtapa='${k}';rCRMBody()">${CRM_ETAPAS[k].lab}</button>`).join('')}
+    </div>
     <div id="crm_body"></div>
   </div>`;
 }
 
 function rCRMBody(){
   const c=$('crm_body');if(!c)return;
-  if(!crm.length){c.innerHTML=`<div class="empty"><i class="ti ti-users-group"></i>Sin clientes registrados</div>`;return;}
-  c.innerHTML=crm.map(cl=>{
+  const lista=crm.filter(cl=>crmFiltroEtapa==='todos'||cl.estado===crmFiltroEtapa);
+  if(!lista.length){c.innerHTML=`<div class="empty"><i class="ti ti-users-group"></i>Sin clientes en esta etapa</div>`;return;}
+  const usuariosSel=USUARIOS.filter(u=>u.on);
+  c.innerHTML=lista.map(cl=>{
     const isE=crmExpId===cl.id;
+    const et=CRM_ETAPAS[cl.estado]||CRM_ETAPAS.nuevo;
+    const vencido=cl.seguimiento&&cl.seguimiento<hoy()&&cl.estado!=='cliente'&&cl.estado!=='inactivo';
     let body='';
     if(isE){
       const hist=(cl.historial||[]);
+      const compras=(cl.compras||[]);
       body=`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--br)">
+        <div class="g3" style="margin-bottom:10px">
+          <div class="fi"><label>Etapa</label>
+            <select id="crm_et_${cl.id}" onchange="crmActualizar(${cl.id})">
+              ${Object.keys(CRM_ETAPAS).map(k=>`<option value="${k}"${cl.estado===k?' selected':''}>${CRM_ETAPAS[k].lab}</option>`).join('')}
+            </select></div>
+          <div class="fi"><label>Próximo seguimiento</label><input type="date" id="crm_seg_${cl.id}" value="${cl.seguimiento||''}" onchange="crmActualizar(${cl.id})"></div>
+          <div class="fi"><label>Vendedor asignado</label>
+            <select id="crm_vend_${cl.id}" onchange="crmActualizar(${cl.id})">
+              <option value="">Sin asignar</option>
+              ${usuariosSel.map(u=>`<option value="${u.id}"${cl.vendedorId===u.id?' selected':''}>${u.n}</option>`).join('')}
+            </select></div>
+        </div>
+        <div class="sl">Historial de compras (${compras.length})</div>
+        ${compras.length?compras.map(o=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--br)">
+          <span>${o.fac} · ${fD(o.fecha)}</span><b style="color:${o.saldo>0?'var(--red)':'var(--green)'}">${fM(o.monto)}${o.saldo>0?' (debe '+fM(o.saldo)+')':''}</b>
+        </div>`).join(''):`<div style="font-size:12px;color:var(--t3);padding:4px 0">Sin compras registradas todavía.</div>`}
+        <div class="sl" style="margin-top:10px">Notas de contacto</div>
         ${hist.map(h=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--br)22">
           <span style="color:var(--t3);margin-right:8px">${fD(h.fecha)}</span>${h.texto}
         </div>`).join('')}
         ${!hist.length?`<div style="font-size:12px;color:var(--t3);padding:4px 0">Sin notas de contacto.</div>`:''}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
           <input id="crm_nota_${cl.id}" style="flex:1;padding:7px 10px;border:1px solid var(--br2);border-radius:var(--r);font-family:inherit;font-size:12px;min-width:120px" placeholder="Agregar nota de contacto..."
-            onkeydown="if(event.key==='Enter')crmAddNota('${cl.id}')">
-          <button class="bg" style="padding:7px 12px;font-size:12px" onclick="crmAddNota('${cl.id}')">+ Nota</button>
+            onkeydown="if(event.key==='Enter')crmAddNota(${cl.id})">
+          <button class="bg" style="padding:7px 12px;font-size:12px" onclick="crmAddNota(${cl.id})">+ Nota</button>
           ${cl.tel?`<a href="https://wa.me/1${cl.tel.replace(/[^0-9]/g,'')}" target="_blank" class="bv" style="padding:7px 12px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-brand-whatsapp"></i> WhatsApp</a>`:''}
         </div>
       </div>`;
@@ -3684,8 +3722,9 @@ function rCRMBody(){
       <div class="cc-hd" onclick="crmToggle(${cl.id})">
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600">${cl.nombre}</div>
-          <div style="font-size:10px;color:var(--t2)">${cl.tel||''} · ${cl.cedula||''}</div>
+          <div style="font-size:10px;color:var(--t2)">${cl.tel||''} · ${cl.cedula||''}${cl.vendedor?' · '+cl.vendedor:''}${cl.seguimiento?` · <span style="color:${vencido?'var(--red)':'var(--t2)'}">Seguimiento: ${fD(cl.seguimiento)}</span>`:''}</div>
         </div>
+        <span class="pill" style="background:${et.c}22;border-color:${et.c}55;color:${et.c}">${et.lab}</span>
         <span class="pill">${cl.tipo||'General'}</span>
         <i class="ti ti-chevron-${isE?'up':'down'}" style="font-size:14px;color:var(--t2)"></i>
       </div>
@@ -3700,6 +3739,14 @@ async function crmAddNota(id){
   const inp=$('crm_nota_'+id);const txt=inp?.value?.trim();if(!txt)return;
   try{await apiFetch(`/api/crm/clientes/${id}/notas`,{method:'POST',body:{texto:txt}});}
   catch(e){alert('No se pudo guardar la nota: '+e.message);return;}
+  await cargarCrm();rCRMBody();
+}
+async function crmActualizar(id){
+  const et=$('crm_et_'+id)?.value,seg=$('crm_seg_'+id)?.value,vend=$('crm_vend_'+id)?.value;
+  try{
+    await apiFetch(`/api/crm/clientes/${id}`,{method:'PATCH',body:{
+      estadoCrm:et,proximoSeguimiento:seg||null,vendedorId:vend?Number(vend):null}});
+  }catch(e){alert('No se pudo actualizar: '+e.message);return;}
   await cargarCrm();rCRMBody();
 }
 
@@ -3723,6 +3770,10 @@ function crmAbrirNuevo(){
             <option>Institución</option><option>Particular</option>
           </select>
         </div>
+        <div class="fi"><label>Vendedor asignado</label>
+          <select id="cn_vd"><option value="">Sin asignar</option>${USUARIOS.filter(u=>u.on).map(u=>`<option value="${u.id}">${u.n}</option>`).join('')}</select>
+        </div>
+        <div class="fi"><label>Próximo seguimiento</label><input type="date" id="cn_sg"></div>
         <div class="fi"><label>Dirección / Notas</label><textarea id="cn_nt" style="resize:none;min-height:52px" placeholder="Dirección, observaciones..."></textarea></div>
         <button class="bg" style="width:100%" onclick="crmGuardar()"><i class="ti ti-check"></i> Guardar</button>
       </div>
@@ -3735,7 +3786,8 @@ async function crmGuardar(){
   try{
     await apiFetch('/api/crm/clientes',{method:'POST',body:{
       nombre:nm,telefono1:$('cn_tl')?.value||'',cedula:$('cn_ce')?.value||'',
-      tipo:$('cn_tp')?.value||'',notas:$('cn_nt')?.value||''}});
+      tipo:$('cn_tp')?.value||'',notas:$('cn_nt')?.value||'',
+      vendedorId:$('cn_vd')?.value?Number($('cn_vd').value):null,proximoSeguimiento:$('cn_sg')?.value||null}});
   }catch(e){alert('No se pudo guardar el cliente: '+e.message);return;}
   await cargarCrm();
   document.getElementById('crm_modal')?.remove();

@@ -59,6 +59,9 @@ CREATE TABLE IF NOT EXISTS clientes (
   zona          TEXT,
   tipo          TEXT DEFAULT 'Particular', -- Farmacia/Salón/Clínica/Hospital/Escuela/Municipio/Institución/Particular
   notas         TEXT,
+  estado_crm        TEXT NOT NULL DEFAULT 'nuevo' CHECK (estado_crm IN ('nuevo','contactado','interesado','cliente','inactivo')),
+  proximo_seguimiento DATE,
+  vendedor_id       INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
   creado_en     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_clientes_cedula ON clientes(cedula) WHERE cedula IS NOT NULL AND cedula <> '';
@@ -379,5 +382,15 @@ DO $$ BEGIN
     SELECT 1 FROM pg_constraint WHERE conname = 'contratos_canal_check'
   ) THEN
     ALTER TABLE contratos ADD CONSTRAINT contratos_canal_check CHECK (canal IN ('oficina','ruta','embajadora'));
+  END IF;
+END $$;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS estado_crm TEXT NOT NULL DEFAULT 'nuevo';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS proximo_seguimiento DATE;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS vendedor_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'clientes_estado_crm_check'
+  ) THEN
+    ALTER TABLE clientes ADD CONSTRAINT clientes_estado_crm_check CHECK (estado_crm IN ('nuevo','contactado','interesado','cliente','inactivo'));
   END IF;
 END $$;

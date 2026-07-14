@@ -310,9 +310,16 @@ app.get('/api/crm/clientes', requireAuth, requirePermiso('ccrm'), h(async (req, 
 }));
 
 app.post('/api/crm/clientes', requireAuth, requirePermiso('ccrm'), h(async (req, res) => {
-  const { nombre, telefono1, cedula, tipo, notas } = req.body || {};
+  const { nombre, telefono1, cedula, tipo, notas, estadoCrm, proximoSeguimiento, vendedorId } = req.body || {};
   if (!nombre) return res.status(400).json({ error: 'Falta el nombre' });
-  res.status(201).json(await db.crearClienteCrm({ nombre, telefono1, cedula, tipo, notas }));
+  res.status(201).json(await db.crearClienteCrm({ nombre, telefono1, cedula, tipo, notas, estadoCrm, proximoSeguimiento, vendedorId }));
+}));
+
+app.patch('/api/crm/clientes/:id', requireAuth, requirePermiso('ccrm'), h(async (req, res) => {
+  const { estadoCrm, proximoSeguimiento, vendedorId } = req.body || {};
+  const actualizado = await db.actualizarClienteCrm(req.params.id, { estadoCrm, proximoSeguimiento, vendedorId });
+  if (!actualizado) return res.status(404).json({ error: 'Cliente no encontrado' });
+  res.json(actualizado);
 }));
 
 app.post('/api/crm/clientes/:id/notas', requireAuth, requirePermiso('ccrm'), h(async (req, res) => {
