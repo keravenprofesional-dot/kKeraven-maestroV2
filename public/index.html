@@ -3631,9 +3631,6 @@ document.addEventListener('DOMContentLoaded',init);
 
 
 
-function abrirMenu(){document.getElementById('sb').classList.add('on');document.getElementById('ov').classList.add('on');}
-function cerrarMenu(){document.getElementById('sb').classList.remove('on');document.getElementById('ov').classList.remove('on');}
-function irC(id){cerrarMenu();ir(id);}
 function showToast(msg,type){var wrap=document.getElementById('toast-wrap');if(!wrap)return;var d=document.createElement('div');var bg=type==='err'?'#C62828':type==='info'?'#185FA5':'#1a7a42';d.style.cssText='background:'+bg+';color:#fff;padding:10px 16px;border-radius:12px;font-size:12px;font-weight:700;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:300px;word-break:break-word;font-family:inherit;animation:k-popIn .3s ease';d.textContent=msg;wrap.appendChild(d);setTimeout(function(){d.remove();},3000);}
 function rolLabel(rol){var l={gerente:'Gerente General',subgerente:'Sub-Gerente',coordinador:'Coordinador',supervisor:'Supervisor',almacen:'Almacén',promotor:'Promotor'};return l[rol]||rol;}
 function openMdl(titulo,cuerpo,botones){var o=document.getElementById('modal');if(!o)return;var t=document.getElementById('mtit');if(t)t.textContent=titulo;var b=document.getElementById('mbody');if(b)b.innerHTML=cuerpo;var f=document.getElementById('mft');if(f)f.innerHTML=botones||'<button class="bs" onclick="closeMdl()">Cerrar</button>';o.classList.add('on');}
@@ -5412,10 +5409,26 @@ function CB_borrarCliente(){
 
 // ------------------- Respaldos y exportación -------------------
 function CB_exportarJSON(){ CB_descargar("respaldo_cobranza_" + CB_hoyISO() + ".json", JSON.stringify(CB_clientes,null,2), "application/json"); }
+/* Restaurar respaldo: escribe en contratos[] (no directo en CB_clientes) */
 function CB_importarJSON(ev){
-  const f = ev.target.files[0]; if(!f) return;
-  const r = new FileReader();
-  r.onload = () => { try{ CB_clientes = JSON.parse(r.result); CB_guardar(); CB_pintar(); alert("Datos restaurados."); }catch(e){ alert("Archivo inválido."); } };
+  var f = ev.target.files && ev.target.files[0]; if(!f) return;
+  if(!confirm('Esto va a REEMPLAZAR los datos de cobranza con los del respaldo.\n¿Seguro?')) { ev.target.value=''; return; }
+  var r = new FileReader();
+  r.onload = function(){
+    try{
+      var arr = JSON.parse(r.result);
+      if(!Array.isArray(arr)) throw new Error('formato');
+      arr.forEach(function(v){
+        var c = buscarContratoPorFac(v.no);
+        if(c) vistaAContrato(v, c);
+        else  contratos.push(nuevoContratoDesdeCobrador(v));
+      });
+      guardar();
+      CB_cargar(); CB_pintar();
+      alert('Datos restaurados.');
+    }catch(e){ alert('Archivo inválido.'); }
+    ev.target.value='';
+  };
   r.readAsText(f);
 }
 function CB_exportarCSV(lista, nombre){
@@ -6937,29 +6950,6 @@ CB_borrarCliente = async function(){
   CB_dlg.close();
   CB_cargar(); CB_pintar();
   if(typeof showToast==='function') showToast('Contrato '+v.no+' eliminado');
-};
-
-/* Restaurar respaldo: ahora escribe en contratos[] */
-CB_importarJSON = function(ev){
-  var f = ev.target.files && ev.target.files[0]; if(!f) return;
-  if(!confirm('Esto va a REEMPLAZAR los datos de cobranza con los del respaldo.\n¿Seguro?')) { ev.target.value=''; return; }
-  var r = new FileReader();
-  r.onload = function(){
-    try{
-      var arr = JSON.parse(r.result);
-      if(!Array.isArray(arr)) throw new Error('formato');
-      arr.forEach(function(v){
-        var c = buscarContratoPorFac(v.no);
-        if(c) vistaAContrato(v, c);
-        else  contratos.push(nuevoContratoDesdeCobrador(v));
-      });
-      guardar();
-      CB_cargar(); CB_pintar();
-      alert('Datos restaurados.');
-    }catch(e){ alert('Archivo inválido.'); }
-    ev.target.value='';
-  };
-  r.readAsText(f);
 };
 
 /* La Ruta con Mapa también usa registrarPago() */
