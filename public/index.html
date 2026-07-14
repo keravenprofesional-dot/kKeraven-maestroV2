@@ -2380,7 +2380,10 @@ function sFB(cfg){
 }
 
 // ── EXCEL ──────────────────────────────────────────────────────────
-function xls(data,cols,nom,modTit){
+/* Genera el HTML con estilo (encabezado KERAVEN, columnas, totales) que
+   comparten el .xls "de mentira" de siempre y el nuevo Word real -- la
+   única diferencia entre ambos es el mime/extensión con que se descarga. */
+function _repHTML(data,cols,nom,modTit){
   var modLabel=(modTit||nom.replace('KERAVEN_','').replace(/_/g,' ')).toUpperCase();
   var usr=ses&&ses.n?ses.n:'Sistema';
   var ahora=new Date();
@@ -2486,17 +2489,81 @@ function xls(data,cols,nom,modTit){
 
     '</table>'].join('\n');
 
-  var blob=new Blob(['\ufeff'+htm],{type:'application/vnd.ms-excel;charset=UTF-8'});
+  return {html:htm, ahora:ahora};
+}
+/* Word real: mismo HTML con estilo de _repHTML(), con el mime/extension
+   que Word sabe abrir directo. */
+function repWord(data,cols,nom,modTit){
+  var r=_repHTML(data,cols,nom,modTit);
+  var blob=new Blob(['﻿'+r.html],{type:'application/msword;charset=UTF-8'});
   var a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='KERAVEN_'+nom+'_'+ahora.toISOString().split('T')[0]+'.xls';
+  a.download='KERAVEN_'+nom+'_'+r.ahora.toISOString().split('T')[0]+'.doc';
   document.body.appendChild(a);a.click();
   document.body.removeChild(a);
   setTimeout(function(){URL.revokeObjectURL(a.href);},5000);
 }
-function xlsCobros(){xls(contratos.filter(c=>c.status==='aprobado').map(c=>[c.fac,c.cliente,c.cedula,c.tel1,c.promotor,c.fecha,c.monto,c.saldo||0,c.tipo]),['Factura','Cliente','Cédula','Teléfono','Promotor','Fecha','Monto','Saldo','Tipo'],'Keraven_Cobros','Ruta de Cobro');}
-function xlsAlm(){xls(PRODS.map(p=>[p,almP[p]||0,almM[p]||0]),['Producto','Bodega','Ruta'],'Keraven_Almacen','Almacén Principal');}
-function xlsD5(){const pend=semanas.filter(s=>!s.pag),por={};PROMS.forEach(n=>{por[n]={c8:0,c16:0,tot:0};});pend.forEach(w=>w.proms.forEach(p=>{if(por[p.n]){por[p.n].c8+=p.c8;por[p.n].c16+=p.c16;por[p.n].tot+=p.tot;}}));xls(Object.entries(por).map(([n,v])=>[n,v.c8,v.c16,v.tot]),['Promotor','Com.Crédito 8%','Com.Contado 16%','Total'],'Keraven_Dia5');}
+/* Excel real (.xlsx) via SheetJS -- no la tabla HTML disfrazada de antes. */
+function repExcelReal(data,cols,nom,modTit){
+  if(typeof XLSX==='undefined'){ alert('Recarga la pagina: el lector de Excel no cargo.'); return; }
+  var ws=XLSX.utils.aoa_to_sheet([cols].concat(data));
+  ws['!cols']=cols.map(function(){return {wch:16};});
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, (modTit||nom).replace(/[\\\/*?:\[\]]/g,'').slice(0,31) || 'Reporte');
+  XLSX.writeFile(wb, 'KERAVEN_'+nom+'_'+hoy()+'.xlsx');
+}
+/* PDF real via jsPDF + autoTable, cargados solo cuando hacen falta. */
+async function repPDF(data,cols,nom,modTit){
+  var btn=document.getElementById('rep_sel_pdf_btn'); if(btn){btn.disabled=true;btn.textContent='Generando...';}
+  try{
+    await pedLoadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    await pedLoadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+  }catch(e){ alert('No se pudo cargar el generador de PDF. Revisa tu conexion e intenta de nuevo.'); if(btn){btn.disabled=false;btn.textContent='📕 PDF (.pdf)';} return; }
+  var jsPDFCtor=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
+  var doc=new jsPDFCtor({orientation:cols.length>6?'landscape':'portrait',unit:'pt',format:'a4'});
+  var modLabel=modTit||nom;
+  var usr=ses&&ses.n?ses.n:'Sistema';
+  doc.setFontSize(16); doc.setTextColor(2,119,189); doc.text('KERAVEN PROFESIONAL', 40, 36);
+  doc.setFontSize(11); doc.setTextColor(60,60,60); doc.text(modLabel+'  -  '+hoy()+'  -  '+usr, 40, 54);
+  doc.autoTable({
+    startY:66, head:[cols], body:data.map(function(row){return row.map(function(c){return c==null?'':String(c);});}),
+    styles:{fontSize:8,cellPadding:5}, headStyles:{fillColor:[1,87,155],textColor:255,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[227,242,253]}, margin:{left:40,right:40},
+  });
+  doc.save('KERAVEN_'+nom+'_'+hoy()+'.pdf');
+  if(btn){btn.disabled=false;btn.textContent='📕 PDF (.pdf)';}
+}
+/* Modal: el usuario elige en que formato quiere el reporte. */
+function reporteSelector(data,cols,nom,modTit){
+  var ov=document.createElement('div');
+  ov.id='rep_sel_ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(2px);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:16px;padding:24px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.25)';
+  box.innerHTML='<div style="font-size:16px;font-weight:800;margin-bottom:4px">📄 ¿Cómo querés tu reporte?</div>'
+    +'<div style="font-size:12px;color:var(--k-mist);margin-bottom:18px">'+(modTit||nom)+'</div>';
+  var wrap=document.createElement('div');
+  wrap.style.cssText='display:flex;flex-direction:column;gap:10px';
+  function boton(txt,id,fn){
+    var b=document.createElement('button'); b.className='bg'; b.style.padding='12px'; b.textContent=txt;
+    if(id) b.id=id;
+    b.onclick=function(){ ov.remove(); fn(data,cols,nom,modTit); };
+    return b;
+  }
+  wrap.appendChild(boton('📝 Word (.doc)', null, repWord));
+  wrap.appendChild(boton('📊 Excel (.xlsx)', null, repExcelReal));
+  wrap.appendChild(boton('📕 PDF (.pdf)', 'rep_sel_pdf_btn', repPDF));
+  box.appendChild(wrap);
+  var cancelar=document.createElement('button'); cancelar.className='bs'; cancelar.style.cssText='margin-top:14px;width:100%'; cancelar.textContent='Cancelar';
+  cancelar.onclick=function(){ov.remove();};
+  box.appendChild(cancelar);
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+}
+function xlsCobros(){reporteSelector(contratos.filter(c=>c.status==='aprobado').map(c=>[c.fac,c.cliente,c.cedula,c.tel1,c.promotor,c.fecha,c.monto,c.saldo||0,c.tipo]),['Factura','Cliente','Cédula','Teléfono','Promotor','Fecha','Monto','Saldo','Tipo'],'Keraven_Cobros','Ruta de Cobro');}
+function xlsAlm(){reporteSelector(PRODS.map(p=>[p,almP[p]||0,almM[p]||0]),['Producto','Bodega','Ruta'],'Keraven_Almacen','Almacén Principal');}
+function xlsD5(){const pend=semanas.filter(s=>!s.pag),por={};PROMS.forEach(n=>{por[n]={c8:0,c16:0,tot:0};});pend.forEach(w=>w.proms.forEach(p=>{if(por[p.n]){por[p.n].c8+=p.c8;por[p.n].c16+=p.c16;por[p.n].tot+=p.tot;}}));reporteSelector(Object.entries(por).map(([n,v])=>[n,v.c8,v.c16,v.tot]),['Promotor','Com.Crédito 8%','Com.Contado 16%','Total'],'Keraven_Dia5');}
 
 // ── INIT ───────────────────────────────────────────────────────────
 async function init(){
@@ -4038,7 +4105,7 @@ function xlsMisCom(){
   semanas.forEach(function(s){s.proms.filter(function(p){return p.tot>0;}).forEach(function(p){
     rows.push([s.auto?'AUTO':'MANUAL',s.fac||'—',p.n,s.tipo||'—',fD(s.de),s.mes,p.vc,p.c8,p.vo,p.c16,p.tot,s.pag?'Pagado':'Pendiente']);
   });});
-  xls(rows,['Tipo','Factura','Promotor','Tipo Venta','Fecha','Mes','Venta Créd.','Com.8%','Venta Cont.','Com.16%','Total Comisión','Estado'],'Comisiones','Cuadre de Comisiones');
+  reporteSelector(rows,['Tipo','Factura','Promotor','Tipo Venta','Fecha','Mes','Venta Créd.','Com.8%','Venta Cont.','Com.16%','Total Comisión','Estado'],'Comisiones','Cuadre de Comisiones');
 }
 
 // ── Reporte de Rendimiento ───────────────────────────────────────
@@ -4135,7 +4202,7 @@ function xlsRendimiento(){
   var mes=_rendMes;
   var lista=contratos.filter(function(c){return!mes||c.fecha.startsWith(mes);});
   var rows=lista.map(function(c){return[c.fac,fD(c.fecha),c.promotor||'',c.zona||'',c.cliente,c.cedula,c.tipo||'',c.monto||0,c.status,c.status==='aprobado'?1:0];});
-  xls(rows,['Factura','Fecha','Promotor','Zona','Cliente','Cédula','Tipo','Monto','Estado','Aprobado'],'Rendimiento'+mes,'Reporte de Rendimiento');
+  reporteSelector(rows,['Factura','Fecha','Promotor','Zona','Cliente','Cédula','Tipo','Monto','Estado','Aprobado'],'Rendimiento'+mes,'Reporte de Rendimiento');
 }
 
 // ── canEdit / getEffectivePerms ──────────────────────────────────
@@ -6886,11 +6953,11 @@ async function prodImportarExcel(ev){
       var existente=PRODUCTOS_ADMIN.find(function(p){ return _cbNorm(p.nombre)===_cbNorm(nombre); });
       try{
         if(existente){
-          await apiFetch('/api/productos/'+existente.id,{method:'PATCH',body:{nombre:nombre,precioReferencia:precio,categoria:categoria||existente.categoria}});
+          await apiFetch('/api/productos/'+existente.id,{method:'PATCH',body:{nombre:nombre,precioReferencia:precio,categoria:categoria||existente.categoria,origen:'excel'}});
           actualizados++;
           _prodLog('🔄 Fila '+(i+2)+': '+nombre+' → precio actualizado');
         } else {
-          await apiFetch('/api/productos',{method:'POST',body:{nombre:nombre,precioReferencia:precio,categoria:categoria}});
+          await apiFetch('/api/productos',{method:'POST',body:{nombre:nombre,precioReferencia:precio,categoria:categoria,origen:'excel'}});
           creados++;
           _prodLog('✅ Fila '+(i+2)+': '+nombre+' → creado');
         }
@@ -7527,7 +7594,8 @@ async function _cobradorSubirLote(lista){
           telefono2: c.tel2 || v.tel2 || '',
           fechaLimite: c.lim || v.limite || null,
           promesaPago: c.promesa || v.promesa || null,
-          notas: (v.notas && String(c.obs||'').indexOf(v.notas)<0) ? ((c.obs?c.obs+' | ':'')+v.notas) : (c.obs||null)
+          notas: (v.notas && String(c.obs||'').indexOf(v.notas)<0) ? ((c.obs?c.obs+' | ':'')+v.notas) : (c.obs||null),
+          viaImportacion: true,
         }});
       }catch(e){}
       detalle.push('· '+v.no+' '+v.nombre+' → ya existía, no se duplicó');
@@ -7565,6 +7633,14 @@ async function migrarCobrador(){
   if(!viejos.length){
     try{ localStorage.setItem('kv_migracion_cobrador','1'); }catch(e){}
     return {nuevos:0, existentes:0, ya:false};
+  }
+  // La migracion masiva exige el permiso 'excel' en el servidor. Si
+  // quien abrió el Cobrador no lo tiene, NO se marca como hecha -- se
+  // reintenta sola la próxima vez que entre alguien con ese permiso
+  // (Gerencia lo otorga en Usuarios). Los datos viejos siguen ahí, no
+  // se pierden por esto.
+  if(typeof perms!=='function' || !perms().includes('excel')){
+    return {nuevos:0, existentes:0, ya:false, sinPermiso:true};
   }
 
   var res = await _cobradorSubirLote(viejos);

@@ -52,7 +52,7 @@ function requireAuth(req, res, next) {
 
 function requirePermiso(modulo) {
   return async (req, res, next) => {
-    const usuario = await db.buscarUsuarioPorId(req.session.usuarioId);
+    const usuario = req.usuario || await db.buscarUsuarioPorId(req.session.usuarioId);
     if (!usuario || !usuario.activo) return res.status(401).json({ error: 'No autenticado' });
     const permisos = db.permisosEfectivos(usuario);
     if (!permisos.includes(modulo)) return res.status(403).json({ error: 'Sin permiso para este módulo' });
@@ -63,7 +63,7 @@ function requirePermiso(modulo) {
 
 function requireAnyPermiso(...modulos) {
   return async (req, res, next) => {
-    const usuario = await db.buscarUsuarioPorId(req.session.usuarioId);
+    const usuario = req.usuario || await db.buscarUsuarioPorId(req.session.usuarioId);
     if (!usuario || !usuario.activo) return res.status(401).json({ error: 'No autenticado' });
     const permisos = db.permisosEfectivos(usuario);
     if (!modulos.some((m) => permisos.includes(m))) return res.status(403).json({ error: 'Sin permiso para este módulo' });
@@ -71,6 +71,25 @@ function requireAnyPermiso(...modulos) {
     next();
   };
 }
+
+// Exige un permiso adicional SOLO si la peticion viene marcada como
+// importacion masiva (ver `condicion`) -- asi la ruta de un solo
+// registro (formulario normal) no se ve afectada, pero una carga por
+// Excel/lote si necesita ademas el permiso opcional 'excel' que
+// Gerencia otorga aparte en Usuarios. Se encadena DESPUES de
+// requirePermiso/requireAnyPermiso para reusar el req.usuario ya cargado.
+function requirePermisoSi(condicion, modulo) {
+  return async (req, res, next) => {
+    if (!condicion(req)) return next();
+    const usuario = req.usuario || await db.buscarUsuarioPorId(req.session.usuarioId);
+    if (!usuario || !usuario.activo) return res.status(401).json({ error: 'No autenticado' });
+    const permisos = db.permisosEfectivos(usuario);
+    if (!permisos.includes(modulo)) return res.status(403).json({ error: 'Sin permiso para importar/exportar Excel' });
+    req.usuario = usuario;
+    next();
+  };
+}
+const esImportacionExcel = (req) => !!(req.body && (req.body.origen === 'excel' || req.body.viaImportacion === true));
 
 function requireRol(...roles) {
   return async (req, res, next) => {
@@ -182,13 +201,13 @@ app.get('/api/productos', requireAuth, h(async (req, res) => {
   res.json(await db.listarProductos({ soloActivos: req.query.todos !== '1' }));
 }));
 
-app.post('/api/productos', requireAuth, requirePermiso('productos'), h(async (req, res) => {
+app.post('/api/productos', requireAuth, requirePermiso('productos'), requirePermisoSi(esImportacionExcel, 'excel'), h(async (req, res) => {
   const { nombre, precioReferencia, categoria } = req.body || {};
   if (!nombre) return res.status(400).json({ error: 'Falta el nombre del producto' });
   res.status(201).json(await db.crearProducto({ nombre, precioReferencia, categoria }));
 }));
 
-app.patch('/api/productos/:id', requireAuth, requirePermiso('productos'), h(async (req, res) => {
+app.patch('/api/productos/:id', requireAuth, requirePermiso('productos'), requirePermisoSi(esImportacionExcel, 'excel'), h(async (req, res) => {
   const { nombre, precioReferencia, categoria } = req.body || {};
   const actualizado = await db.actualizarProducto(req.params.id, { nombre, precioReferencia, categoria });
   if (!actualizado) return res.status(404).json({ error: 'Producto no encontrado' });
@@ -209,7 +228,7 @@ app.get('/api/contratos', requireAuth, requireAnyPermiso('contrato', 'buzon', 'c
   res.json(await db.listarContratos({ estado: req.query.estado }));
 }));
 
-app.post('/api/contratos', requireAuth, requirePermiso('contrato'), h(async (req, res) => {
+app.post('/api/contratos', requireAuth, requirePermiso('contrato'), requirePermisoSi(esImportacionExcel, 'excel'), h(async (req, res) => {
   const datos = req.body || {};
   if (!datos.nombre || !datos.cedula || !datos.telefono1 || !datos.monto || !datos.tipoVenta) {
     return res.status(400).json({ error: 'Faltan datos obligatorios del contrato' });
@@ -262,7 +281,7 @@ app.post('/api/contratos/:id/abonar', requireAuth, requireAnyPermiso('cobros', '
 // Datos operativos de cobranza (telefono2, fecha limite, promesa de pago,
 // notas de gestion) -- NO toca monto ni saldo, eso solo cambia abonando.
 // Trabajo diario de Cobrador/Cobros/Ruta, no restringido a Gerente/Sub-Gerente.
-app.patch('/api/contratos/:id/cobranza', requireAuth, requireAnyPermiso('cobrador', 'cobros', 'ruta'), h(async (req, res) => {
+app.patch('/api/contratos/:id/cobranza', requireAuth, requireAnyPermiso('cobrador', 'cobros', 'ruta'), requirePermisoSi(esImportacionExcel, 'excel'), h(async (req, res) => {
   const { telefono2, fechaLimite, promesaPago, notas } = req.body || {};
   const contrato = await db.editarDatosCobranza(req.params.id, { telefono2, fechaLimite, promesaPago, notas });
   if (!contrato) return res.status(404).json({ error: 'Contrato no encontrado' });
@@ -272,7 +291,9 @@ app.patch('/api/contratos/:id/cobranza', requireAuth, requireAnyPermiso('cobrado
 // Migracion (una sola vez, desde el navegador) de los clientes que el
 // Cobrador tenia en localStorage antes de conectarse a la base de datos
 // real. No exige cedula/promotor/productos porque esa deuda ya existia.
-app.post('/api/contratos/migrar-cobrador', requireAuth, requireAnyPermiso('cobrador', 'cobros', 'ruta'), h(async (req, res) => {
+// Esta ruta SOLO la usan los importadores masivos (nunca una edicion de
+// un solo registro), asi que exige 'excel' siempre, sin condicion.
+app.post('/api/contratos/migrar-cobrador', requireAuth, requireAnyPermiso('cobrador', 'cobros', 'ruta'), requirePermiso('excel'), h(async (req, res) => {
   const { numeroFactura, nombre, telefono1, telefono2, monto, saldo, fechaLimite, promesaPago, notas } = req.body || {};
   if (!numeroFactura || !nombre || monto == null) return res.status(400).json({ error: 'Faltan datos obligatorios' });
   const contrato = await db.crearContratoLegacyCobrador(
