@@ -61,6 +61,17 @@ function requirePermiso(modulo) {
   };
 }
 
+function requireAnyPermiso(...modulos) {
+  return async (req, res, next) => {
+    const usuario = await db.buscarUsuarioPorId(req.session.usuarioId);
+    if (!usuario || !usuario.activo) return res.status(401).json({ error: 'No autenticado' });
+    const permisos = db.permisosEfectivos(usuario);
+    if (!modulos.some((m) => permisos.includes(m))) return res.status(403).json({ error: 'Sin permiso para este módulo' });
+    req.usuario = usuario;
+    next();
+  };
+}
+
 function requireRol(...roles) {
   return async (req, res, next) => {
     const usuario = await db.buscarUsuarioPorId(req.session.usuarioId);
@@ -191,6 +202,29 @@ app.post('/api/productos/:id/desactivar', requireAuth, requirePermiso('productos
 app.post('/api/productos/:id/reactivar', requireAuth, requirePermiso('productos'), h(async (req, res) => {
   await db.reactivarProducto(req.params.id);
   res.json({ ok: true });
+}));
+
+// ── CONTRATOS / FACTURACIÓN ───────────────────────────────────────────
+app.get('/api/contratos', requireAuth, requireAnyPermiso('contrato', 'buzon', 'cobros'), h(async (req, res) => {
+  res.json(await db.listarContratos({ estado: req.query.estado }));
+}));
+
+app.post('/api/contratos', requireAuth, requirePermiso('contrato'), h(async (req, res) => {
+  const datos = req.body || {};
+  if (!datos.nombre || !datos.cedula || !datos.telefono1 || !datos.monto || !datos.tipoVenta) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios del contrato' });
+  }
+  const contrato = await db.crearContrato(datos, req.usuario ? req.usuario.id : req.session.usuarioId);
+  res.status(201).json(contrato);
+}));
+
+app.post('/api/contratos/:id/decidir', requireAuth, requirePermiso('buzon'), h(async (req, res) => {
+  const { decision, comentario } = req.body || {};
+  if (!['aprobado', 'rechazado'].includes(decision)) return res.status(400).json({ error: 'Decisión inválida' });
+  const usuario = await db.buscarUsuarioPorId(req.session.usuarioId);
+  const contrato = await db.decidirContrato(req.params.id, decision, comentario || '', usuario.id, usuario.nombre);
+  if (!contrato) return res.status(404).json({ error: 'Contrato no encontrado' });
+  res.json(contrato);
 }));
 
 app.use((err, req, res, next) => {

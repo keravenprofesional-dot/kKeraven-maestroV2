@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS contratos (
   promotor_id     INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
   promotor_nombre TEXT, -- respaldo textual si el promotor no es un usuario del sistema (ej. "PROMOTOR A" fijo)
   zona            TEXT,
+  canal           TEXT NOT NULL DEFAULT 'ruta' CHECK (canal IN ('oficina','ruta','embajadora')),
   tipo_venta      TEXT NOT NULL CHECK (tipo_venta IN ('credito','contado')),
   plazo_dias      SMALLINT,
   fecha_limite    DATE,
@@ -368,3 +369,13 @@ CREATE TABLE IF NOT EXISTS config_ia (
 
 -- Nota: la tabla de sesiones de login (connect-pg-simple) se crea sola
 -- desde el backend en la Etapa 2 — no se define a mano acá.
+
+-- ── MIGRACIONES (para bases de datos que ya existían antes de este cambio) ──
+ALTER TABLE contratos ADD COLUMN IF NOT EXISTS canal TEXT NOT NULL DEFAULT 'ruta';
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'contratos_canal_check'
+  ) THEN
+    ALTER TABLE contratos ADD CONSTRAINT contratos_canal_check CHECK (canal IN ('oficina','ruta','embajadora'));
+  END IF;
+END $$;

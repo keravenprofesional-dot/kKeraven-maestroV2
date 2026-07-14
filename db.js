@@ -178,6 +178,152 @@ async function reactivarProducto(id) {
   await pool.query(`UPDATE productos SET activo = TRUE WHERE id = $1`, [id]);
 }
 
+// ── CLIENTES ──────────────────────────────────────────────────────
+// Busca por cedula (si viene) y reusa; si no existe, crea uno nuevo.
+// Es lo que permite que Facturacion y Cobrador compartan el mismo
+// cliente en vez de tener copias sueltas como en el HTML original.
+async function resolverCliente(datos) {
+  const cedula = (datos.cedula || '').trim();
+  if (cedula) {
+    const existente = await pool.query(`SELECT id FROM clientes WHERE cedula = $1`, [cedula]);
+    if (existente.rows[0]) return existente.rows[0].id;
+  }
+  const { rows } = await pool.query(
+    `INSERT INTO clientes (cedula, nombre, telefono1, telefono2, email, institucion, barrio, referencia, direccion, zona)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+    [cedula || null, datos.nombre, datos.telefono1 || null, datos.telefono2 || null, datos.email || null,
+     datos.institucion || null, datos.barrio || null, datos.referencia || null, datos.direccion || null, datos.zona || null]
+  );
+  return rows[0].id;
+}
+
+// ── CONTRATOS / FACTURACION ──────────────────────────────────────
+// Numeracion atomica -- UPDATE...RETURNING, nunca MAX()+1 (mismo
+// patron que la tabla `contadores` de Seguimiento de Almas).
+async function siguienteNumeroFactura() {
+  const { rows } = await pool.query(
+    `UPDATE contadores SET valor = valor + 1 WHERE clave = 'factura' RETURNING valor`
+  );
+  return 'KRV-' + String(rows[0].valor).padStart(4, '0');
+}
+
+async function crearContrato(datos, usuarioId) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const clienteId = await resolverCliente(datos);
+    const numeroFactura = (datos.fac && datos.fac.trim()) || (await siguienteNumeroFactura());
+    const neto = (Number(datos.monto) || 0) - (Number(datos.descuento) || 0);
+    const { rows } = await cliente.query(
+      `INSERT INTO contratos (numero_factura, fecha, cliente_id, promotor_id, promotor_nombre, zona, canal,
+         tipo_venta, plazo_dias, fecha_limite, monto, descuento, neto, saldo, observaciones,
+         foto_frente_url, foto_reverso_url, foto_factura_url, gps_lat, gps_lng, gps_plus_code, gps_precision_m,
+         estado, origen, creado_por)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,'pendiente',$23,$24)
+       RETURNING *`,
+      [numeroFactura, datos.fecha || new Date().toISOString().slice(0, 10), clienteId,
+       datos.promotorId || null, datos.promotorNombre || null, datos.zona || null, datos.canal || 'ruta',
+       datos.tipoVenta, datos.plazoDias || null, datos.fechaLimite || null,
+       Number(datos.monto) || 0, Number(datos.descuento) || 0, neto, Number(datos.monto) || 0,
+       datos.observaciones || null, datos.fotoFrenteUrl || null, datos.fotoReversoUrl || null,
+       datos.fotoFacturaUrl || null, datos.gpsLat || null, datos.gpsLng || null,
+       datos.gpsPlusCode || null, datos.gpsPrecisionM || null, datos.origen || 'manual', usuarioId]
+    );
+    const contrato = rows[0];
+    for (const nombreProducto of datos.productos || []) {
+      const p = await cliente.query(`SELECT id FROM productos WHERE nombre = $1`, [nombreProducto]);
+      if (p.rows[0]) {
+        await cliente.query(
+          `INSERT INTO contrato_productos (contrato_id, producto_id, cantidad) VALUES ($1,$2,1)`,
+          [contrato.id, p.rows[0].id]
+        );
+      }
+    }
+    await cliente.query('COMMIT');
+    return contrato;
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
+async function listarContratos({ estado } = {}) {
+  const { rows } = await pool.query(
+    `SELECT c.*, cl.nombre AS cliente_nombre, cl.cedula AS cliente_cedula,
+            cl.telefono1 AS cliente_tel1, cl.telefono2 AS cliente_tel2,
+            cl.institucion AS cliente_institucion, cl.barrio AS cliente_barrio,
+            cl.referencia AS cliente_referencia, cl.direccion AS cliente_direccion,
+            COALESCE(
+              (SELECT json_agg(p.nombre) FROM contrato_productos cp
+               JOIN productos p ON p.id = cp.producto_id WHERE cp.contrato_id = c.id), '[]'
+            ) AS productos,
+            COALESCE(
+              (SELECT json_agg(json_build_object('id',a.id,'fecha',a.fecha,'monto',a.monto,'nota',a.nota) ORDER BY a.fecha)
+               FROM contrato_abonos a WHERE a.contrato_id = c.id), '[]'
+            ) AS abonos
+     FROM contratos c
+     JOIN clientes cl ON cl.id = c.cliente_id
+     ${estado ? 'WHERE c.estado = $1' : ''}
+     ORDER BY c.creado_en DESC`,
+    estado ? [estado] : []
+  );
+  return rows;
+}
+
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// Aprobar/rechazar. Al aprobar, genera automaticamente la semana de
+// comision (mismo comportamiento que decidir() en el HTML original,
+// linea 1585-1625, pero hecho en el servidor y en una transaccion).
+async function decidirContrato(id, decision, comentario, usuarioId, usuarioNombre) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const { rows } = await cliente.query(
+      `UPDATE contratos SET estado = $2, decidido_por = $3, decidido_en = now()
+       WHERE id = $1 RETURNING *`,
+      [id, decision, usuarioId]
+    );
+    const contrato = rows[0];
+    if (!contrato) { await cliente.query('ROLLBACK'); return null; }
+
+    if (decision === 'aprobado' && contrato.promotor_id) {
+      const ya = await cliente.query(
+        `SELECT id FROM comisiones_semanas WHERE contrato_id = $1`, [id]
+      );
+      if (!ya.rows[0]) {
+        const fecha = contrato.fecha;
+        const mesNom = MESES[new Date(fecha).getMonth()] + ' ' + new Date(fecha).getFullYear();
+        const monto = Number(contrato.monto) || 0;
+        const esCredito = contrato.tipo_venta === 'credito';
+        const c8 = esCredito ? Math.round(monto * 0.08) : 0;
+        const c16 = esCredito ? 0 : Math.round(monto * 0.16);
+        const total = c8 + c16;
+        const semana = await cliente.query(
+          `INSERT INTO comisiones_semanas (fecha_desde, fecha_hasta, mes_pago, automatica, contrato_id,
+             factura_texto, tipo_venta, monto_venta, total, pagado, registrado_por)
+           VALUES ($1,$1,$2,TRUE,$3,$4,$5,$6,$7,FALSE,$8) RETURNING id`,
+          [fecha, mesNom, id, contrato.numero_factura, contrato.tipo_venta, monto, total, usuarioId]
+        );
+        await cliente.query(
+          `INSERT INTO comisiones_semana_promotores (semana_id, promotor_nombre, venta_credito, venta_contado, comision_8, comision_16, total)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [semana.rows[0].id, contrato.promotor_nombre || '', esCredito ? monto : 0, esCredito ? 0 : monto, c8, c16, total]
+        );
+      }
+    }
+    await cliente.query('COMMIT');
+    return contrato;
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
 module.exports = {
   pool,
   init,
@@ -198,4 +344,9 @@ module.exports = {
   actualizarProducto,
   desactivarProducto,
   reactivarProducto,
+  resolverCliente,
+  siguienteNumeroFactura,
+  crearContrato,
+  listarContratos,
+  decidirContrato,
 };

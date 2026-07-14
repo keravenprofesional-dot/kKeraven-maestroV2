@@ -717,6 +717,28 @@ async function cargarUsuariosAdmin(){
   USUARIOS=lista.map(mapUsuarioApi);
 }
 
+// Convierte un contrato tal como lo devuelve la API a la forma corta
+// que ya usan rBuzon/rDash/etc (fac, cliente, tel1, prods, fF, status...)
+function mapContratoApi(c){
+  return{id:c.id,fac:c.numero_factura,fecha:(c.fecha||'').slice(0,10),promotor:c.promotor_nombre||'',
+    zona:c.zona||'',cliente:c.cliente_nombre,cedula:c.cliente_cedula||'',tel1:c.cliente_tel1||'',
+    tel2:c.cliente_tel2||'',inst:c.cliente_institucion||'',barrio:c.cliente_barrio||'',
+    ref:c.cliente_referencia||'',dir:c.cliente_direccion||'',gps:c.gps_plus_code||'',
+    tipo:c.tipo_venta,plazo:c.plazo_dias,lim:(c.fecha_limite||'').slice(0,10)||'',
+    prods:c.productos||[],monto:Number(c.monto)||0,descuento:Number(c.descuento)||0,
+    neto:Number(c.neto)||0,saldo:Number(c.saldo)||0,obs:c.observaciones||'',
+    fF:c.foto_frente_url,fR:c.foto_reverso_url,fFac:c.foto_factura_url,canal:c.canal||'ruta',
+    status:c.estado,por:'',hora:'',
+    dec:c.decidido_en?{q:'',h:new Date(c.decidido_en).toLocaleString('es-DO'),c:''}:null,
+    abonos:(c.abonos||[]).map(a=>({f:a.fecha,m:Number(a.monto),nota:a.nota}))};
+}
+async function cargarContratos(){
+  try{
+    const lista=await apiFetch('/api/contratos');
+    contratos=lista.map(mapContratoApi);
+  }catch(e){console.error('No se pudieron cargar los contratos:',e);}
+}
+
 // ── INDEXEDDB ──────────────────────────────────────────────────────
 const DB='keraven2';
 function openDB(){
@@ -729,13 +751,17 @@ function openDB(){
 }
 async function dbSave(k,v){try{const db=await openDB();const t=db.transaction('kv','readwrite');t.objectStore('kv').put({k,v});}catch(e){}}
 async function dbLoad(k){try{const db=await openDB();return new Promise(r=>{const t=db.transaction('kv','readonly');const q=t.objectStore('kv').get(k);q.onsuccess=e=>r(e.target.result?.v??null);q.onerror=()=>r(null);});}catch(e){return null;}}
+// `contratos` ya NO pasa por acá — vive en la base de datos real y se
+// maneja con cargarContratos()/apiFetch. El resto de los módulos
+// (almacén, comisiones, nómina, etc.) todavía no está migrado, así
+// que sigue yendo a IndexedDB hasta que les toque su turno.
 async function guardar(){
-  await dbSave('data',{contratos,semanas,pagos,facN,almM,almP,movAlm,entAlm,despachos,arqueos,solic,empleados,nominas,pagar,crm,asientos});
+  await dbSave('data',{semanas,pagos,facN,almM,almP,movAlm,entAlm,despachos,arqueos,solic,empleados,nominas,pagar,crm,asientos});
   if(window._fbSync)window._fbSync();
 }
 async function cargar(){
   const d=await dbLoad('data');
-  if(d){contratos=d.contratos||[];semanas=d.semanas||[];pagos=d.pagos||[];facN=d.facN||1;almM=d.almM||{};almP=d.almP||{};movAlm=d.movAlm||[];entAlm=d.entAlm||[];despachos=d.despachos||[];arqueos=d.arqueos||[];solic=d.solic||[];empleados=d.empleados||[];nominas=d.nominas||[];pagar=d.pagar||[];crm=d.crm||[];asientos=d.asientos||[];}
+  if(d){semanas=d.semanas||[];pagos=d.pagos||[];facN=d.facN||1;almM=d.almM||{};almP=d.almP||{};movAlm=d.movAlm||[];entAlm=d.entAlm||[];despachos=d.despachos||[];arqueos=d.arqueos||[];solic=d.solic||[];empleados=d.empleados||[];nominas=d.nominas||[];pagar=d.pagar||[];crm=d.crm||[];asientos=d.asientos||[];}
 }
 
 // ── LOGIN ──────────────────────────────────────────────────────────
@@ -771,6 +797,7 @@ async function login(){
   $('sbav').textContent=u.n[0];$('sbav').style.background=u.c;
   $('sbnm').textContent=u.n;$('sbrl').textContent=u.rl;
   await cargarProductos();
+  await cargarContratos();
   await cargar();
   buildNav();buildBotNav();ir('dash');
 }
@@ -1492,7 +1519,7 @@ function calcDescuento(){
   const netEl=$('cf_neto');if(netEl)netEl.value=neto||'';
   const netLbl=$('neto_lbl');if(netLbl)netLbl.textContent='RD$'+neto.toLocaleString('es-DO');
 }
-function enviarC(){
+async function enviarC(){
   let ok=true;
   [['cf_nm','e_nm','Nombre'],['cf_ce','e_ce','Cédula'],['cf_t1','e_t1','Teléfono'],['cf_mn','e_mn','Monto'],['cf_pr','e_pr','Promotor']].forEach(([id,eid,lbl])=>{
     const el=$(id);if(!el)return;
@@ -1505,18 +1532,45 @@ function enviarC(){
   if(!selP.length){$('e_pr2').textContent='Selecciona al menos un producto';ok=false;}
   if(!ok)return;
   const plazo=parseInt($('cf_pl')?.value)||0;
-  const c={id:Date.now(),fac:($('cf_fac').value.trim()||'KRV-'+pad(facN)),fecha:$('cf_fe').value,promotor:$('cf_pr').value,zona:$('cf_zo').value,cliente:$('cf_nm').value,cedula:$('cf_ce').value,tel1:$('cf_t1').value,tel2:$('cf_t2').value,email:$('cf_em').value||'',inst:$('cf_in').value,barrio:$('cf_br').value||'',ref:$('cf_rf').value,dir:$('cf_dir').value||'',gps:$('cf_gp').value,tipo:tventa,plazo,lim:plazo?addD($('cf_fe').value,plazo):'',prods:[...selP],monto:parseFloat($('cf_mn').value)||0,descuento:parseFloat($('cf_dsc')?.value||0),neto:parseFloat($('cf_neto')?.value||0)||parseFloat($('cf_mn').value)||0,saldo:parseFloat($('cf_mn').value)||0,obs:$('cf_ob').value,fF:fotos.f,fR:fotos.r,fFac:fotos.fac||null,status:'pendiente',por:ses.n,hora:now(),dec:null,abonos:[]};
-  contratos.push(c);facN++;guardar();
-  const b=$('cnt_ok');b.style.display='flex';b.className='okbox';b.style.cssText='display:flex;background:var(--gbg);border-color:var(--green);color:var(--gdk)';b.innerHTML=`<i class="ti ti-send"></i> Contrato <b>${c.fac}</b> enviado al buzón de aprobación.`;
+  const nombrePromotor=$('cf_pr').value;
+  const promotorUsuario=USUARIOS.find(u=>u.n===nombrePromotor&&u.rol==='promotor');
+  const payload={
+    fac:$('cf_fac').value.trim()||null,fecha:$('cf_fe').value,
+    promotorId:promotorUsuario?promotorUsuario.id:null,promotorNombre:nombrePromotor,
+    zona:$('cf_zo').value,nombre:$('cf_nm').value,cedula:$('cf_ce').value,
+    telefono1:$('cf_t1').value,telefono2:$('cf_t2').value,email:$('cf_em').value||'',
+    institucion:$('cf_in').value,barrio:$('cf_br').value||'',referencia:$('cf_rf').value,
+    direccion:$('cf_dir').value||'',gpsLat:gps?gps.lat:null,gpsLng:gps?gps.lng:null,
+    gpsPlusCode:gps?gps.plusCode:null,gpsPrecisionM:gps?gps.acc:null,
+    tipoVenta:tventa,plazoDias:plazo||null,fechaLimite:plazo?addD($('cf_fe').value,plazo):null,
+    productos:[...selP],monto:parseFloat($('cf_mn').value)||0,descuento:parseFloat($('cf_dsc')?.value||0),
+    observaciones:$('cf_ob').value,fotoFrenteUrl:fotos.f,fotoReversoUrl:fotos.r,fotoFacturaUrl:fotos.fac||null,
+    canal:$('cf_canal')?.value||'ruta',
+  };
+  let contrato;
+  try{contrato=await apiFetch('/api/contratos',{method:'POST',body:payload});}
+  catch(e){alert('No se pudo enviar el contrato: '+e.message);return;}
+  facN++;await cargarContratos();
+  const b=$('cnt_ok');b.style.display='flex';b.className='okbox';b.style.cssText='display:flex;background:var(--gbg);border-color:var(--green);color:var(--gdk)';b.innerHTML=`<i class="ti ti-send"></i> Contrato <b>${contrato.numero_factura}</b> enviado al buzón de aprobación.`;
   buildBotNav();setTimeout(()=>{resetC();b.style.display='none';},4000);
 }
 function resetC(){
+  // Si ya navegaste a otra pantalla antes de que se cumpla el temporizador
+  // de 4s tras enviar el contrato (setTimeout en enviarC), el formulario
+  // ya no existe en el DOM -- no hay nada que limpiar.
+  if(!$('cf_fe'))return;
   ['cf_nm','cf_ce','cf_t1','cf_t2','cf_in','cf_rf','cf_gp','cf_mn','cf_ob','cf_fl'].forEach(id=>{const el=$(id);if(el)el.value='';});
   ['cf_pr','cf_zo','cf_pl'].forEach(id=>{const el=$(id);if(el)el.value='';});
   $('cf_fe').value=hoy();document.querySelectorAll('.em').forEach(e=>e.textContent='');
   document.querySelectorAll('.er').forEach(e=>e.classList.remove('er'));
-  clF('f');clF('r');$('gst').innerHTML='';$('mapa').style.display='none';$('pl_info').style.display='none';
-  gps=null;selP=[];tventa='credito';$('ro_cr').classList.add('on');$('ro_co').classList.remove('on');$('pl_sec').style.display='';
+  clF('f');clF('r');
+  const gst=$('gst');if(gst)gst.innerHTML='';
+  const mapa=$('mapa');if(mapa)mapa.style.display='none';
+  const plInfo=$('pl_info');if(plInfo)plInfo.style.display='none';
+  gps=null;selP=[];tventa='credito';
+  const roCr=$('ro_cr');if(roCr)roCr.classList.add('on');
+  const roCo=$('ro_co');if(roCo)roCo.classList.remove('on');
+  const plSec=$('pl_sec');if(plSec)plSec.style.display='';
   renderProds();
 }
 
@@ -1581,50 +1635,26 @@ function ccCard(c){
       <i class="ti ti-chevron-${isE?'up':'down'}" style="font-size:14px;color:var(--t2)"></i>
     </div>${body}</div>`;
 }
-function togE(id){expId=expId===id?null:id;$('main').innerHTML=rBuzon();}
-function decidir(id,dec){
-  const c=contratos.find(x=>x.id===id);if(!c)return;
+function togE(id){
+  expId=expId===id?null:id;
+  // El Buzón real (más abajo en el archivo) usa pestañas Pendientes/
+  // Aprobados/Rechazados con bzTab() -- re-renderizar todo con rBuzon()
+  // borra el contenido de la pestaña activa sin volver a llenarlo. Se
+  // repinta solo la pestaña actual en vez de todo el buzón.
+  if(typeof bzTab==='function'&&typeof _bzTabActual!=='undefined')bzTab(_bzTabActual);
+  else $('main').innerHTML=rBuzon();
+}
+async function decidir(id,dec){
+  let c=contratos.find(x=>x.id===id);if(!c)return;
   const com=dec==='aprobado'?($('ca_'+id)?.value||''):($('cr_'+id)?.value||'');
-  c.status=dec;c.dec={q:ses.n,h:now(),c:com};
-  // ── Auto-registrar comisión al aprobar ──────────────────────────
-  if(dec==='aprobado' && c.promotor && c.monto){
-    const ya=semanas.find(s=>s.facRef===c.id);
-    if(!ya){
-      const fecha=c.fecha||hoy();
-      const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-      const mesNom=meses[new Date(fecha+'T00:00:00').getMonth()]+' '+new Date(fecha+'T00:00:00').getFullYear();
-      const monto=Number(c.monto)||0;
-      const esCred=c.tipo==='credito';
-      // Construir proms: solo el promotor de este contrato tiene valores
-      const promsAll=(typeof PROMS!=='undefined'?PROMS:[]).map(n=>{
-        if(n!==c.promotor)return{n,vc:0,vo:0,c8:0,c16:0,tot:0};
-        const vc=esCred?monto:0, vo=esCred?0:monto;
-        const c8=Math.round(vc*0.08), c16=Math.round(vo*0.16);
-        return{n,vc,vo,c8,c16,tot:c8+c16};
-      });
-      // Si el promotor no está en PROMS, igualmente lo agregamos
-      if(!promsAll.find(p=>p.n===c.promotor)){
-        const vc=esCred?monto:0, vo=esCred?0:monto;
-        const c8=Math.round(vc*0.08), c16=Math.round(vo*0.16);
-        promsAll.push({n:c.promotor,vc,vo,c8,c16,tot:c8+c16});
-      }
-      const totCom=promsAll.reduce((s,p)=>s+p.tot,0);
-      semanas.unshift({
-        id:'AUTO-'+c.id,
-        facRef:c.id,
-        fac:c.fac,
-        de:fecha,ha:fecha,mes:mesNom,
-        proms:promsAll,
-        tot:totCom,
-        q:ses.n,hora:now(),
-        pag:false,
-        auto:true,
-        promotor:c.promotor,
-        tipo:c.tipo,
-        monto:monto
-      });
-    }
-  }
+  // La comisión automática al aprobar ahora la genera el servidor
+  // (misma regla: crédito 8% / contado 16%), dentro de la misma
+  // transacción que aprueba el contrato — ver POST /api/contratos/:id/decidir.
+  try{
+    await apiFetch(`/api/contratos/${id}/decidir`,{method:'POST',body:{decision:dec,comentario:com}});
+  }catch(e){alert('No se pudo procesar la decisión: '+e.message);return;}
+  await cargarContratos();
+  c=contratos.find(x=>x.id===id)||c;
   // ── Auto WA + Email al aprobar ─────────────────────────────────
   if(dec==='aprobado'&&c.tel1){
     var wa='1'+c.tel1.replace(/\D/g,'');
@@ -1638,7 +1668,9 @@ function decidir(id,dec){
       c._emailPend=waTxt.split('\n').join(' ');
     }
   }
-  expId=null;guardar();buildBotNav();$('main').innerHTML=rBuzon();
+  expId=null;guardar();buildBotNav();
+  $('main').innerHTML=rBuzon();
+  if(typeof bzTab==='function')bzTab('pend');
   // Show WA/email buttons if contract just approved
   if(dec==='aprobado'&&c.tel1){
     var wa2='1'+c.tel1.replace(/\D/g,'');
@@ -3939,7 +3971,7 @@ const canEdit=function(modId){
 var PERM_MODS=[
   {sec:'Principal',mods:[{id:'dash',lab:'Panel principal',ico:'🏠'}]},
   {sec:'Operaciones',mods:[{id:'contrato',lab:'Facturación',ico:'📝'},{id:'buzon',lab:'Buzón',ico:'📬'},{id:'cobros',lab:'Cobros',ico:'💰'},{id:'cobrador',lab:'Cobrador',ico:'📲'},{id:'ruta',lab:'Ruta con mapa',ico:'🗺️'}]},
-  {sec:'Comercial',mods:[{id:'clientes',lab:'Clientes',ico:'👥'},{id:'cxc',lab:'CxC',ico:'📄'},{id:'pedidos',lab:'Pedidos',ico:'🛍️'}]},
+  {sec:'Comercial',mods:[{id:'clientes',lab:'Clientes',ico:'👥'},{id:'cxc',lab:'CxC',ico:'📄'},{id:'pedidos',lab:'Pedidos',ico:'🛍️'},{id:'embajadoras',lab:'Canal Embajadoras',ico:'👑'}]},
   {sec:'Almacén',mods:[{id:'arqueo',lab:'Arqueo',ico:'🧾'},{id:'almp',lab:'Alm. Principal',ico:'🏭'},{id:'almm',lab:'Alm. Móvil',ico:'🚐'},{id:'productos',lab:'Gestión de productos',ico:'🏷️'}]},
   {sec:'Finanzas',mods:[{id:'cxp',lab:'CxP',ico:'💳'},{id:'nomina',lab:'Nómina',ico:'👔'},{id:'contab',lab:'Contabilidad',ico:'📒'},{id:'ccrm',lab:'CRM',ico:'🤝'}]},
   {sec:'Admin',mods:[{id:'com',lab:'Comisiones',ico:'📊'},{id:'miscom',lab:'Cuadre Com.',ico:'💰'},{id:'users',lab:'Usuarios',ico:'👤'},{id:'rendimiento',lab:'Rendimiento',ico:'📈'},{id:'cfg',lab:'Config.',ico:'⚙️'},{id:'delfac',lab:'Eliminar Fac.',ico:'🗑️'}]},
@@ -4116,7 +4148,9 @@ window.rBuzon=function(){
   return h;
 };
 
+let _bzTabActual='pend';
 function bzTab(t){
+  _bzTabActual=t;
   ['pend','apro','rech'].forEach(function(x){
     var b=document.getElementById('bz_tab_'+x);
     if(b)b.className='tab'+(x===t?' act':'');
@@ -7279,7 +7313,7 @@ function canalPill(k){
     var sel =
       '<div class="fi sp2"><label>Canal de venta <span class="req">*</span></label>'
       + '<div style="display:flex;gap:7px;flex-wrap:wrap">'
-      + Object.keys(CANALES).map(function(k){
+      + Object.keys(CANALES).filter(function(k){return k!=='embajadora'||perms().includes('embajadoras');}).map(function(k){
           var C=CANALES[k];
           return '<button type="button" id="cnl_'+k+'" onclick="setCanal(\''+k+'\')" '
             + 'style="flex:1;min-width:112px;padding:11px 8px;border-radius:10px;cursor:pointer;'
@@ -7385,7 +7419,7 @@ function facResumen(){
       +     '<button class="canal-tab act" data-c="todos"      onclick="facTab(\'todos\')">📋 Todas</button>'
       +     '<button class="canal-tab"     data-c="oficina"    onclick="facTab(\'oficina\')">🏢 Oficina</button>'
       +     '<button class="canal-tab"     data-c="ruta"       onclick="facTab(\'ruta\')">🚐 Ruta</button>'
-      +     '<button class="canal-tab"     data-c="embajadora" onclick="facTab(\'embajadora\')">👑 Embajadoras</button>'
+      +     (perms().includes('embajadoras')?'<button class="canal-tab"     data-c="embajadora" onclick="facTab(\'embajadora\')">👑 Embajadoras</button>':'')
       +   '</div>'
       +   '<div id="fac_resumen"></div>'
       + '</div>';
