@@ -607,8 +607,8 @@ let USUARIOS=[];
 // abajo, viene de /api/login) — esta tabla nunca se usa para dejar
 // pasar o bloquear una accion.
 const PERMS={
-  gerente:    ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos'],
-  subgerente: ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos'],
+  gerente:    ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio'],
+  subgerente: ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio'],
   coordinador:['dash','contrato','buzon','cobros','arqueo','almp','com','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta'],
   supervisor: ['dash','contrato','buzon','cobros','almm','cfg','clientes','cxc','miscom','rendimiento','asistente','cobrador','ruta'],
   almacen:    ['dash','arqueo','almp','almm','cfg','asistente'],
@@ -626,6 +626,7 @@ const NAV=[
   {id:'almp',     lab:'Almacén Principal',     ico:'ti-building-warehouse',  sec:'Almacén'},
   {id:'almm',     lab:'Almacén Móvil',         ico:'ti-truck',               sec:'Almacén'},
   {id:'productos',lab:'Gestión de Productos',  ico:'ti-tag',                 sec:'Almacén'},
+  {id:'laboratorio',lab:'Laboratorio',         ico:'ti-flask',               sec:'Almacén'},
   {id:'com',      lab:'Comisiones',            ico:'ti-chart-bar',           sec:'Administración'},
   {id:'miscom',   lab:'Cuadre Comisiones',     ico:'ti-coin',                sec:'Administración'},
   {id:'delfac',   lab:'Eliminar Factura',      ico:'ti-trash',               sec:'Administración'},
@@ -968,6 +969,7 @@ function render(id){
   else if(id==='ccrm'){m.innerHTML=rCRM();setTimeout(()=>rCRMBody(),0);}
   else if(id==='pedidos'){pedLoadData().then(()=>{m.innerHTML=rPedidos();setTimeout(()=>padTab('ord'),0);});}
   else if(id==='productos'){m.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i>Cargando productos...</div>';cargarProductosAdmin().then(()=>{if(pag==='productos')m.innerHTML=rProductosAdmin();});}
+  else if(id==='laboratorio'){m.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i>Cargando laboratorio...</div>';cargarLabDatos().then(()=>{if(pag==='laboratorio')m.innerHTML=rLaboratorio();});}
 }
 
 // ── DASHBOARD ──────────────────────────────────────────────────────
@@ -995,6 +997,7 @@ function rDash(){
     {id:'almp',name:'Almacén',icon:'🏭',bg:'linear-gradient(145deg,#E65100,#BF360C,#F57C00)',sh:'0 8px 24px rgba(230,81,0,.45)',stat:'Inventario'},
     {id:'almm',name:'Alm. Móvil',icon:'🚐',bg:'linear-gradient(145deg,#5D4037,#3E2723,#795548)',sh:'0 8px 24px rgba(93,64,55,.45)',stat:'Despachos'},
     {id:'productos',name:'Productos',icon:'🏷️',bg:'linear-gradient(145deg,#00695C,#004D40,#00897B)',sh:'0 8px 24px rgba(0,105,92,.45)',stat:'Catálogo y precios'},
+    {id:'laboratorio',name:'Laboratorio',icon:'🧪',bg:'linear-gradient(145deg,#4527A0,#311B92,#5E35B1)',sh:'0 8px 24px rgba(69,39,160,.45)',stat:'Fabricación'},
     {id:'com',name:'Comisiones',icon:'📊',bg:'linear-gradient(145deg,#C2185B,#880E4F,#E91E63)',sh:'0 8px 24px rgba(194,24,91,.45)',stat:'Día 5'},
     {id:'miscom',name:'Cuadre Com.',icon:'💳',bg:'linear-gradient(145deg,#AD1457,#880E4F,#C2185B)',sh:'0 8px 24px rgba(173,20,87,.45)',stat:'Promotores'},
     {id:'cxp',name:'CxP',icon:'🏦',bg:'linear-gradient(145deg,#C62828,#7F0000,#D32F2F)',sh:'0 8px 24px rgba(198,40,40,.45)',stat:'Por pagar'},
@@ -4228,7 +4231,7 @@ var PERM_MODS=[
   {sec:'Principal',mods:[{id:'dash',lab:'Panel principal',ico:'🏠'}]},
   {sec:'Operaciones',mods:[{id:'contrato',lab:'Facturación',ico:'📝'},{id:'buzon',lab:'Buzón',ico:'📬'},{id:'cobros',lab:'Cobros',ico:'💰'},{id:'cobrador',lab:'Cobrador',ico:'📲'},{id:'ruta',lab:'Ruta con mapa',ico:'🗺️'}]},
   {sec:'Comercial',mods:[{id:'clientes',lab:'Clientes',ico:'👥'},{id:'cxc',lab:'CxC',ico:'📄'},{id:'pedidos',lab:'Pedidos',ico:'🛍️'},{id:'embajadoras',lab:'Canal Embajadoras',ico:'👑'}]},
-  {sec:'Almacén',mods:[{id:'arqueo',lab:'Arqueo',ico:'🧾'},{id:'almp',lab:'Alm. Principal',ico:'🏭'},{id:'almm',lab:'Alm. Móvil',ico:'🚐'},{id:'productos',lab:'Gestión de productos',ico:'🏷️'}]},
+  {sec:'Almacén',mods:[{id:'arqueo',lab:'Arqueo',ico:'🧾'},{id:'almp',lab:'Alm. Principal',ico:'🏭'},{id:'almm',lab:'Alm. Móvil',ico:'🚐'},{id:'productos',lab:'Gestión de productos',ico:'🏷️'},{id:'laboratorio',lab:'Laboratorio',ico:'🧪'}]},
   {sec:'Finanzas',mods:[{id:'cxp',lab:'CxP',ico:'💳'},{id:'nomina',lab:'Nómina',ico:'👔'},{id:'contab',lab:'Contabilidad',ico:'📒'},{id:'ccrm',lab:'CRM',ico:'🤝'}]},
   {sec:'Admin',mods:[{id:'com',lab:'Comisiones',ico:'📊'},{id:'miscom',lab:'Cuadre Com.',ico:'💰'},{id:'users',lab:'Usuarios',ico:'👤'},{id:'rendimiento',lab:'Rendimiento',ico:'📈'},{id:'cfg',lab:'Config.',ico:'⚙️'},{id:'delfac',lab:'Eliminar Fac.',ico:'🗑️'}]},
   {sec:'Herramientas',mods:[{id:'asistente',lab:'Asistente IA',ico:'🤖'},{id:'excel',lab:'Importar/Exportar Excel',ico:'📊'}]},
@@ -4440,8 +4443,8 @@ var _origRBuzon2=window.rBuzon;
 
 <script>
 
-var _MOD_ICONS={'dash':'🏠','contrato':'🧾','buzon':'📬','cobros':'💰','arqueo':'🧾','almp':'🏭','almm':'🚐','com':'📊','miscom':'💰','users':'👥','cfg':'⚙️','pedidos':'🛍️','cxp':'💳','nomina':'👔','contab':'📒','ccrm':'🤝','clientes':'🗂️','cxc':'📄','rendimiento':'📈','delfac':'🗑️','asistente':'🤖','productos':'🏷️'};
-var _MOD_TITS={'dash':'Panel Principal','contrato':'Facturación','buzon':'Buzón de Aprobación','cobros':'Ruta de Cobro','arqueo':'Arqueo','almp':'Almacén Principal','almm':'Almacén Móvil','com':'Comisiones','miscom':'Cuadre Comisiones','users':'Usuarios','cfg':'Configuración','pedidos':'Portal Pedidos','cxp':'Cuentas por Pagar','nomina':'Nómina','contab':'Contabilidad','ccrm':'CRM','clientes':'Base de Clientes','cxc':'Cuentas por Cobrar','rendimiento':'Rendimiento','delfac':'Eliminar Factura','asistente':'Asistente IA','productos':'Gestión de Productos'};
+var _MOD_ICONS={'dash':'🏠','contrato':'🧾','buzon':'📬','cobros':'💰','arqueo':'🧾','almp':'🏭','almm':'🚐','com':'📊','miscom':'💰','users':'👥','cfg':'⚙️','pedidos':'🛍️','cxp':'💳','nomina':'👔','contab':'📒','ccrm':'🤝','clientes':'🗂️','cxc':'📄','rendimiento':'📈','delfac':'🗑️','asistente':'🤖','productos':'🏷️','laboratorio':'🧪'};
+var _MOD_TITS={'dash':'Panel Principal','contrato':'Facturación','buzon':'Buzón de Aprobación','cobros':'Ruta de Cobro','arqueo':'Arqueo','almp':'Almacén Principal','almm':'Almacén Móvil','com':'Comisiones','miscom':'Cuadre Comisiones','users':'Usuarios','cfg':'Configuración','pedidos':'Portal Pedidos','cxp':'Cuentas por Pagar','nomina':'Nómina','contab':'Contabilidad','ccrm':'CRM','clientes':'Base de Clientes','cxc':'Cuentas por Cobrar','rendimiento':'Rendimiento','delfac':'Eliminar Factura','asistente':'Asistente IA','productos':'Gestión de Productos','laboratorio':'Laboratorio'};
 var _STAT_ICO=['💰','📊','👥','✅','⚠️','📦','📈','💳','🏆','🎯','📋','🔄','💎','🌟'];
 function applyModTheme(id){
   var m=document.getElementById('main');if(!m)return;
@@ -6976,6 +6979,419 @@ async function prodImportarExcel(ev){
 (function(){
   document.addEventListener('change', function(ev){
     if(ev.target && ev.target.id==='prod-excel-file') prodImportarExcel(ev);
+  });
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   LABORATORIO — fabricación de productos capilares/cosméticos.
+   3 sub-pestañas: Almacén de Laboratorio (materias primas + stock
+   real), Recetas (qué materia prima lleva cada producto, con cálculo
+   de peso del lote/unidades que rinde/costo de fabricar), Producción
+   (fabricar un lote: descuenta materia prima, suma producto terminado
+   al Almacén Principal). El cálculo de unidades/costo NUNCA se guarda
+   fijo -- se recalcula siempre desde el servidor (db.js), así que si
+   sube el precio de una materia prima el costo se actualiza solo.
+══════════════════════════════════════════════════════════════════ */
+var LAB_MATERIAS=[], LAB_RECETAS=[], LAB_PRODUCCIONES=[];
+var _labTab='almacen', _labMpEditando=null, _labEntradaMpId=null, _labRecetaEditando=null;
+var LAB_UNIDADES={gramos:'g',kilogramos:'kg',onzas:'oz',galon:'gal'};
+function labUnidadLbl(u){ return LAB_UNIDADES[u]||u; }
+
+async function cargarLabDatos(){
+  try{
+    LAB_MATERIAS = await apiFetch('/api/lab/materias-primas?todos=1');
+    LAB_RECETAS = await apiFetch('/api/lab/recetas');
+    LAB_PRODUCCIONES = await apiFetch('/api/lab/producciones');
+    if(typeof PRODUCTOS_ADMIN==='undefined' || !PRODUCTOS_ADMIN.length) await cargarProductosAdmin();
+  }catch(e){ console.error('No se pudo cargar Laboratorio:', e); LAB_MATERIAS=[]; LAB_RECETAS=[]; LAB_PRODUCCIONES=[]; }
+}
+
+function rLaboratorio(){
+  var body = _labTab==='recetas' ? labRecetasHTML() : _labTab==='produccion' ? labProduccionHTML() : labAlmacenHTML();
+  return '<div class="card">'
+    + '<div class="ct"><i class="ti ti-flask" style="color:var(--gold);font-size:18px"></i>Laboratorio'
+    +   '<span class="pill" style="margin-left:auto">'+LAB_MATERIAS.filter(function(m){return m.activo;}).length+' materias primas</span></div>'
+    + '<div class="cs">Materias primas, recetas y producción.</div>'
+    + '<div class="tab-bar" style="margin-bottom:14px">'
+    +   '<button id="lab_tab_almacen" class="tab-btn'+(_labTab==='almacen'?' act':'')+'" onclick="labTab(\'almacen\')">🧪 Almacén de Laboratorio</button>'
+    +   '<button id="lab_tab_recetas" class="tab-btn'+(_labTab==='recetas'?' act':'')+'" onclick="labTab(\'recetas\')">📋 Recetas</button>'
+    +   '<button id="lab_tab_produccion" class="tab-btn'+(_labTab==='produccion'?' act':'')+'" onclick="labTab(\'produccion\')">⚗️ Producción</button>'
+    + '</div>'
+    + '<div id="lab_cont">'+body+'</div>'
+    + '</div>';
+}
+function labTab(t){
+  _labTab=t;
+  ['almacen','recetas','produccion'].forEach(function(x){
+    var b=document.getElementById('lab_tab_'+x); if(b) b.className='tab-btn'+(x===t?' act':'');
+  });
+  var cont=document.getElementById('lab_cont'); if(!cont) return;
+  cont.innerHTML = t==='recetas' ? labRecetasHTML() : t==='produccion' ? labProduccionHTML() : labAlmacenHTML();
+}
+
+/* ── Sub-pestaña: Almacén de Laboratorio ── */
+function labAlmacenHTML(){
+  var activos = LAB_MATERIAS.filter(function(m){return m.activo;});
+  var inactivos = LAB_MATERIAS.filter(function(m){return !m.activo;});
+  var cats={};
+  activos.forEach(function(m){ (cats[m.tipo]=cats[m.tipo]||[]).push(m); });
+  var h = '<div style="display:flex;gap:8px;margin-bottom:14px"><button class="bg" onclick="labMpAbrirNuevo()"><i class="ti ti-plus"></i> Nueva materia prima</button></div>';
+  [['quimico','⚗️ Químicos'],['natural','🌿 Naturales']].forEach(function(par){
+    var lista=cats[par[0]]||[]; if(!lista.length) return;
+    h += '<div class="sl">'+par[1]+' ('+lista.length+')</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Materia prima</th><th class="tr">Stock</th><th class="tr">Costo/unidad</th><th>Acciones</th></tr></thead><tbody>'
+      + lista.map(function(m){
+          return '<tr><td style="font-weight:600">'+m.nombre+'</td>'
+            + '<td class="tr" style="'+(Number(m.stock)<=0?'color:var(--er);font-weight:700':'')+'">'+Number(m.stock).toLocaleString('es-DO',{maximumFractionDigits:3})+' '+labUnidadLbl(m.unidad)+'</td>'
+            + '<td class="tr">'+fM(Number(m.costo_unitario)||0)+' / '+labUnidadLbl(m.unidad)+'</td>'
+            + '<td style="white-space:nowrap"><button class="bsm" onclick="labMpAbrirEntrada('+m.id+')"><i class="ti ti-plus"></i> Entrada</button> '
+            + '<button class="bsm" onclick="labMpAbrirEdicion('+m.id+')"><i class="ti ti-edit"></i></button> '
+            + '<button class="bsm" style="color:var(--er)" onclick="labMpDesactivar('+m.id+')"><i class="ti ti-trash"></i></button></td></tr>';
+        }).join('')
+      + '</tbody></table></div>';
+  });
+  if(!activos.length) h += '<div class="empty"><i class="ti ti-flask"></i><p>Sin materias primas activas</p></div>';
+  if(inactivos.length){
+    h += '<details style="margin-top:14px"><summary style="cursor:pointer">🗄️ Desactivadas ('+inactivos.length+')</summary>'
+      + '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Materia prima</th><th class="tr">Stock</th><th>Acciones</th></tr></thead><tbody>'
+      + inactivos.map(function(m){ return '<tr style="opacity:.6"><td>'+m.nombre+'</td><td class="tr">'+Number(m.stock).toFixed(2)+' '+labUnidadLbl(m.unidad)+'</td>'
+        + '<td><button class="bsm" onclick="labMpReactivar('+m.id+')"><i class="ti ti-rotate"></i> Reactivar</button></td></tr>'; }).join('')
+      + '</tbody></table></div></details>';
+  }
+  if(typeof perms==='function' && perms().includes('excel')){
+    h += '<div class="card" style="margin-top:14px"><details>'
+      + '<summary style="cursor:pointer"><b>📊 Importar / Exportar Excel</b></summary>'
+      + '<div style="margin:10px 0;font-size:12px;color:var(--k-mist)">Columnas: <b>Materia Prima, Tipo (Químico/Natural), Unidad (Gramos/Kilogramos/Onzas/Galón), Costo Unitario</b>. Si ya existe (mismo nombre) se actualiza; si no, se crea.</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
+      + '<input type="file" id="lab-excel-file" accept=".xlsx,.xls">'
+      + '<button type="button" class="bs" onclick="labPlantillaExcel()">⬇️ Descargar plantilla</button>'
+      + '<button type="button" class="bs" onclick="labExportarExcel()">⬇️ Exportar catálogo</button>'
+      + '</div><pre id="lab-excel-log" style="white-space:pre-wrap;font-family:inherit;font-size:12px;background:rgba(0,0,0,.03);border-radius:8px;padding:10px;min-height:20px;max-height:220px;overflow-y:auto">Esperando archivo…</pre>'
+      + '</details></div>';
+  }
+  return h;
+}
+function labMpAbrirNuevo(){ _labMpEditando=null; _labMpModal('Nueva materia prima','','quimico','gramos',0); }
+function labMpAbrirEdicion(id){
+  var m=LAB_MATERIAS.find(function(x){return x.id===id;}); if(!m) return;
+  _labMpEditando=id; _labMpModal('Editar materia prima', m.nombre, m.tipo, m.unidad, Number(m.costo_unitario)||0);
+}
+function _labMpModal(titulo,nombre,tipo,unidad,costo){
+  var ov=document.createElement('div');
+  ov.id='lab_mp_modal_ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  ov.innerHTML=
+    '<div style="background:#fff;border-radius:16px;width:100%;max-width:420px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
+    + '<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">'+titulo+'</div>'
+    + '<div style="padding:18px 20px">'
+    +   '<div class="fi"><label>Nombre *</label><input id="lmp_nm" value="'+(nombre||'').replace(/"/g,'&quot;')+'"></div>'
+    +   '<div class="g2" style="margin-top:10px">'
+    +     '<div class="fi"><label>Tipo</label><select id="lmp_tipo"><option value="quimico"'+(tipo==='quimico'?' selected':'')+'>Químico</option><option value="natural"'+(tipo==='natural'?' selected':'')+'>Natural</option></select></div>'
+    +     '<div class="fi"><label>Unidad</label><select id="lmp_unidad">'
+    +       ['gramos','kilogramos','onzas','galon'].map(function(u){return '<option value="'+u+'"'+(unidad===u?' selected':'')+'>'+u.charAt(0).toUpperCase()+u.slice(1)+'</option>';}).join('')
+    +     '</select></div>'
+    +   '</div>'
+    +   '<div class="fi" style="margin-top:10px"><label>Costo por unidad RD$</label><input id="lmp_costo" type="number" step="0.0001" value="'+costo+'"></div>'
+    + '</div>'
+    + '<div style="padding:14px 20px;border-top:1px solid var(--br);display:flex;justify-content:flex-end;gap:8px">'
+    +   '<button class="bs" onclick="document.getElementById(\'lab_mp_modal_ov\').remove()">Cancelar</button>'
+    +   '<button class="bg" onclick="labMpGuardar()">Guardar</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  setTimeout(function(){var el=document.getElementById('lmp_nm');if(el)el.focus();},50);
+}
+async function labMpGuardar(){
+  var nombre=(document.getElementById('lmp_nm')?.value||'').trim();
+  var tipo=document.getElementById('lmp_tipo')?.value;
+  var unidad=document.getElementById('lmp_unidad')?.value;
+  var costo=parseFloat(document.getElementById('lmp_costo')?.value)||0;
+  if(!nombre){ alert('Falta el nombre.'); return; }
+  try{
+    if(_labMpEditando!=null) await apiFetch('/api/lab/materias-primas/'+_labMpEditando,{method:'PATCH',body:{nombre:nombre,tipo:tipo,unidad:unidad,costoUnitario:costo}});
+    else await apiFetch('/api/lab/materias-primas',{method:'POST',body:{nombre:nombre,tipo:tipo,unidad:unidad,costoUnitario:costo}});
+  }catch(e){ alert('No se pudo guardar: '+e.message); return; }
+  document.getElementById('lab_mp_modal_ov')?.remove();
+  await cargarLabDatos();
+  if(pag==='laboratorio') document.getElementById('main').innerHTML=rLaboratorio();
+  if(typeof showToast==='function') showToast('Materia prima guardada ✅');
+}
+async function labMpDesactivar(id){
+  var m=LAB_MATERIAS.find(function(x){return x.id===id;}); if(!m) return;
+  if(!confirm('¿Desactivar "'+m.nombre+'"?')) return;
+  try{ await apiFetch('/api/lab/materias-primas/'+id+'/desactivar',{method:'POST'}); }
+  catch(e){ alert('No se pudo desactivar: '+e.message); return; }
+  await cargarLabDatos();
+  if(pag==='laboratorio') document.getElementById('main').innerHTML=rLaboratorio();
+}
+async function labMpReactivar(id){
+  try{ await apiFetch('/api/lab/materias-primas/'+id+'/reactivar',{method:'POST'}); }
+  catch(e){ alert('No se pudo reactivar: '+e.message); return; }
+  await cargarLabDatos();
+  if(pag==='laboratorio') document.getElementById('main').innerHTML=rLaboratorio();
+}
+function labMpAbrirEntrada(id){
+  var m=LAB_MATERIAS.find(function(x){return x.id===id;}); if(!m) return;
+  _labEntradaMpId=id;
+  var ov=document.createElement('div');
+  ov.id='lab_entrada_modal_ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  ov.innerHTML=
+    '<div style="background:#fff;border-radius:16px;width:100%;max-width:380px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
+    + '<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Entrada — '+m.nombre+'</div>'
+    + '<div style="padding:18px 20px">'
+    +   '<div class="cs" style="margin-bottom:10px">Stock actual: <b>'+Number(m.stock).toLocaleString('es-DO',{maximumFractionDigits:3})+' '+labUnidadLbl(m.unidad)+'</b></div>'
+    +   '<div class="fi"><label>Cantidad que entra ('+labUnidadLbl(m.unidad)+') *</label><input id="le_cant" type="number" step="0.001"></div>'
+    +   '<div class="fi" style="margin-top:10px"><label>Costo total de esta compra RD$ (actualiza el costo por unidad)</label><input id="le_costo" type="number" step="0.01"></div>'
+    +   '<div class="fi" style="margin-top:10px"><label>Proveedor</label><input id="le_prov"></div>'
+    + '</div>'
+    + '<div style="padding:14px 20px;border-top:1px solid var(--br);display:flex;justify-content:flex-end;gap:8px">'
+    +   '<button class="bs" onclick="document.getElementById(\'lab_entrada_modal_ov\').remove()">Cancelar</button>'
+    +   '<button class="bg" onclick="labEntradaGuardar()">Registrar entrada</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  setTimeout(function(){var el=document.getElementById('le_cant');if(el)el.focus();},50);
+}
+async function labEntradaGuardar(){
+  var cant=parseFloat(document.getElementById('le_cant')?.value);
+  var costo=parseFloat(document.getElementById('le_costo')?.value)||null;
+  var prov=(document.getElementById('le_prov')?.value||'').trim();
+  if(!cant || cant<=0){ alert('Cantidad inválida.'); return; }
+  try{ await apiFetch('/api/lab/materias-primas/'+_labEntradaMpId+'/entrada',{method:'POST',body:{cantidad:cant,costoTotal:costo,proveedor:prov}}); }
+  catch(e){ alert('No se pudo registrar: '+e.message); return; }
+  document.getElementById('lab_entrada_modal_ov')?.remove();
+  await cargarLabDatos();
+  if(pag==='laboratorio') document.getElementById('main').innerHTML=rLaboratorio();
+  if(typeof showToast==='function') showToast('Entrada registrada ✅');
+}
+
+/* ── Sub-pestaña: Recetas ── */
+function labRecetasHTML(){
+  var activos = (typeof PRODUCTOS_ADMIN!=='undefined'?PRODUCTOS_ADMIN:[]).filter(function(p){return p.activo;});
+  var h = '<div class="fi"><label>Elige un producto para ver/crear su receta</label>'
+    + '<select id="lab_rec_prod_sel" onchange="labRecetaSeleccionar(parseInt(this.value)||0)"><option value="">Seleccionar...</option>'
+    + activos.map(function(p){ return '<option value="'+p.id+'"'+(_labRecetaEditando&&_labRecetaEditando.productoId===p.id?' selected':'')+'>'+p.nombre+'</option>'; }).join('')
+    + '</select></div>'
+    + '<div id="lab_receta_editor" style="margin-top:14px">'+(_labRecetaEditando?labRecetaEditorHTML():'')+'</div>';
+  return h;
+}
+function labRecetaSeleccionar(productoId){
+  if(!productoId){ _labRecetaEditando=null; var c=document.getElementById('lab_receta_editor'); if(c)c.innerHTML=''; return; }
+  var existente = LAB_RECETAS.find(function(r){return r.producto_id===productoId;});
+  var prod = PRODUCTOS_ADMIN.find(function(p){return p.id===productoId;});
+  _labRecetaEditando = {
+    productoId: productoId,
+    productoNombre: prod?prod.nombre:'',
+    precioReferencia: prod?Number(prod.precio_referencia)||0:0,
+    contenidoPorUnidad: existente?Number(existente.contenido_por_unidad):1,
+    contenidoUnidad: existente?existente.contenido_unidad:'gramos',
+    notas: existente?(existente.notas||''):'',
+    items: existente?existente.items.map(function(it){return {materiaPrimaId:it.materiaPrimaId,cantidad:Number(it.cantidad)};}):[],
+    calculo: existente?existente.calculo:null,
+  };
+  document.getElementById('lab_receta_editor').innerHTML = labRecetaEditorHTML();
+}
+function labRecetaEditorHTML(){
+  var e=_labRecetaEditando;
+  var itemsHTML = e.items.map(function(it,i){
+    var mp = LAB_MATERIAS.find(function(m){return m.id===it.materiaPrimaId;});
+    return '<div class="g2" style="margin-bottom:6px">'
+      + '<div class="fi"><label>Materia prima</label><select onchange="labRecetaItemCambiar('+i+',\'materiaPrimaId\',parseInt(this.value)||null)">'
+      +   '<option value="">Seleccionar...</option>'
+      +   LAB_MATERIAS.filter(function(m){return m.activo;}).map(function(m){return '<option value="'+m.id+'"'+(m.id===it.materiaPrimaId?' selected':'')+'>'+m.nombre+' ('+labUnidadLbl(m.unidad)+')</option>';}).join('')
+      + '</select></div>'
+      + '<div style="display:flex;gap:6px;align-items:end">'
+      +   '<div class="fi" style="flex:1"><label>Cantidad'+(mp?' ('+labUnidadLbl(mp.unidad)+')':'')+'</label><input type="number" step="0.001" value="'+(it.cantidad||'')+'" oninput="labRecetaItemCambiar('+i+',\'cantidad\',parseFloat(this.value)||0)"></div>'
+      +   '<button class="bsm" style="color:var(--er);margin-bottom:2px" onclick="labRecetaItemQuitar('+i+')"><i class="ti ti-trash"></i></button>'
+      + '</div></div>';
+  }).join('');
+  return '<div class="card">'
+    + '<div class="ct" style="font-size:14px">'+e.productoNombre+'</div>'
+    + '<div class="g2">'
+    +   '<div class="fi"><label>Contenido por unidad vendida *</label><input type="number" step="0.001" value="'+e.contenidoPorUnidad+'" oninput="_labRecetaEditando.contenidoPorUnidad=parseFloat(this.value)||0"></div>'
+    +   '<div class="fi"><label>Unidad</label><select onchange="_labRecetaEditando.contenidoUnidad=this.value">'
+    +     ['gramos','kilogramos','onzas','galon'].map(function(u){return '<option value="'+u+'"'+(e.contenidoUnidad===u?' selected':'')+'>'+u+'</option>';}).join('')
+    +   '</select></div>'
+    + '</div>'
+    + '<div class="sl" style="margin-top:12px">Ingredientes</div>'
+    + itemsHTML
+    + '<button class="bsm" onclick="labRecetaItemAgregar()"><i class="ti ti-plus"></i> Agregar ingrediente</button>'
+    + '<div class="fi" style="margin-top:12px"><label>Notas</label><textarea oninput="_labRecetaEditando.notas=this.value">'+(e.notas||'')+'</textarea></div>'
+    + (e.calculo?labRecetaResumenHTML(e.calculo, e.precioReferencia):'<div class="cs" style="margin-top:10px">Guarda la receta para ver el cálculo de peso, unidades y costo.</div>')
+    + '<div style="margin-top:14px"><button class="bg" onclick="labRecetaGuardar()">Guardar receta</button></div>'
+    + '</div>';
+}
+function labRecetaItemAgregar(){ _labRecetaEditando.items.push({materiaPrimaId:null,cantidad:0}); document.getElementById('lab_receta_editor').innerHTML=labRecetaEditorHTML(); }
+function labRecetaItemQuitar(i){ _labRecetaEditando.items.splice(i,1); document.getElementById('lab_receta_editor').innerHTML=labRecetaEditorHTML(); }
+function labRecetaItemCambiar(i,campo,val){
+  _labRecetaEditando.items[i][campo]=val;
+  if(campo==='materiaPrimaId') document.getElementById('lab_receta_editor').innerHTML=labRecetaEditorHTML();
+}
+function labRecetaResumenHTML(c, precioReferencia){
+  var margenTxt = c.margenPct!=null ? c.margenPct.toFixed(1)+'%' : '—';
+  var margenColor = c.margenPct==null ? 'var(--t2)' : c.margenPct>=30 ? 'var(--green)' : c.margenPct>=0 ? '#E65100' : 'var(--er)';
+  return '<div style="background:rgba(196,138,31,.06);border:1.5px solid rgba(196,138,31,.25);border-radius:12px;padding:14px 16px;margin-top:14px">'
+    + '<div style="font-weight:800;margin-bottom:8px">📐 Cálculo de esta receta</div>'
+    + '<div class="g2">'
+    +   '<div><div class="dl">Peso/volumen total del lote</div><div class="dv">'+Number(c.pesoTotalGramos).toLocaleString('es-DO',{maximumFractionDigits:1})+' g</div></div>'
+    +   '<div><div class="dl">Unidades que rinde 1 lote</div><div class="dv">'+Number(c.unidadesPorLote).toLocaleString('es-DO',{maximumFractionDigits:2})+'</div></div>'
+    +   '<div><div class="dl">Costo total del lote</div><div class="dv">'+fM(c.costoTotalLote)+'</div></div>'
+    +   '<div><div class="dl">Costo de fabricar cada unidad</div><div class="dv" style="font-weight:700;color:var(--gold)">'+fM(c.costoPorUnidad)+'</div></div>'
+    +   '<div><div class="dl">Precio de venta actual</div><div class="dv">'+fM(precioReferencia)+'</div></div>'
+    +   '<div><div class="dl">Margen</div><div class="dv" style="font-weight:700;color:'+margenColor+'">'+margenTxt+'</div></div>'
+    + '</div></div>';
+}
+async function labRecetaGuardar(){
+  var e=_labRecetaEditando;
+  if(!e.contenidoPorUnidad || e.contenidoPorUnidad<=0){ alert('Indica cuánto contiene cada unidad vendida.'); return; }
+  var items=e.items.filter(function(it){return it.materiaPrimaId && it.cantidad>0;});
+  if(!items.length){ alert('Agrega al menos un ingrediente con cantidad.'); return; }
+  try{
+    await apiFetch('/api/lab/recetas/'+e.productoId,{method:'POST',body:{contenidoPorUnidad:e.contenidoPorUnidad,contenidoUnidad:e.contenidoUnidad,notas:e.notas,items:items}});
+  }catch(err){ alert('No se pudo guardar: '+err.message); return; }
+  await cargarLabDatos();
+  var actualizada = LAB_RECETAS.find(function(r){return r.producto_id===e.productoId;});
+  if(actualizada){
+    _labRecetaEditando.items = actualizada.items.map(function(it){return {materiaPrimaId:it.materiaPrimaId,cantidad:Number(it.cantidad)};});
+    _labRecetaEditando.calculo = actualizada.calculo;
+  }
+  var cont=document.getElementById('lab_receta_editor'); if(cont) cont.innerHTML=labRecetaEditorHTML();
+  if(typeof showToast==='function') showToast('Receta guardada ✅');
+}
+
+/* ── Sub-pestaña: Producción ── */
+function labProduccionHTML(){
+  var recetasConItems = LAB_RECETAS.filter(function(r){return r.items && r.items.length;});
+  var h = '<div class="fi"><label>Elige la receta a fabricar</label>'
+    + '<select id="lab_prod_receta_sel" onchange="labProduccionSeleccionar(parseInt(this.value)||0)"><option value="">Seleccionar...</option>'
+    + recetasConItems.map(function(r){ return '<option value="'+r.id+'">'+r.producto_nombre+'</option>'; }).join('')
+    + '</select></div>'
+    + '<div id="lab_produccion_editor" style="margin-top:14px"></div>'
+    + '<div class="sl" style="margin-top:20px">Producciones recientes</div>';
+  if(!LAB_PRODUCCIONES.length) h += '<div class="empty"><i class="ti ti-flask"></i><p>Sin producciones registradas</p></div>';
+  else {
+    h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Fecha</th><th>Producto</th><th class="tr">Lotes</th><th class="tr">Unidades</th><th class="tr">Costo total</th><th class="tr">Costo/unidad</th><th>Registró</th></tr></thead><tbody>'
+      + LAB_PRODUCCIONES.map(function(p){
+          return '<tr><td style="font-size:11px">'+fD(p.fecha)+'</td><td style="font-weight:600">'+p.producto_nombre+'</td>'
+            + '<td class="tr">'+Number(p.lotes)+'</td><td class="tr">'+Number(p.unidades_producidas).toFixed(2)+'</td>'
+            + '<td class="tr">'+fM(p.costo_total)+'</td><td class="tr">'+fM(p.costo_por_unidad)+'</td>'
+            + '<td style="font-size:11px">'+(p.registrado_por_nombre||'—')+'</td></tr>';
+        }).join('')
+      + '</tbody></table></div>';
+  }
+  return h;
+}
+function labProduccionSeleccionar(recetaId){
+  var cont=document.getElementById('lab_produccion_editor');
+  if(!recetaId){ if(cont)cont.innerHTML=''; return; }
+  var r = LAB_RECETAS.find(function(x){return x.id===recetaId;});
+  if(!r || !cont){ if(cont)cont.innerHTML=''; return; }
+  cont.innerHTML = '<div class="card">'
+    + labRecetaResumenHTML(r.calculo, r.precio_referencia)
+    + '<div class="fi" style="margin-top:12px"><label>¿Cuántos lotes vas a fabricar?</label><input id="lab_prod_lotes" type="number" step="0.01" value="1" oninput="labProduccionPreview('+recetaId+')"></div>'
+    + '<div id="lab_prod_preview" style="margin-top:10px"></div>'
+    + '<label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px"><input type="checkbox" id="lab_prod_sumar" checked> Sumar las unidades producidas al Almacén Principal</label>'
+    + '<div style="margin-top:14px"><button class="bg" onclick="labProduccionConfirmar('+recetaId+')">⚗️ Registrar producción</button></div>'
+    + '</div>';
+  labProduccionPreview(recetaId);
+}
+function labProduccionPreview(recetaId){
+  var r = LAB_RECETAS.find(function(x){return x.id===recetaId;});
+  var lotes = parseFloat(document.getElementById('lab_prod_lotes')?.value)||0;
+  var prev=document.getElementById('lab_prod_preview'); if(!prev||!r) return;
+  if(lotes<=0){ prev.innerHTML=''; return; }
+  var faltantes=[];
+  (r.items||[]).forEach(function(it){
+    var mp=LAB_MATERIAS.find(function(m){return m.id===it.materiaPrimaId;});
+    var necesario=Number(it.cantidad)*lotes;
+    if(mp && necesario>Number(mp.stock)) faltantes.push(mp.nombre+': faltan '+(necesario-Number(mp.stock)).toFixed(3)+' '+labUnidadLbl(mp.unidad));
+  });
+  var unidades = r.calculo.unidadesPorLote*lotes;
+  var costoTot = r.calculo.costoTotalLote*lotes;
+  prev.innerHTML = '<div style="font-size:13px"><b>Producirá:</b> '+unidades.toLocaleString('es-DO',{maximumFractionDigits:2})+' unidades · <b>Costo total:</b> '+fM(costoTot)+'</div>'
+    + (faltantes.length ? '<div style="color:var(--er);font-size:12px;margin-top:6px">⚠️ No hay suficiente materia prima:<br>'+faltantes.join('<br>')+'</div>' : '<div style="color:var(--green);font-size:12px;margin-top:6px">✅ Hay materia prima suficiente</div>');
+}
+async function labProduccionConfirmar(recetaId){
+  var lotes = parseFloat(document.getElementById('lab_prod_lotes')?.value)||0;
+  var sumar = document.getElementById('lab_prod_sumar')?.checked;
+  if(lotes<=0){ alert('Cantidad de lotes inválida.'); return; }
+  if(!confirm('¿Confirmar producción de '+lotes+' lote(s)? Esto descuenta la materia prima usada.')) return;
+  var res;
+  try{ res = await apiFetch('/api/lab/producciones',{method:'POST',body:{recetaId:recetaId,lotes:lotes,sumarAlmacen:sumar}}); }
+  catch(e){ alert('No se pudo registrar: '+(e.data&&e.data.faltantes?e.data.faltantes.join('\n'):e.message)); return; }
+  await cargarLabDatos(); await cargarProductos();
+  if(pag==='laboratorio') document.getElementById('main').innerHTML=rLaboratorio();
+  if(typeof showToast==='function') showToast('Producción registrada: '+Number(res.unidades_producidas).toFixed(0)+' unidades ✅');
+}
+
+/* ── Excel (materias primas) -- gateado por el permiso opcional 'excel' ── */
+function labPlantillaExcel(){
+  if(typeof XLSX==='undefined'){ alert('Recarga la página: el lector de Excel no cargó.'); return; }
+  var datos=[['Materia Prima','Tipo (Quimico/Natural)','Unidad (Gramos/Kilogramos/Onzas/Galon)','Costo Unitario RD$'],['Aceite de Coco','Natural','Galon',850]];
+  var ws=XLSX.utils.aoa_to_sheet(datos);
+  ws['!cols']=[{wch:28},{wch:18},{wch:22},{wch:14}];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Materias Primas');
+  XLSX.writeFile(wb, 'plantilla_materias_primas.xlsx');
+}
+function labExportarExcel(){
+  if(typeof XLSX==='undefined'){ alert('Recarga la página: el lector de Excel no cargó.'); return; }
+  var datos=[['Materia Prima','Tipo','Unidad','Costo Unitario RD$','Stock','Activo']];
+  LAB_MATERIAS.forEach(function(m){ datos.push([m.nombre, m.tipo, m.unidad, Number(m.costo_unitario)||0, Number(m.stock)||0, m.activo?'Sí':'No']); });
+  var ws=XLSX.utils.aoa_to_sheet(datos);
+  ws['!cols']=[{wch:28},{wch:12},{wch:14},{wch:14},{wch:12},{wch:8}];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Materias Primas');
+  XLSX.writeFile(wb, 'materias_primas_'+hoy()+'.xlsx');
+}
+function _labLog(msg){ var log=document.getElementById('lab-excel-log'); if(log) log.textContent += (log.textContent?'\n':'')+msg; }
+async function labImportarExcel(ev){
+  var f=ev.target.files && ev.target.files[0]; if(!f) return;
+  var log=document.getElementById('lab-excel-log'); if(log) log.textContent='';
+  if(typeof XLSX==='undefined'){ _labLog('❌ No se pudo cargar el lector de Excel.'); ev.target.value=''; return; }
+  var r=new FileReader();
+  r.onload=async function(e){
+    var filas=[];
+    try{
+      var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      filas=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+      _labLog(filas.length+' fila(s) leída(s)');
+    }catch(err){ _labLog('❌ Error al leer el Excel: '+err.message); ev.target.value=''; return; }
+    var creados=0, actualizados=0, conError=0;
+    for(var i=0;i<filas.length;i++){
+      var g={}; Object.keys(filas[i]).forEach(function(k){ g[_cbNorm(k)]=filas[i][k]; });
+      var nombre=String(g.materiaprima||g.nombre||'').trim();
+      var tipoRaw=_cbNorm(g.tipo||'');
+      var tipo = tipoRaw.indexOf('nat')>=0 ? 'natural' : 'quimico';
+      var unidadRaw=_cbNorm(g.unidad||'');
+      var unidad = unidadRaw.indexOf('kilo')>=0?'kilogramos': unidadRaw.indexOf('onza')>=0?'onzas': unidadRaw.indexOf('galon')>=0?'galon':'gramos';
+      var costo=_cbNum(g.costounitario||g.costo)||0;
+      if(!nombre) continue;
+      var existente=LAB_MATERIAS.find(function(m){ return _cbNorm(m.nombre)===_cbNorm(nombre); });
+      try{
+        if(existente){
+          await apiFetch('/api/lab/materias-primas/'+existente.id,{method:'PATCH',body:{nombre:nombre,tipo:tipo,unidad:unidad,costoUnitario:costo,origen:'excel'}});
+          actualizados++; _labLog('🔄 Fila '+(i+2)+': '+nombre+' → actualizado');
+        } else {
+          await apiFetch('/api/lab/materias-primas',{method:'POST',body:{nombre:nombre,tipo:tipo,unidad:unidad,costoUnitario:costo,origen:'excel'}});
+          creados++; _labLog('✅ Fila '+(i+2)+': '+nombre+' → creado');
+        }
+      }catch(err){ conError++; _labLog('❌ Fila '+(i+2)+' ('+nombre+'): '+err.message); }
+    }
+    await cargarLabDatos();
+    if(pag==='laboratorio') document.getElementById('main').innerHTML=rLaboratorio();
+    _labLog(''); _labLog('✅ '+creados+' nuevo(s), 🔄 '+actualizados+' actualizado(s)'+(conError?', ❌ '+conError+' con error':''));
+    if(typeof showToast==='function') showToast('Excel de materias primas importado');
+    ev.target.value='';
+  };
+  r.onerror=function(){ _labLog('❌ No se pudo abrir el archivo.'); ev.target.value=''; };
+  r.readAsArrayBuffer(f);
+}
+(function(){
+  document.addEventListener('change', function(ev){
+    if(ev.target && ev.target.id==='lab-excel-file') labImportarExcel(ev);
   });
 })();
 </script>

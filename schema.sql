@@ -362,6 +362,94 @@ CREATE TABLE IF NOT EXISTS cobrador_envios_programados (
   creado_en         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- ── LABORATORIO (fabricación de productos capilares/cosméticos) ──────
+-- Catálogo de materias primas con inventario real (no solo referencia):
+-- el stock sube con entradas (compras) y baja cuando se usa en una
+-- producción. Las recetas conectan una materia prima con un producto
+-- terminado del catálogo (`productos`) ya existente.
+CREATE TABLE IF NOT EXISTS lab_materias_primas (
+  id              SERIAL PRIMARY KEY,
+  nombre          TEXT NOT NULL UNIQUE,
+  tipo            TEXT NOT NULL DEFAULT 'quimico' CHECK (tipo IN ('quimico','natural')),
+  unidad          TEXT NOT NULL DEFAULT 'gramos' CHECK (unidad IN ('gramos','kilogramos','onzas','galon')),
+  costo_unitario  NUMERIC(12,4) NOT NULL DEFAULT 0,
+  stock           NUMERIC(14,3) NOT NULL DEFAULT 0,
+  activo          BOOLEAN NOT NULL DEFAULT TRUE,
+  creado_en       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Entradas (compras) de materia prima -- lo único que sube el stock
+-- fuera de una corrección manual.
+CREATE TABLE IF NOT EXISTS lab_entradas (
+  id                SERIAL PRIMARY KEY,
+  materia_prima_id  INTEGER NOT NULL REFERENCES lab_materias_primas(id) ON DELETE RESTRICT,
+  cantidad          NUMERIC(14,3) NOT NULL,
+  costo_total       NUMERIC(12,2),
+  proveedor         TEXT,
+  fecha             DATE NOT NULL DEFAULT CURRENT_DATE,
+  registrado_por    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  creado_en         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_lab_entradas_materia ON lab_entradas(materia_prima_id);
+
+-- Receta/fórmula de un producto terminado: una sola por producto
+-- (se reemplazan los ingredientes al guardar, como una edición completa).
+-- Cuántas unidades rinde y cuánto cuesta fabricar cada una NO se
+-- guardan aquí -- se calculan al vuelo (db.js) a partir del peso/volumen
+-- total de los ingredientes y de contenido_por_unidad, para que si
+-- cambia el costo de una materia prima el cálculo se actualice solo,
+-- sin tener que volver a guardar cada receta (mismo criterio que
+-- asientosAuto()/ALMA_SELECT: derivar, no cachear un valor que se
+-- desactualiza).
+CREATE TABLE IF NOT EXISTS lab_recetas (
+  id                    SERIAL PRIMARY KEY,
+  producto_id           INTEGER NOT NULL UNIQUE REFERENCES productos(id) ON DELETE CASCADE,
+  contenido_por_unidad  NUMERIC(12,3) NOT NULL DEFAULT 1, -- cuánto lleva CADA unidad vendida (ej. 300 = 300 gramos por pote)
+  contenido_unidad      TEXT NOT NULL DEFAULT 'gramos' CHECK (contenido_unidad IN ('gramos','kilogramos','onzas','galon')),
+  notas                 TEXT,
+  actualizado_en        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS lab_receta_items (
+  id                SERIAL PRIMARY KEY,
+  receta_id         INTEGER NOT NULL REFERENCES lab_recetas(id) ON DELETE CASCADE,
+  materia_prima_id  INTEGER NOT NULL REFERENCES lab_materias_primas(id) ON DELETE RESTRICT,
+  cantidad          NUMERIC(14,3) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_lab_receta_items_receta ON lab_receta_items(receta_id);
+
+-- Producción: fabricar `lotes` veces la receta. Descuenta cada materia
+-- prima (cantidad de la receta × lotes) y, si se pidió, suma el
+-- producto terminado a almacen_stock (bodega) -- misma tabla que ya
+-- usa el Almacén Principal, para no duplicar el inventario de producto
+-- terminado en dos lados.
+-- unidades_producidas/costo_total/costo_por_unidad SÍ se guardan acá
+-- (a diferencia de lab_recetas) porque son un snapshot histórico de lo
+-- que realmente pasó en esa producción -- no deben cambiar si después
+-- se edita la receta o cambia el precio de una materia prima.
+CREATE TABLE IF NOT EXISTS lab_producciones (
+  id                  SERIAL PRIMARY KEY,
+  receta_id           INTEGER NOT NULL REFERENCES lab_recetas(id) ON DELETE RESTRICT,
+  lotes               NUMERIC(12,3) NOT NULL DEFAULT 1,
+  unidades_producidas NUMERIC(12,2) NOT NULL DEFAULT 0,
+  costo_total         NUMERIC(12,2) NOT NULL DEFAULT 0,
+  costo_por_unidad    NUMERIC(12,4) NOT NULL DEFAULT 0,
+  sumo_almacen        BOOLEAN NOT NULL DEFAULT TRUE,
+  fecha               DATE NOT NULL DEFAULT CURRENT_DATE,
+  registrado_por      INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Snapshot de lo consumido en cada producción -- si la receta cambia
+-- después, el historial de qué se gastó realmente no se altera.
+CREATE TABLE IF NOT EXISTS lab_produccion_items (
+  id                SERIAL PRIMARY KEY,
+  produccion_id     INTEGER NOT NULL REFERENCES lab_producciones(id) ON DELETE CASCADE,
+  materia_prima_id  INTEGER NOT NULL REFERENCES lab_materias_primas(id) ON DELETE RESTRICT,
+  cantidad_consumida NUMERIC(14,3) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_lab_produccion_items_produccion ON lab_produccion_items(produccion_id);
+
 -- ── CONFIGURACIÓN DE IA (Keva) ────────────────────────────────────────
 -- La clave del negocio vive acá cifrada, nunca en el HTML (Etapa 6).
 CREATE TABLE IF NOT EXISTS config_ia (
