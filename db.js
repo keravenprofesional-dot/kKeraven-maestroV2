@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
@@ -1280,6 +1281,126 @@ async function registrarProduccion(recetaId, lotes, sumarAlmacen, usuarioId) {
   }
 }
 
+// ── IA (Sarah) — clave del negocio cifrada en el servidor, nunca en el
+// HTML (Etapa 6). AES-256-GCM con IA_CIFRADO_SECRET del .env; si falta
+// esa variable, cifrar/descifrar falla ruidosamente en vez de usar una
+// clave débil por defecto -- un secreto "de repuesto" hardcodeado
+// arruinaría el propósito de cifrar.
+function _iaClaveCifrado() {
+  const secreto = process.env.IA_CIFRADO_SECRET;
+  if (!secreto || secreto.length < 64) {
+    throw new Error('Falta IA_CIFRADO_SECRET en el .env (32 bytes en hexadecimal, 64 caracteres)');
+  }
+  return Buffer.from(secreto.slice(0, 64), 'hex');
+}
+function _iaCifrar(texto) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', _iaClaveCifrado(), iv);
+  const cifrado = Buffer.concat([cipher.update(texto, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([iv, tag, cifrado]).toString('base64');
+}
+function _iaDescifrar(valor) {
+  const buf = Buffer.from(valor, 'base64');
+  const iv = buf.subarray(0, 12);
+  const tag = buf.subarray(12, 28);
+  const cifrado = buf.subarray(28);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', _iaClaveCifrado(), iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(cifrado), decipher.final()]).toString('utf8');
+}
+
+async function guardarClaveIA(proveedor, apiKey) {
+  const cifrada = _iaCifrar(apiKey);
+  const { rows } = await pool.query(
+    `INSERT INTO config_ia (proveedor, api_key_cifrada, activo, actualizado_en)
+     VALUES ($1,$2,TRUE,now())
+     ON CONFLICT (proveedor) DO UPDATE SET api_key_cifrada = $2, activo = TRUE, actualizado_en = now()
+     RETURNING proveedor, activo, actualizado_en`,
+    [proveedor, cifrada]
+  );
+  return rows[0];
+}
+async function desactivarClaveIA(proveedor) {
+  await pool.query(`UPDATE config_ia SET activo = FALSE WHERE proveedor = $1`, [proveedor]);
+}
+// Nunca devuelve la clave descifrada -- solo si hay una guardada y si
+// está activa, para que la pantalla de administración pueda mostrar
+// el estado sin exponer el secreto.
+async function listarConfigIA() {
+  const { rows } = await pool.query(
+    `SELECT proveedor, activo, actualizado_en, (api_key_cifrada IS NOT NULL) AS tiene_clave FROM config_ia ORDER BY proveedor`
+  );
+  return rows;
+}
+
+// Uso interno del proxy de chat -- la única función que sí descifra,
+// y su resultado nunca sale del servidor hacia el cliente.
+async function _iaProveedorActivo() {
+  const { rows } = await pool.query(
+    `SELECT proveedor, api_key_cifrada FROM config_ia
+     WHERE activo = TRUE AND api_key_cifrada IS NOT NULL
+     ORDER BY CASE proveedor WHEN 'claude' THEN 1 WHEN 'openai' THEN 2 WHEN 'gemini' THEN 3 ELSE 4 END
+     LIMIT 1`
+  );
+  if (!rows[0]) return null;
+  return { proveedor: rows[0].proveedor, apiKey: _iaDescifrar(rows[0].api_key_cifrada) };
+}
+
+// Llama al proveedor de IA que Gerencia haya activado, con la clave del
+// negocio guardada en el servidor. Nunca lanza excepción -- devuelve
+// {texto} o {error}, para que la ruta HTTP decida el código de estado.
+async function llamarIA(mensajes, sistema) {
+  let activo;
+  try {
+    activo = await _iaProveedorActivo();
+  } catch (err) {
+    return { error: 'Sarah no está disponible: ' + err.message };
+  }
+  if (!activo) return { error: 'Sarah no tiene una clave de API configurada todavía. Pídele a Gerencia que la active en Configuración.' };
+  const { proveedor, apiKey } = activo;
+  try {
+    if (proveedor === 'openai') {
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'system', content: sistema }].concat(mensajes),
+          max_tokens: 800, temperature: 0.8,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+      return { texto: d.choices[0].message.content };
+    }
+    if (proveedor === 'gemini') {
+      const parts = [{ text: sistema + '\n\n' }];
+      mensajes.forEach((m) => parts.push({ text: (m.role === 'user' ? 'User: ' : 'Assistant: ') + m.content + '\n' }));
+      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { maxOutputTokens: 800, temperature: 0.8 } }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+      return { texto: d.candidates[0].content.parts[0].text };
+    }
+    if (proveedor === 'claude') {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 800, system: sistema, messages: mensajes }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+      return { texto: d.content[0].text };
+    }
+    return { error: 'Proveedor de IA no reconocido: ' + proveedor };
+  } catch (err) {
+    return { error: 'No se pudo contactar la IA (' + proveedor + '): ' + err.message };
+  }
+}
+
 module.exports = {
   pool,
   init,
@@ -1311,6 +1432,10 @@ module.exports = {
   guardarReceta,
   listarProducciones,
   registrarProduccion,
+  guardarClaveIA,
+  desactivarClaveIA,
+  listarConfigIA,
+  llamarIA,
   resolverCliente,
   siguienteNumeroFactura,
   crearContrato,

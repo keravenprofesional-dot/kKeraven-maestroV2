@@ -512,6 +512,32 @@ app.post('/api/backups/:archivo/restaurar', requireAuth, requireRol('gerente', '
   res.json(resultado);
 }));
 
+// ── IA (Sarah) — la clave del negocio vive cifrada en el servidor,
+// nunca en el navegador (Etapa 6). Cualquier usuario autenticado puede
+// chatear con Sarah; solo Gerente/Sub-Gerente administra las claves.
+app.get('/api/ia/config', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  res.json(await db.listarConfigIA());
+}));
+app.post('/api/ia/config', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const { proveedor, apiKey } = req.body || {};
+  if (!['openai', 'gemini', 'claude'].includes(proveedor) || !apiKey) {
+    return res.status(400).json({ error: 'Proveedor o clave inválidos' });
+  }
+  res.json(await db.guardarClaveIA(proveedor, apiKey));
+}));
+app.post('/api/ia/config/:proveedor/desactivar', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  await db.desactivarClaveIA(req.params.proveedor);
+  res.json({ ok: true });
+}));
+
+app.post('/api/ia/chat', requireAuth, h(async (req, res) => {
+  const { messages, sys } = req.body || {};
+  if (!Array.isArray(messages) || !messages.length) return res.status(400).json({ error: 'Faltan mensajes' });
+  const resultado = await db.llamarIA(messages, sys || '');
+  if (resultado.error) return res.status(502).json({ error: resultado.error });
+  res.json({ texto: resultado.texto });
+}));
+
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: 'Error interno del servidor' });

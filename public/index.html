@@ -967,7 +967,7 @@ function render(id){
   else if(id==='cfg'){
     if(ses&&['gerente','subgerente'].includes(ses.rol)){
       m.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i>Cargando...</div>';
-      cargarBackups().then(function(){if(pag==='cfg')m.innerHTML=rCfg();});
+      Promise.all([cargarBackups(),cargarConfigIA()]).then(function(){if(pag==='cfg')m.innerHTML=rCfg();});
     } else m.innerHTML=rCfg();
   }
   else if(id==='nomina'){m.innerHTML=rNomina();setTimeout(()=>nomRenderTab(),0);}
@@ -2316,6 +2316,49 @@ async function reactU(id){
   await cargarUsuariosAdmin();$('main').innerHTML=rUsers();
 }
 
+// ── Claves de IA de Sarah (solo Gerente/Sub-Gerente) ──────────────────
+var IA_CONFIG_LISTA=[];
+var IA_PROVEEDORES={openai:{lab:'OpenAI (GPT-4o mini)',icon:'🧠'},gemini:{lab:'Google Gemini',icon:'✦'},claude:{lab:'Anthropic Claude',icon:'⚡'}};
+async function cargarConfigIA(){
+  try{ IA_CONFIG_LISTA=await apiFetch('/api/ia/config'); }
+  catch(e){ console.error('No se pudo cargar la configuración de IA:',e); IA_CONFIG_LISTA=[]; }
+}
+function rSarahConfigHTML(){
+  var filas=Object.keys(IA_PROVEEDORES).map(function(id){
+    var info=IA_PROVEEDORES[id];
+    var estado=IA_CONFIG_LISTA.find(function(c){return c.proveedor===id;});
+    var activo=estado&&estado.activo&&estado.tiene_clave;
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--br)">'
+      + '<span style="font-size:18px">'+info.icon+'</span>'
+      + '<div style="flex:1"><div style="font-size:13px;font-weight:600">'+info.lab+'</div>'
+      +   '<div style="font-size:11px;color:'+(activo?'var(--green)':'var(--t2)')+'">'+(activo?'✅ Activo':(estado&&estado.tiene_clave?'⏸️ Guardada, desactivada':'Sin clave'))+'</div></div>'
+      + '<button class="bsm" onclick="guardarClaveIAProveedor(\''+id+'\')">'+(estado&&estado.tiene_clave?'Cambiar clave':'Agregar clave')+'</button>'
+      + (activo?'<button class="bsm" style="color:var(--er)" onclick="desactivarClaveIAProveedor(\''+id+'\')">Desactivar</button>':'')
+      + '</div>';
+  }).join('');
+  return '<div class="card">'
+    + '<div class="ct"><i class="ti ti-robot" style="color:var(--gold);font-size:18px"></i>Sarah — Asistente IA</div>'
+    + '<div class="cs">La clave que guardes acá la usan TODOS los usuarios del sistema sin que tengan que configurar nada -- nunca se muestra en el navegador. Se prueba con el primer proveedor activo (orden: Claude, OpenAI, Gemini).</div>'
+    + filas
+    + '</div>';
+}
+async function guardarClaveIAProveedor(proveedor){
+  var clave=prompt('Pega la clave de API de '+(IA_PROVEEDORES[proveedor]?IA_PROVEEDORES[proveedor].lab:proveedor)+':');
+  if(!clave||!clave.trim())return;
+  try{ await apiFetch('/api/ia/config',{method:'POST',body:{proveedor:proveedor,apiKey:clave.trim()}}); }
+  catch(e){ alert('No se pudo guardar: '+e.message); return; }
+  await cargarConfigIA();
+  if(pag==='cfg')document.getElementById('main').innerHTML=rCfg();
+  if(typeof showToast==='function')showToast('✅ Clave de '+proveedor+' guardada y activa');
+}
+async function desactivarClaveIAProveedor(proveedor){
+  if(!confirm('¿Desactivar la clave de '+proveedor+'? Sarah dejará de poder usarla hasta que la reactives.'))return;
+  try{ await apiFetch('/api/ia/config/'+proveedor+'/desactivar',{method:'POST'}); }
+  catch(e){ alert('No se pudo desactivar: '+e.message); return; }
+  await cargarConfigIA();
+  if(pag==='cfg')document.getElementById('main').innerHTML=rCfg();
+}
+
 // ── Respaldo y restauración de la base de datos (solo Gerente/Sub-Gerente) ──
 var BACKUPS_LISTA=[];
 async function cargarBackups(){
@@ -2376,7 +2419,7 @@ async function restaurarRespaldo(archivo){
 // ── CONFIGURACIÓN ──────────────────────────────────────────────────
 function rCfg(){
   const cfg=localStorage.getItem('k_fb')||'';
-  return (ses&&['gerente','subgerente'].includes(ses.rol)?rRespaldoHTML():'')+`<div class="card">
+  return (ses&&['gerente','subgerente'].includes(ses.rol)?rSarahConfigHTML()+rRespaldoHTML():'')+`<div class="card">
     <div class="ct"><i class="ti ti-settings" style="color:var(--gold);font-size:18px"></i>Configuración
       <span class="pill" style="margin-left:auto;background:${cfg?'var(--gbg)':'var(--gold-p)'};border-color:${cfg?'var(--green)':'var(--gold)'};color:${cfg?'var(--gdk)':'var(--gold-m)'}">${cfg?'Firebase activo':'Sin sync'}</span></div>
     <div class="cs">Sincronización en tiempo real entre dispositivos. Gratis con Firebase.</div>
@@ -4915,20 +4958,26 @@ function kvBuildPrompt(){
 }
 
 // ── API Calls ─────────────────────────────────────────────────────
+// 1) Primero intenta la clave del NEGOCIO, guardada cifrada en el
+//    servidor (Etapa 6) -- así cualquier usuario usa a Sarah sin
+//    configurar nada. 2) Si el servidor no tiene ninguna clave activa
+//    (o falla), cae a la clave PERSONAL que el usuario haya pegado en
+//    Configuración (modo avanzado, sigue soportado para quien la use).
 async function kvCallAI(msgs){
   var sys=kvBuildPrompt();
   var errors=[];
 
-  // Determinar orden de proveedores según configuración
+  try{ return await kvCallBackend(msgs,sys); }
+  catch(e){ errors.push('backend:'+e.message); }
+
   var order=[];
   if(kv.cfg.provider==='auto'){
     if(kv.cfg.keys.copilot)order.push('copilot');
     if(kv.cfg.keys.chatgpt)order.push('chatgpt');
     if(kv.cfg.keys.gemini)order.push('gemini');
     if(kv.cfg.keys.claude)order.push('claude');
-    order.push('_nokey'); // último recurso
   } else {
-    order=[kv.cfg.provider,'_nokey'];
+    order=[kv.cfg.provider];
   }
 
   for(var i=0;i<order.length;i++){
@@ -4938,10 +4987,13 @@ async function kvCallAI(msgs){
       if(p==='chatgpt'&&kv.cfg.keys.chatgpt)return await kvCallOpenAI(msgs,sys,kv.cfg.keys.chatgpt,'gpt-4o');
       if(p==='gemini'&&kv.cfg.keys.gemini)return await kvCallGemini(msgs,sys,kv.cfg.keys.gemini);
       if(p==='claude'&&kv.cfg.keys.claude)return await kvCallClaude(msgs,sys,kv.cfg.keys.claude);
-      if(p==='_nokey')return await kvCallNoKey(msgs,sys);
     }catch(e){errors.push(order[i]+':'+e.message);}
   }
   throw new Error('NO_PROVIDER|'+errors.join(' | '));
+}
+async function kvCallBackend(msgs,sys){
+  var r=await apiFetch('/api/ia/chat',{method:'POST',body:{messages:msgs,sys:sys}});
+  return r.texto;
 }
 
 async function kvFetch(url,opts,timeout){
@@ -4979,16 +5031,6 @@ async function kvCallClaude(msgs,sys,key){
   });
   if(!r.ok)throw new Error('Claude '+r.status);
   var d3=await r.json();return d3.content[0].text;
-}
-
-async function kvCallNoKey(msgs,sys){
-  var r=await kvFetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,system:sys,messages:msgs})
-  },8000);
-  if(!r.ok)throw new Error('nokey_'+r.status);
-  var d4=await r.json();if(d4.error)throw new Error(d4.error.message||'err');
-  return d4.content[0].text;
 }
 
 // ── Enviar mensaje ─────────────────────────────────────────────────
@@ -5064,7 +5106,7 @@ async function kvSend(txt){
   }catch(e){
     kvHideTyping();
     var emsg=e.message.startsWith('NO_PROVIDER')?
-      '🔑 Necesitas configurar al menos una API Key. Toca ⚙️ → APIs para agregar tu clave de Gemini (gratis), Copilot, ChatGPT o Claude.':
+      '🔑 Todavía no tengo una clave de API activa. Pídele a Gerencia que la active en Configuración, o toca ⚙️ → APIs para agregar tu propia clave (Gemini gratis, Copilot, ChatGPT o Claude).':
       '⚠️ No pude responder ahora. Intenta de nuevo.';
     kvAddBubble('a',emsg);
     if(st)st.innerHTML='<span style="width:6px;height:6px;background:#FF3B30;border-radius:50%;display:inline-block"></span> Error';
