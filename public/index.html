@@ -69,10 +69,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
   box-shadow:inset 0 2px 5px rgba(26,22,40,.04);transition:all .2s;color:var(--tx)
 }
 .linp:focus{border-color:var(--gold);background:#fff;box-shadow:0 0 0 3px rgba(196,138,31,.12),inset 0 1px 3px rgba(26,22,40,.02)}
-.pin-row{display:flex;gap:10px;justify-content:center;margin:14px 0}
+.pin-row{display:flex;gap:6px;justify-content:center;margin:14px 0}
 .pin-d{
-  width:50px;height:58px;background:#f8f4ee;border:2px solid rgba(196,138,31,.2);
-  border-radius:10px;font-size:24px;text-align:center;color:var(--red);font-weight:700;
+  width:42px;height:54px;background:#f8f4ee;border:2px solid rgba(196,138,31,.2);
+  border-radius:10px;font-size:22px;text-align:center;color:var(--red);font-weight:700;
   outline:none;box-shadow:inset 0 2px 6px rgba(26,22,40,.06);transition:all .2s
 }
 .pin-d:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(196,138,31,.15),inset 0 2px 4px rgba(26,22,40,.04)}
@@ -527,13 +527,15 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
     </div>
     <div class="lk-body">
       <label class="lbl">Usuario</label>
-      <select class="linp" id="lu" style="margin-bottom:4px" onchange="document.getElementById('lpin').value='';[0,1,2,3].forEach(function(i){var e=document.getElementById('p'+i);if(e)e.value=''})"></select>
+      <select class="linp" id="lu" style="margin-bottom:4px" onchange="document.getElementById('lpin').value='';[0,1,2,3,4,5].forEach(function(i){var e=document.getElementById('p'+i);if(e)e.value=''})"></select>
       <label class="lbl" style="margin-top:14px">PIN de acceso</label>
       <div class="pin-row">
         <input class="pin-d" type="password" maxlength="1" inputmode="numeric" id="p0" oninput="pn(0)">
         <input class="pin-d" type="password" maxlength="1" inputmode="numeric" id="p1" oninput="pn(1)">
         <input class="pin-d" type="password" maxlength="1" inputmode="numeric" id="p2" oninput="pn(2)">
-        <input class="pin-d" type="password" maxlength="1" inputmode="numeric" id="p3" oninput="pn(3)" onkeydown="if(event.key==='Enter')login()">
+        <input class="pin-d" type="password" maxlength="1" inputmode="numeric" id="p3" oninput="pn(3)">
+        <input class="pin-d" type="password" maxlength="1" inputmode="numeric" id="p4" oninput="pn(4)">
+        <input class="pin-d" type="password" maxlength="1" inputmode="numeric" id="p5" oninput="pn(5)" onkeydown="if(event.key==='Enter')login()">
       </div>
       <input type="hidden" id="lpin">
       <div style="color:var(--er);font-size:12px;text-align:center;min-height:16px;margin:4px 0" id="lerr"></div>
@@ -855,7 +857,7 @@ async function login(){
   const uid=$('lu').value,pin=$('lpin').value,err=$('lerr');
   err.textContent='';
   if(!uid){err.textContent='Selecciona tu usuario.';return;}
-  if(!pin||pin.length!==4){err.textContent='Ingresa tu PIN de 4 dígitos.';return;}
+  if(!pin||pin.length!==6){err.textContent='Ingresa tu PIN de 6 dígitos.';return;}
   let resp;
   try{
     resp=await apiFetch('/api/login',{method:'POST',body:{usuarioId:Number(uid),pin}});
@@ -2187,7 +2189,7 @@ function rUsers(){
       <div style="font-size:11px;color:var(--t2)">${ses.rl}</div></div>
       <div class="fi" style="min-width:130px;margin-bottom:0">
         <label>Nuevo PIN</label>
-        <input type="password" id="sp" maxlength="4" placeholder="• • • •" oninput="$('sp_prev').textContent=this.value.split('').map(()=>'•').join(' ')||'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
+        <input type="password" id="sp" maxlength="6" placeholder="• • • • • •" oninput="$('sp_prev').textContent=this.value.split('').map(()=>'•').join(' ')||'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
         <div class="ppin" id="sp_prev">—</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:5px">
@@ -2210,8 +2212,8 @@ function rUsers(){
             <option value="promotor"${editU?.rol==='promotor'?' selected':''}>Promotor</option>
             <option value="coordinador"${editU?.rol==='coordinador'?' selected':''}>Coordinador Operativo</option>
           </select></div>
-        <div class="fi"><label>PIN (4 dígitos)${editU?'':' <span class="req">*</span>'}</label>
-          <input type="password" id="u_pin" maxlength="4" placeholder="${editU?'Dejar vacío para no cambiarlo':'• • • •'}" oninput="$('u_prev').textContent=this.value?this.value.split('').map(()=>'•').join(' '):'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
+        <div class="fi"><label>PIN (6 dígitos)${editU?'':' <span class="req">*</span>'}</label>
+          <input type="password" id="u_pin" maxlength="6" placeholder="${editU?'Dejar vacío para no cambiarlo':'• • • • • •'}" oninput="$('u_prev').textContent=this.value?this.value.split('').map(()=>'•').join(' '):'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
           <div class="ppin" id="u_prev">—</div></div>
       </div>
       <div class="em" id="u_err"></div>
@@ -2264,7 +2266,7 @@ const RLAB={supervisor:'Supervisor de Ruta',almacen:'Encargado de Almacén',prom
 function ePinP(){editU=USUARIOS.find(u=>u.id===ses.id);$('main').innerHTML=rUsers();setTimeout(()=>{const el=$('sp');if(el)el.focus();},50);}
 async function gPinP(){
   const pin=$('sp')?.value||'';
-  if(pin.length!==4||!/^\d{4}$/.test(pin)){alert('PIN debe ser 4 dígitos numéricos.');return;}
+  if(pin.length!==6||!/^\d{6}$/.test(pin)){alert('PIN debe ser 6 dígitos numéricos.');return;}
   try{await apiFetch(`/api/usuarios/${ses.id}/pin`,{method:'PATCH',body:{pin}});}
   catch(e){alert('No se pudo cambiar el PIN: '+e.message);return;}
   editU=null;$('main').innerHTML=rUsers();showToast('PIN actualizado ✅');
@@ -2274,7 +2276,7 @@ async function sUser(id){
   const nm=$('u_nm')?.value?.trim(),rl=$('u_rl')?.value,pin=$('u_pin')?.value;
   const err=$('u_err');
   if(!nm||!rl){err.textContent='Completa todos los campos';return;}
-  if(pin&&(pin.length!==4||!/^\d{4}$/.test(pin))){err.textContent='PIN debe ser 4 dígitos';return;}
+  if(pin&&(pin.length!==6||!/^\d{6}$/.test(pin))){err.textContent='PIN debe ser 6 dígitos';return;}
   try{
     await apiFetch(`/api/usuarios/${id}`,{method:'PATCH',body:{nombre:nm,rol:rl,rolLabel:RLAB[rl]||rl}});
     if(pin)await apiFetch(`/api/usuarios/${id}/pin`,{method:'PATCH',body:{pin}});
@@ -2285,7 +2287,7 @@ async function aUser(){
   const nm=$('u_nm')?.value?.trim(),rl=$('u_rl')?.value,pin=$('u_pin')?.value;
   const err=$('u_err');
   if(!nm||!rl||!pin){err.textContent='Completa todos los campos';return;}
-  if(pin.length!==4||!/^\d{4}$/.test(pin)){err.textContent='PIN debe ser 4 dígitos';return;}
+  if(pin.length!==6||!/^\d{6}$/.test(pin)){err.textContent='PIN debe ser 6 dígitos';return;}
   try{
     await apiFetch('/api/usuarios',{method:'POST',body:{nombre:nm,rol:rl,rolLabel:RLAB[rl]||rl,pin,color:COLS[USUARIOS.length%COLS.length]}});
   }catch(e){err.textContent=e.message;return;}
@@ -2293,7 +2295,7 @@ async function aUser(){
 }
 async function aPromotor(){
   const nm=prompt('Nombre del promotor:');if(!nm?.trim())return;
-  const pin=prompt('PIN de 4 dígitos:');if(!pin||pin.length!==4||!/^\d{4}$/.test(pin)){alert('PIN inválido.');return;}
+  const pin=prompt('PIN de 6 dígitos:');if(!pin||pin.length!==6||!/^\d{6}$/.test(pin)){alert('PIN inválido.');return;}
   try{
     await apiFetch('/api/usuarios',{method:'POST',body:{nombre:nm.trim().toUpperCase(),rol:'promotor',rolLabel:'Promotor',pin,color:COLS[USUARIOS.length%COLS.length]}});
   }catch(e){alert('No se pudo agregar: '+e.message);return;}
@@ -4000,7 +4002,7 @@ function showToast(msg,type){var wrap=document.getElementById('toast-wrap');if(!
 function rolLabel(rol){var l={gerente:'Gerente General',subgerente:'Sub-Gerente',coordinador:'Coordinador',supervisor:'Supervisor',almacen:'Almacén',promotor:'Promotor'};return l[rol]||rol;}
 function openMdl(titulo,cuerpo,botones){var o=document.getElementById('modal');if(!o)return;var t=document.getElementById('mtit');if(t)t.textContent=titulo;var b=document.getElementById('mbody');if(b)b.innerHTML=cuerpo;var f=document.getElementById('mft');if(f)f.innerHTML=botones||'<button class="bs" onclick="closeMdl()">Cerrar</button>';o.classList.add('on');}
 function closeMdl(){var o=document.getElementById('modal');if(o)o.classList.remove('on');}
-function pn(i){var v=document.getElementById('p'+i).value.replace(/\D/,'');document.getElementById('p'+i).value=v;if(v&&i<3)document.getElementById('p'+(i+1)).focus();var pin='';for(var x=0;x<4;x++){var el=document.getElementById('p'+x);pin+=el?el.value:'';}document.getElementById('lpin').value=pin;if(pin.length===4)setTimeout(login,120);}
+function pn(i){var v=document.getElementById('p'+i).value.replace(/\D/,'');document.getElementById('p'+i).value=v;if(v&&i<5)document.getElementById('p'+(i+1)).focus();var pin='';for(var x=0;x<6;x++){var el=document.getElementById('p'+x);pin+=el?el.value:'';}document.getElementById('lpin').value=pin;if(pin.length===6)setTimeout(login,120);}
 
 </script>
 
@@ -4468,7 +4470,7 @@ function applyModTheme(id){
 
 
 <!-- ═══════════════════════════════════════════════════════════
-  KEVA — ASISTENTE IA KERAVEN  
+  SARAH — ASISTENTE IA KERAVEN
   Apariencia humana · Multi-proveedor · Voz · Configurable
 ═══════════════════════════════════════════════════════════ -->
 
@@ -4500,7 +4502,7 @@ function applyModTheme(id){
         <div style="position:absolute;bottom:1px;right:1px;width:10px;height:10px;background:#00C853;border-radius:50%;border:2px solid #1B2A3B"></div>
       </div>
       <div style="flex:1;min-width:0;position:relative">
-        <div id="kv_nm" style="font-size:15px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">KEVA</div>
+        <div id="kv_nm" style="font-size:15px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sarah</div>
         <div id="kv_st" style="font-size:10px;color:rgba(255,255,255,.55);display:flex;align-items:center;gap:4px">
           <span style="width:6px;height:6px;background:#00C853;border-radius:50%;display:inline-block"></span> En línea · KERAVEN Asistente
         </div>
@@ -4521,7 +4523,7 @@ function applyModTheme(id){
     <div id="kv_msgs" style="flex:1;overflow-y:auto;padding:12px 13px;background:linear-gradient(180deg,#F8F9FF 0%,#F4F6FC 100%);display:flex;flex-direction:column;gap:10px">
       <div id="kv_welcome" style="text-align:center;padding:16px 8px">
         <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(145deg,#0078D4,#005EB8);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 6px 20px rgba(0,120,212,.3)">🤖</div>
-        <div style="font-size:16px;font-weight:800;color:#0D1B2A;margin-bottom:5px" id="kv_wname">Hola, soy KEVA</div>
+        <div style="font-size:16px;font-weight:800;color:#0D1B2A;margin-bottom:5px" id="kv_wname">Hola, soy Sarah</div>
         <div style="font-size:12px;color:#5C6B7A;line-height:1.7;max-width:280px;margin:0 auto">Tu asistente personal de KERAVEN. Estoy aquí para ayudarte con todo lo que necesites.</div>
         <div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center" id="kv_chips"></div>
       </div>
@@ -4720,7 +4722,7 @@ function applyModTheme(id){
 
 <script>
 // ═══════════════════════════════════════════════════════════════════
-// KEVA — ASISTENTE IA KERAVEN  v4
+// SARAH — ASISTENTE IA KERAVEN  v4
 // Multi-proveedor: Copilot · Claude · Gemini · ChatGPT
 // Voz natural · Configurable · Memoria por usuario
 // ═══════════════════════════════════════════════════════════════════
@@ -4733,29 +4735,31 @@ var kv={
 };
 
 var KV_CFG_DEFAULT={
-  nombre:'KEVA',
+  nombre:'Sarah',
   emoji:'🤖',
   provider:'auto',  // auto = intenta en orden: copilot, gemini, claude, anthropic-nokey
   keys:{ copilot:'', claude:'', gemini:'', chatgpt:'' },
-  caracteristicas:'Eres un asistente profesional de KERAVEN Profesional, empresa de productos capilares en República Dominicana. Hablas de manera natural, cálida y directa como un colega de trabajo. Usas datos reales del sistema cuando están disponibles. Eres experto en el sistema KERAVEN y en negocios, ventas, finanzas y recursos humanos.',
+  caracteristicas:'Eres Sarah, la asistente ejecutiva de KERAVEN Profesional (empresa de productos capilares y cosméticos en República Dominicana). Eres PROACTIVA: no te limitas a responder lo que te preguntan -- cuando ves un riesgo, una inconsistencia o una oportunidad en los datos, lo señalas aunque no te lo hayan pedido. '+
+    'Tienes formación de nivel profesional en: Contabilidad, Economía, Estadística, Negocios y Administración de Empresas, Ingeniería Química (fórmulas, costos de fabricación y control de materia prima del módulo Laboratorio), Recursos Humanos, Psicología Industrial/Organizacional, Derecho Laboral dominicano y Auditoría. También eres una secretaria ejecutiva experta: llevas seguimiento de tareas pendientes, agenda y recordatorios personalizados para quien te habla, y le ayudas a organizar su día y sus prioridades de trabajo. '+
+    'Aplicas ese conocimiento al negocio real: analizas ventas y comisiones, ayudas a cuadrar cuentas, revisas cumplimiento laboral (AFP/SFS/ISR), das consejo sobre fórmulas y costo de fabricación, apoyas en gestión de equipo, y llevas la agenda/tareas/recordatorios de la persona con la que hablas. Hablas de manera natural, cálida y directa, como una colega de mucha experiencia -- nunca como un chatbot genérico. Usas datos reales del sistema cuando están disponibles.',
   voz:'auto', rate:0.9
 };
 
 // ── Persistencia ─────────────────────────────────────────────────
 function kvLoadCfg(){
   try{
-    var saved=localStorage.getItem('keva_cfg');
+    var saved=localStorage.getItem('sarah_cfg');
     kv.cfg=saved?Object.assign({},KV_CFG_DEFAULT,JSON.parse(saved)):Object.assign({},KV_CFG_DEFAULT);
-    var h=localStorage.getItem('keva_hist_'+(typeof ses!=='undefined'&&ses?ses.id:'x'));
+    var h=localStorage.getItem('sarah_hist_'+(typeof ses!=='undefined'&&ses?ses.id:'x'));
     kv.hist=h?JSON.parse(h):[];
   }catch(e){kv.cfg=Object.assign({},KV_CFG_DEFAULT);kv.hist=[];}
 }
 function kvSaveCfg(){
-  try{localStorage.setItem('keva_cfg',JSON.stringify(kv.cfg));}catch(e){}
+  try{localStorage.setItem('sarah_cfg',JSON.stringify(kv.cfg));}catch(e){}
 }
 function kvSaveHist(){
   try{var uid=typeof ses!=='undefined'&&ses?ses.id:'x';
-    localStorage.setItem('keva_hist_'+uid,JSON.stringify(kv.hist.slice(-60)));}catch(e){}
+    localStorage.setItem('sarah_hist_'+uid,JSON.stringify(kv.hist.slice(-60)));}catch(e){}
 }
 
 // ── Init ──────────────────────────────────────────────────────────
@@ -5036,7 +5040,7 @@ function kvGetVoice(){
     voices.find(function(v){return v.lang.startsWith('es');})||voices[0];
 }
 function kvStopVoz(){if(window.speechSynthesis)speechSynthesis.cancel();kv.speaking=false;var s=document.getElementById('kv_stopbar');if(s)s.style.display='none';kvSetVozBtn();}
-function kvToggleVoz(){kv.voz=!kv.voz;try{localStorage.setItem('keva_voz',kv.voz?'1':'0');}catch(e){}if(!kv.voz)kvStopVoz();kvSetVozBtn();}
+function kvToggleVoz(){kv.voz=!kv.voz;try{localStorage.setItem('sarah_voz',kv.voz?'1':'0');}catch(e){}if(!kv.voz)kvStopVoz();kvSetVozBtn();}
 function kvSetVozBtn(){var b=document.getElementById('kv_vbtn');if(!b)return;b.textContent=kv.voz?'🔊':'🔇';b.style.background=kv.voz?'rgba(255,255,255,.85)':'rgba(255,255,255,.1)';b.style.color=kv.voz?'#0078D4':'#fff';}
 function kvReplay(btn){var text=btn.getAttribute('data-text');if(text)kvSpeak(text);}
 
@@ -5082,7 +5086,7 @@ function kvTab(t){
 
 function kvRenderPerfil(body){
   body.innerHTML=
-    '<div class="kv_field"><label>Nombre del asistente</label><input id="kvc_nombre" value="'+kv.cfg.nombre+'" placeholder="KEVA"></div>'+
+    '<div class="kv_field"><label>Nombre del asistente</label><input id="kvc_nombre" value="'+kv.cfg.nombre+'" placeholder="Sarah"></div>'+
     '<div class="kv_field"><label>Emoji / Avatar</label>'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">'+
     ['🤖','👩‍💼','👨‍💼','🧑‍💻','👩‍🔬','🎯','💡','🦾','🌟','🧠'].map(function(e){
@@ -5298,7 +5302,7 @@ function rAsistente(){
 
 // ── Bootstrap ─────────────────────────────────────────────────────
 (function(){
-  try{kv.voz=localStorage.getItem('keva_voz')==='1';}catch(e){}
+  try{kv.voz=localStorage.getItem('sarah_voz')==='1';}catch(e){}
   var _oi=window.ir;
   if(_oi)window.ir=function(id){_oi.apply(this,arguments);var f=document.getElementById('kv_fab');if(f&&typeof ses!=='undefined'&&ses)f.style.display='block';};
   if(window.speechSynthesis){
@@ -5457,8 +5461,8 @@ function rDelFac(){
         '<div style="font-size:44px;margin-bottom:10px">🔐</div>'+
         '<div style="font-size:16px;font-weight:800;color:#7F0000;margin-bottom:5px">Confirmar eliminación</div>'+
         '<div id="del_pin_info" style="font-size:12px;color:#555;margin-bottom:16px;line-height:1.5"></div>'+
-        '<div style="display:flex;gap:10px;justify-content:center;margin-bottom:16px">'+
-          [0,1,2,3].map(function(i){return'<input class="pin-d" maxlength="1" type="password" inputmode="numeric" id="dp'+i+'" oninput="delPinNav('+i+')" style="width:50px;height:58px;font-size:24px;text-align:center;border:2px solid rgba(198,40,40,.3);border-radius:10px;background:#FFF8F8">';}).join('')+
+        '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px">'+
+          [0,1,2,3,4,5].map(function(i){return'<input class="pin-d" maxlength="1" type="password" inputmode="numeric" id="dp'+i+'" oninput="delPinNav('+i+')" style="width:42px;height:54px;font-size:22px;text-align:center;border:2px solid rgba(198,40,40,.3);border-radius:10px;background:#FFF8F8">';}).join('')+
         '</div>'+
         '<div id="del_pin_err" style="color:#C62828;font-size:12px;min-height:16px;margin-bottom:10px;font-weight:600"></div>'+
         '<div style="display:flex;gap:8px;justify-content:center">'+
@@ -5485,22 +5489,22 @@ function delFacIniciar(id){
   var c=contratos.find(function(x){return x.id===id;});if(!c)return;
   _delFacId=id;_delPinIntento=0;
   var info=document.getElementById('del_pin_info');if(info)info.innerHTML='<b style="color:#7F0000">'+c.fac+'</b><br>'+c.cliente+' · '+fD(c.fecha)+'<br><span style="color:#C62828">'+fM(c.monto)+'</span>';
-  [0,1,2,3].forEach(function(i){var el=document.getElementById('dp'+i);if(el)el.value='';});
+  [0,1,2,3,4,5].forEach(function(i){var el=document.getElementById('dp'+i);if(el)el.value='';});
   var err=document.getElementById('del_pin_err');if(err)err.textContent='';
   var modal=document.getElementById('del_pin_modal');if(modal)modal.style.display='flex';
   setTimeout(function(){var d=document.getElementById('dp0');if(d)d.focus();},100);
 }
-function delPinNav(i){var el=document.getElementById('dp'+i);if(el&&el.value&&i<3)document.getElementById('dp'+(i+1)).focus();}
+function delPinNav(i){var el=document.getElementById('dp'+i);if(el&&el.value&&i<5)document.getElementById('dp'+(i+1)).focus();}
 function delPinCerrar(){_delFacId=null;var m=document.getElementById('del_pin_modal');if(m)m.style.display='none';}
 async function delPinConfirm(){
-  var pin=[0,1,2,3].map(function(i){var el=document.getElementById('dp'+i);return el?el.value:'';}).join('');
+  var pin=[0,1,2,3,4,5].map(function(i){var el=document.getElementById('dp'+i);return el?el.value:'';}).join('');
   var err=document.getElementById('del_pin_err');
   var ok=false;
   try{await apiFetch('/api/verificar-pin',{method:'POST',body:{pin}});ok=true;}catch(e){ok=false;}
   if(!ok){
     _delPinIntento++;
     if(err)err.textContent='❌ PIN incorrecto (intento '+_delPinIntento+')';
-    [0,1,2,3].forEach(function(i){var el=document.getElementById('dp'+i);if(el)el.value='';});
+    [0,1,2,3,4,5].forEach(function(i){var el=document.getElementById('dp'+i);if(el)el.value='';});
     var d0=document.getElementById('dp0');if(d0)d0.focus();
     if(_delPinIntento>=3){delPinCerrar();showToast('Demasiados intentos','err');}
     return;
