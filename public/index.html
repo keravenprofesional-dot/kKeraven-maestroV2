@@ -964,7 +964,12 @@ function render(id){
   else if(id==='rendimiento'){m.innerHTML=rRendimiento();setTimeout(()=>rend_tab('vendedor'),0);}
   else if(id==='asistente')m.innerHTML=rAsistente();
   else if(id==='users'){m.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i>Cargando usuarios...</div>';cargarUsuariosAdmin().then(()=>{if(pag==='users')m.innerHTML=rUsers();});}
-  else if(id==='cfg')m.innerHTML=rCfg();
+  else if(id==='cfg'){
+    if(ses&&['gerente','subgerente'].includes(ses.rol)){
+      m.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i>Cargando...</div>';
+      cargarBackups().then(function(){if(pag==='cfg')m.innerHTML=rCfg();});
+    } else m.innerHTML=rCfg();
+  }
   else if(id==='nomina'){m.innerHTML=rNomina();setTimeout(()=>nomRenderTab(),0);}
   else if(id==='contab'){m.innerHTML=rContabilidad();setTimeout(()=>contRender(),0);}
   else if(id==='cxp')m.innerHTML=rPagar();
@@ -2311,10 +2316,67 @@ async function reactU(id){
   await cargarUsuariosAdmin();$('main').innerHTML=rUsers();
 }
 
+// ── Respaldo y restauración de la base de datos (solo Gerente/Sub-Gerente) ──
+var BACKUPS_LISTA=[];
+async function cargarBackups(){
+  try{ BACKUPS_LISTA=await apiFetch('/api/backups'); }
+  catch(e){ console.error('No se pudieron cargar los respaldos:',e); BACKUPS_LISTA=[]; }
+}
+function _bkFmtBytes(n){
+  n=Number(n)||0;
+  if(n<1024)return n+' B';
+  if(n<1024*1024)return (n/1024).toFixed(1)+' KB';
+  return (n/1024/1024).toFixed(1)+' MB';
+}
+function rRespaldoHTML(){
+  var filas = !BACKUPS_LISTA.length
+    ? '<div class="empty"><i class="ti ti-database"></i><p>Todavía no hay ningún respaldo</p></div>'
+    : '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Fecha</th><th>Archivo</th><th class="tr">Tamaño</th><th>Acciones</th></tr></thead><tbody>'
+      + BACKUPS_LISTA.map(function(b){
+          return '<tr><td style="font-size:11px">'+new Date(b.creadoEn).toLocaleString('es-DO')+'</td>'
+            + '<td style="font-size:11px;font-family:monospace">'+b.archivo+'</td>'
+            + '<td class="tr" style="font-size:11px">'+_bkFmtBytes(b.tamanoBytes)+'</td>'
+            + '<td><button class="bsm" style="color:var(--er)" onclick="restaurarRespaldo(\''+b.archivo+'\')"><i class="ti ti-history"></i> Restaurar</button></td></tr>';
+        }).join('')
+      + '</tbody></table></div>';
+  return '<div class="card">'
+    + '<div class="ct"><i class="ti ti-database" style="color:var(--gold);font-size:18px"></i>Respaldo y restauración'
+    +   '<span class="pill" style="margin-left:auto">'+BACKUPS_LISTA.length+' respaldo'+(BACKUPS_LISTA.length!==1?'s':'')+'</span></div>'
+    + '<div class="cs">Crea un punto de referencia de la base de datos completa, y vuelve a él cuando quieras -- por ejemplo, antes de hacer una prueba en el sistema.</div>'
+    + '<div style="margin-bottom:12px"><button class="bg" onclick="crearRespaldoAhora()"><i class="ti ti-device-floppy"></i> Crear respaldo ahora</button></div>'
+    + filas
+    + '</div>';
+}
+async function crearRespaldoAhora(){
+  var etiqueta=prompt('¿Cómo quieres llamar este punto de referencia? (opcional, ej. "antes de la prueba")')||'';
+  try{
+    if(typeof showToast==='function')showToast('Creando respaldo... puede tardar un momento');
+    await apiFetch('/api/backups',{method:'POST',body:{etiqueta:etiqueta}});
+  }catch(e){ alert('No se pudo crear el respaldo: '+e.message); return; }
+  await cargarBackups();
+  if(pag==='cfg')document.getElementById('main').innerHTML=rCfg();
+  if(typeof showToast==='function')showToast('✅ Respaldo creado');
+}
+async function restaurarRespaldo(archivo){
+  if(!confirm('⚠️ ESTO REEMPLAZA TODOS LOS DATOS ACTUALES con lo que había en "'+archivo+'".\n\nSe crea automáticamente un respaldo de seguridad del estado de ahora por si te arrepientes, pero de todas formas: ¿estás seguro?'))return;
+  var pin=prompt('Escribe tu PIN de 6 dígitos para confirmar la restauración:');
+  if(!pin)return;
+  try{ await apiFetch('/api/verificar-pin',{method:'POST',body:{pin:pin}}); }
+  catch(e){ alert('PIN incorrecto. Restauración cancelada.'); return; }
+  if(typeof showToast==='function')showToast('Restaurando... puede tardar un momento, no cierres esta pestaña');
+  var resultado;
+  try{ resultado=await apiFetch('/api/backups/'+encodeURIComponent(archivo)+'/restaurar',{method:'POST'}); }
+  catch(e){ alert('No se pudo restaurar: '+e.message); return; }
+  alert((resultado.ok?'✅ Restauración completa.':'⚠️ La restauración terminó con avisos, revisa que todo esté bien.')
+    +'\n\nSe guardó un respaldo del estado anterior como: '+resultado.backupDeSeguridad
+    +'\n\nRecarga la página para ver los datos restaurados.');
+  location.reload();
+}
+
 // ── CONFIGURACIÓN ──────────────────────────────────────────────────
 function rCfg(){
   const cfg=localStorage.getItem('k_fb')||'';
-  return `<div class="card">
+  return (ses&&['gerente','subgerente'].includes(ses.rol)?rRespaldoHTML():'')+`<div class="card">
     <div class="ct"><i class="ti ti-settings" style="color:var(--gold);font-size:18px"></i>Configuración
       <span class="pill" style="margin-left:auto;background:${cfg?'var(--gbg)':'var(--gold-p)'};border-color:${cfg?'var(--green)':'var(--gold)'};color:${cfg?'var(--gdk)':'var(--gold-m)'}">${cfg?'Firebase activo':'Sin sync'}</span></div>
     <div class="cs">Sincronización en tiempo real entre dispositivos. Gratis con Firebase.</div>

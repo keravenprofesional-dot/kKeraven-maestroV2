@@ -9,6 +9,7 @@ const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 
 const db = require('./db');
+const backup = require('./backup');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -493,6 +494,22 @@ app.post('/api/nominas/procesar', requireAuth, requirePermiso('nomina'), h(async
   const resultado = await db.procesarNomina({ mes, quincena }, req.usuario.id);
   if (resultado.error) return res.status(400).json({ error: resultado.error });
   res.status(201).json(resultado);
+}));
+
+// ── RESPALDO Y RESTAURACIÓN DE LA BASE DE DATOS ───────────────────────
+// Exclusivo Gerente/Sub-Gerente -- restaurar sobrescribe TODOS los datos
+// actuales con los del respaldo elegido (acción irreversible salvo por
+// el respaldo de seguridad automático que se crea justo antes).
+app.get('/api/backups', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  res.json(await backup.listarBackups());
+}));
+app.post('/api/backups', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const { etiqueta } = req.body || {};
+  res.status(201).json(await backup.crearBackup(etiqueta));
+}));
+app.post('/api/backups/:archivo/restaurar', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const resultado = await backup.restaurarBackup(req.params.archivo);
+  res.json(resultado);
 }));
 
 app.use((err, req, res, next) => {
