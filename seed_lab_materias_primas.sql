@@ -100,3 +100,24 @@ INSERT INTO lab_materias_primas (nombre, tipo, unidad) VALUES
   ('Miel de Abeja',                   'natural', 'kilogramos'),
   ('Cera de Abeja',                   'natural', 'kilogramos')
 ON CONFLICT (nombre) DO NOTHING;
+
+-- ── Empaque (pote/tapa/etiqueta/funda/caja) -- se consume 1 por unidad
+-- terminada, no por lote (ver lógica en db.js _labCalcularReceta). Los
+-- tamaños siguen las presentaciones que ya vende el catálogo (10oz,
+-- 32oz, 16oz, 8oz, 4oz -- ver seed_productos.sql). Los costos son un
+-- estimado de referencia para el mercado dominicano -- AJÚSTALOS a lo
+-- que realmente te cobra tu proveedor desde la pestaña de edición.
+INSERT INTO lab_materias_primas (nombre, tipo, unidad, costo_unitario) VALUES
+  ('Pote plástico 4 oz',              'empaque', 'unidad', 18),
+  ('Pote plástico 8 oz',              'empaque', 'unidad', 25),
+  ('Pote plástico 10 oz',             'empaque', 'unidad', 28),
+  ('Pote plástico 16 oz',             'empaque', 'unidad', 35),
+  ('Pote plástico 32 oz',             'empaque', 'unidad', 48),
+  ('Envase gotero 4 oz',              'empaque', 'unidad', 30),
+  ('Envase spray 4 oz',               'empaque', 'unidad', 32),
+  ('Envase bomba/dispensador 8 oz',   'empaque', 'unidad', 40),
+  ('Tapa rosca genérica',             'empaque', 'unidad', 6),
+  ('Etiqueta impresa',                'empaque', 'unidad', 8),
+  ('Funda/bolsa plástica',            'empaque', 'unidad', 3),
+  ('Caja individual (línea premium)', 'empaque', 'unidad', 25)
+ON CONFLICT (nombre) DO NOTHING;

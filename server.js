@@ -228,13 +228,13 @@ app.get('/api/lab/materias-primas', requireAuth, requirePermiso('laboratorio'), 
   res.json(await db.listarMateriasPrimas({ soloActivas: req.query.todos !== '1' }));
 }));
 app.post('/api/lab/materias-primas', requireAuth, requirePermiso('laboratorio'), requirePermisoSi(esImportacionExcel, 'excel'), h(async (req, res) => {
-  const { nombre, tipo, unidad, costoUnitario } = req.body || {};
+  const { nombre, tipo, unidad, costoUnitario, stockMinimo } = req.body || {};
   if (!nombre) return res.status(400).json({ error: 'Falta el nombre de la materia prima' });
-  res.status(201).json(await db.crearMateriaPrima({ nombre, tipo, unidad, costoUnitario }));
+  res.status(201).json(await db.crearMateriaPrima({ nombre, tipo, unidad, costoUnitario, stockMinimo }));
 }));
 app.patch('/api/lab/materias-primas/:id', requireAuth, requirePermiso('laboratorio'), requirePermisoSi(esImportacionExcel, 'excel'), h(async (req, res) => {
-  const { nombre, tipo, unidad, costoUnitario } = req.body || {};
-  const actualizado = await db.actualizarMateriaPrima(req.params.id, { nombre, tipo, unidad, costoUnitario });
+  const { nombre, tipo, unidad, costoUnitario, stockMinimo } = req.body || {};
+  const actualizado = await db.actualizarMateriaPrima(req.params.id, { nombre, tipo, unidad, costoUnitario, stockMinimo });
   if (!actualizado) return res.status(404).json({ error: 'Materia prima no encontrada' });
   res.json(actualizado);
 }));
@@ -248,9 +248,9 @@ app.post('/api/lab/materias-primas/:id/reactivar', requireAuth, requirePermiso('
 }));
 
 app.post('/api/lab/materias-primas/:id/entrada', requireAuth, requirePermiso('laboratorio'), h(async (req, res) => {
-  const { cantidad, costoTotal, proveedor } = req.body || {};
+  const { cantidad, costoTotal, proveedor, loteProveedor, fechaVencimiento } = req.body || {};
   if (cantidad == null || Number(cantidad) <= 0) return res.status(400).json({ error: 'Cantidad inválida' });
-  const actualizado = await db.registrarEntradaLab(req.params.id, cantidad, { costoTotal, proveedor }, req.usuario.id);
+  const actualizado = await db.registrarEntradaLab(req.params.id, cantidad, { costoTotal, proveedor, loteProveedor, fechaVencimiento }, req.usuario.id);
   if (!actualizado) return res.status(404).json({ error: 'Materia prima no encontrada' });
   res.json(actualizado);
 }));
@@ -262,14 +262,18 @@ app.get('/api/lab/recetas', requireAuth, requirePermiso('laboratorio'), h(async 
   res.json(await db.listarRecetas());
 }));
 app.post('/api/lab/recetas/:productoId', requireAuth, requirePermiso('laboratorio'), h(async (req, res) => {
-  const { contenidoPorUnidad, contenidoUnidad, notas, items } = req.body || {};
-  res.json(await db.guardarReceta(req.params.productoId, { contenidoPorUnidad, contenidoUnidad, notas, items }));
+  const { contenidoPorUnidad, contenidoUnidad, mermaPct, notas, items } = req.body || {};
+  res.json(await db.guardarReceta(req.params.productoId, { contenidoPorUnidad, contenidoUnidad, mermaPct, notas, items }));
 }));
 
 app.get('/api/lab/producciones', requireAuth, requirePermiso('laboratorio'), h(async (req, res) => {
   res.json(await db.listarProducciones());
 }));
-app.post('/api/lab/producciones', requireAuth, requirePermiso('laboratorio'), h(async (req, res) => {
+// Confirmar una producción consume inventario real y afecta el costo de
+// fabricación -- permiso aparte de 'laboratorio' (armar recetas, ver
+// catálogo) para que no cualquiera con acceso al módulo pueda disparar
+// esta acción irreversible.
+app.post('/api/lab/producciones', requireAuth, requirePermiso('laboratorio'), requirePermiso('laboratorio_produccion'), h(async (req, res) => {
   const { recetaId, lotes, sumarAlmacen } = req.body || {};
   if (!recetaId || !lotes) return res.status(400).json({ error: 'Faltan datos' });
   const resultado = await db.registrarProduccion(recetaId, lotes, sumarAlmacen !== false, req.usuario.id);

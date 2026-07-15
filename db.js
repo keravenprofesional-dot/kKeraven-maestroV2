@@ -12,8 +12,8 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 // permisos_custom en la base de datos que sobreescribe esta lista por completo
 // para ese usuario puntual.
 const PERMS_POR_ROL = {
-  gerente:     ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio'],
-  subgerente:  ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio'],
+  gerente:     ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion'],
+  subgerente:  ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion'],
   coordinador: ['dash','contrato','buzon','cobros','arqueo','almp','com','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta'],
   supervisor:  ['dash','contrato','buzon','cobros','almm','cfg','clientes','cxc','miscom','rendimiento','asistente','cobrador','ruta'],
   almacen:     ['dash','arqueo','almp','almm','cfg','asistente'],
@@ -978,28 +978,40 @@ async function procesarNomina({ mes, quincena }, usuarioId) {
 }
 
 // ── LABORATORIO ──────────────────────────────────────────────────────
+// proximo_vencimiento: la fecha de vencimiento más próxima entre las
+// compras registradas de esa materia prima (aproximado -- el sistema no
+// hace seguimiento de qué entrada específica se está consumiendo, así
+// que es "lo más viejo que compraste y aún no vence", no un FIFO real).
+// bajo_minimo: aviso de reorden antes de que el stock llegue a cero.
 async function listarMateriasPrimas({ soloActivas = true } = {}) {
   const { rows } = await pool.query(
-    `SELECT * FROM lab_materias_primas ${soloActivas ? 'WHERE activo = TRUE' : ''} ORDER BY tipo, nombre`
+    `SELECT m.*,
+       (SELECT MIN(e.fecha_vencimiento) FROM lab_entradas e
+        WHERE e.materia_prima_id = m.id AND e.fecha_vencimiento >= CURRENT_DATE) AS proximo_vencimiento,
+       (m.stock <= m.stock_minimo AND m.stock_minimo > 0) AS bajo_minimo
+     FROM lab_materias_primas m
+     ${soloActivas ? 'WHERE m.activo = TRUE' : ''}
+     ORDER BY m.tipo, m.nombre`
   );
   return rows;
 }
 
-async function crearMateriaPrima({ nombre, tipo, unidad, costoUnitario }) {
+async function crearMateriaPrima({ nombre, tipo, unidad, costoUnitario, stockMinimo }) {
   const { rows } = await pool.query(
-    `INSERT INTO lab_materias_primas (nombre, tipo, unidad, costo_unitario) VALUES ($1,$2,$3,$4) RETURNING *`,
-    [nombre, tipo || 'quimico', unidad || 'gramos', costoUnitario || 0]
+    `INSERT INTO lab_materias_primas (nombre, tipo, unidad, costo_unitario, stock_minimo) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+    [nombre, tipo || 'quimico', unidad || 'gramos', costoUnitario || 0, stockMinimo || 0]
   );
   return rows[0];
 }
 
-async function actualizarMateriaPrima(id, { nombre, tipo, unidad, costoUnitario }) {
+async function actualizarMateriaPrima(id, { nombre, tipo, unidad, costoUnitario, stockMinimo }) {
   const { rows } = await pool.query(
     `UPDATE lab_materias_primas SET
        nombre = COALESCE($2, nombre), tipo = COALESCE($3, tipo),
-       unidad = COALESCE($4, unidad), costo_unitario = COALESCE($5, costo_unitario)
+       unidad = COALESCE($4, unidad), costo_unitario = COALESCE($5, costo_unitario),
+       stock_minimo = COALESCE($6, stock_minimo)
      WHERE id = $1 RETURNING *`,
-    [id, nombre, tipo, unidad, costoUnitario]
+    [id, nombre, tipo, unidad, costoUnitario, stockMinimo]
   );
   return rows[0] || null;
 }
@@ -1017,7 +1029,7 @@ async function reactivarMateriaPrima(id) {
 // a su costo actual, más esta compra) -- así el costo de fabricar no se
 // queda pegado al primer precio que se cargó ni salta de golpe al
 // último precio pagado.
-async function registrarEntradaLab(materiaPrimaId, cantidad, { costoTotal, proveedor }, usuarioId) {
+async function registrarEntradaLab(materiaPrimaId, cantidad, { costoTotal, proveedor, loteProveedor, fechaVencimiento }, usuarioId) {
   const cliente = await pool.connect();
   try {
     await cliente.query('BEGIN');
@@ -1029,9 +1041,9 @@ async function registrarEntradaLab(materiaPrimaId, cantidad, { costoTotal, prove
     const mp = mpRows[0];
     if (!mp) { await cliente.query('ROLLBACK'); return null; }
     await cliente.query(
-      `INSERT INTO lab_entradas (materia_prima_id, cantidad, costo_total, proveedor, registrado_por)
-       VALUES ($1,$2,$3,$4,$5)`,
-      [materiaPrimaId, cant, costoTotal || null, proveedor || null, usuarioId]
+      `INSERT INTO lab_entradas (materia_prima_id, cantidad, costo_total, proveedor, lote_proveedor, fecha_vencimiento, registrado_por)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [materiaPrimaId, cant, costoTotal || null, proveedor || null, loteProveedor || null, fechaVencimiento || null, usuarioId]
     );
     const stockActual = Number(mp.stock) || 0;
     const costoActual = Number(mp.costo_unitario) || 0;
@@ -1079,15 +1091,42 @@ const LAB_A_GRAMOS = { gramos: 1, kilogramos: 1000, onzas: 28.3495, galon: 3785.
 // unidades del producto rinde y cuánto cuesta fabricar cada una.
 // Se recalcula siempre al vuelo -- si sube el precio de una materia
 // prima, se refleja solo, sin tener que volver a guardar la receta.
-function _labCalcularReceta(items, contenidoPorUnidad, contenidoUnidad, precioReferencia) {
-  const pesoTotalGramos = items.reduce((s, it) => s + Number(it.cantidad) * (LAB_A_GRAMOS[it.unidad] || 1), 0);
-  const costoTotalLote = items.reduce((s, it) => s + Number(it.cantidad) * Number(it.costoUnitario || 0), 0);
+//
+// Separa "ingredientes" (químico/natural: entran a la fórmula, su peso
+// SÍ suma al lote) de "empaque" (pote/tapa/etiqueta: no tienen peso
+// relevante a la fórmula, se consumen 1 por unidad terminada, no por
+// lote). La merma (%) reduce las unidades que realmente se logran
+// envasar, sin cambiar cuánta materia prima se gastó.
+function _labCalcularReceta(items, contenidoPorUnidad, contenidoUnidad, precioReferencia, mermaPct) {
+  const ingredientes = items.filter((it) => it.tipo !== 'empaque');
+  const empaques = items.filter((it) => it.tipo === 'empaque');
+
+  const pesoTotalGramos = ingredientes.reduce((s, it) => s + Number(it.cantidad) * (LAB_A_GRAMOS[it.unidad] || 1), 0);
+  const costoIngredientesLote = ingredientes.reduce((s, it) => s + Number(it.cantidad) * Number(it.costoUnitario || 0), 0);
+  const costoEmpaquePorUnidad = empaques.reduce((s, it) => s + Number(it.cantidad) * Number(it.costoUnitario || 0), 0);
+
   const contenidoGramos = Number(contenidoPorUnidad || 0) * (LAB_A_GRAMOS[contenidoUnidad] || 1);
-  const unidadesPorLote = contenidoGramos > 0 ? pesoTotalGramos / contenidoGramos : 0;
+  const merma = Math.min(Math.max(Number(mermaPct) || 0, 0), 100) / 100;
+  const unidadesPorLoteBruto = contenidoGramos > 0 ? pesoTotalGramos / contenidoGramos : 0;
+  const unidadesPorLote = unidadesPorLoteBruto * (1 - merma);
+
+  const costoTotalLote = costoIngredientesLote + costoEmpaquePorUnidad * unidadesPorLote;
   const costoPorUnidad = unidadesPorLote > 0 ? costoTotalLote / unidadesPorLote : 0;
+
   const precio = Number(precioReferencia || 0);
   const margenPct = precio > 0 && costoPorUnidad > 0 ? ((precio - costoPorUnidad) / precio) * 100 : null;
-  return { pesoTotalGramos, costoTotalLote, unidadesPorLote, costoPorUnidad, margenPct };
+
+  // Lista INCI (orden de etiqueta): ingredientes de mayor a menor peso.
+  // El empaque no es parte de la fórmula, no entra en esta lista.
+  const inci = ingredientes
+    .slice()
+    .sort((a, b) => Number(b.cantidad) * (LAB_A_GRAMOS[b.unidad] || 1) - Number(a.cantidad) * (LAB_A_GRAMOS[a.unidad] || 1))
+    .map((it) => it.nombre);
+
+  return {
+    pesoTotalGramos, costoTotalLote, unidadesPorLote, costoPorUnidad, margenPct,
+    costoEmpaquePorUnidad, unidadesPorLoteBruto, mermaPct: Number(mermaPct) || 0, inci,
+  };
 }
 
 async function listarRecetas() {
@@ -1096,7 +1135,7 @@ async function listarRecetas() {
        COALESCE(
          (SELECT json_agg(json_build_object(
             'id', ri.id, 'materiaPrimaId', ri.materia_prima_id, 'nombre', m.nombre,
-            'unidad', m.unidad, 'cantidad', ri.cantidad, 'costoUnitario', m.costo_unitario
+            'unidad', m.unidad, 'tipo', m.tipo, 'cantidad', ri.cantidad, 'costoUnitario', m.costo_unitario
           ) ORDER BY m.nombre)
           FROM lab_receta_items ri JOIN lab_materias_primas m ON m.id = ri.materia_prima_id
           WHERE ri.receta_id = r.id), '[]'
@@ -1106,24 +1145,24 @@ async function listarRecetas() {
   );
   return rows.map((r) => ({
     ...r,
-    calculo: _labCalcularReceta(r.items, r.contenido_por_unidad, r.contenido_unidad, r.precio_referencia),
+    calculo: _labCalcularReceta(r.items, r.contenido_por_unidad, r.contenido_unidad, r.precio_referencia, r.merma_pct),
   }));
 }
 
 // Crea o reemplaza por completo la receta de un producto (borra los
 // items viejos e inserta los nuevos) -- se edita como un formulario
 // completo, no linea por linea.
-async function guardarReceta(productoId, { contenidoPorUnidad, contenidoUnidad, notas, items }) {
+async function guardarReceta(productoId, { contenidoPorUnidad, contenidoUnidad, mermaPct, notas, items }) {
   const cliente = await pool.connect();
   try {
     await cliente.query('BEGIN');
     const { rows } = await cliente.query(
-      `INSERT INTO lab_recetas (producto_id, contenido_por_unidad, contenido_unidad, notas)
-       VALUES ($1,$2,$3,$4)
+      `INSERT INTO lab_recetas (producto_id, contenido_por_unidad, contenido_unidad, merma_pct, notas)
+       VALUES ($1,$2,$3,$4,$5)
        ON CONFLICT (producto_id) DO UPDATE SET
-         contenido_por_unidad = $2, contenido_unidad = $3, notas = $4, actualizado_en = now()
+         contenido_por_unidad = $2, contenido_unidad = $3, merma_pct = $4, notas = $5, actualizado_en = now()
        RETURNING *`,
-      [productoId, contenidoPorUnidad || 1, contenidoUnidad || 'gramos', notas || null]
+      [productoId, contenidoPorUnidad || 1, contenidoUnidad || 'gramos', mermaPct || 0, notas || null]
     );
     const receta = rows[0];
     await cliente.query(`DELETE FROM lab_receta_items WHERE receta_id = $1`, [receta.id]);
@@ -1165,8 +1204,12 @@ async function listarProducciones() {
 }
 
 // Fabrica `lotes` veces la receta: valida que haya suficiente materia
-// prima de CADA ingrediente antes de descontar nada (todo o nada), y
-// si se pide, suma el producto terminado a almacen_stock (bodega).
+// prima de CADA ingrediente/empaque antes de descontar nada (todo o
+// nada), y si se pide, suma el producto terminado a almacen_stock
+// (bodega). Los ingredientes (químico/natural) escalan con `lotes`;
+// el empaque (pote/tapa/etiqueta) escala con las UNIDADES terminadas
+// (que ya vienen reducidas por la merma), porque un pote se gasta por
+// unidad envasada, no por cuántas veces se repite la fórmula.
 async function registrarProduccion(recetaId, lotes, sumarAlmacen, usuarioId) {
   const cliente = await pool.connect();
   try {
@@ -1179,27 +1222,30 @@ async function registrarProduccion(recetaId, lotes, sumarAlmacen, usuarioId) {
     if (!receta) { await cliente.query('ROLLBACK'); return null; }
 
     const { rows: items } = await cliente.query(
-      `SELECT ri.materia_prima_id, ri.cantidad, m.nombre, m.stock, m.unidad, m.costo_unitario AS "costoUnitario"
+      `SELECT ri.materia_prima_id, ri.cantidad, m.nombre, m.stock, m.unidad, m.tipo, m.costo_unitario AS "costoUnitario"
        FROM lab_receta_items ri JOIN lab_materias_primas m ON m.id = ri.materia_prima_id
        WHERE ri.receta_id = $1 FOR UPDATE OF m`,
       [recetaId]
     );
     if (!items.length) { await cliente.query('ROLLBACK'); return { error: 'La receta no tiene ingredientes' }; }
 
-    const faltantes = [];
-    items.forEach((it) => {
-      const necesario = Number(it.cantidad) * lotesNum;
-      if (necesario > Number(it.stock)) {
-        faltantes.push(`${it.nombre}: hacen falta ${(necesario - Number(it.stock)).toFixed(3)} ${it.unidad}`);
-      }
-    });
-    if (faltantes.length) { await cliente.query('ROLLBACK'); return { error: 'Stock insuficiente', faltantes }; }
-
-    const calc = _labCalcularReceta(items, receta.contenido_por_unidad, receta.contenido_unidad, 0);
+    const calc = _labCalcularReceta(items, receta.contenido_por_unidad, receta.contenido_unidad, 0, receta.merma_pct);
     const unidadesProducidas = calc.unidadesPorLote * lotesNum;
     const costoTotal = calc.costoTotalLote * lotesNum;
     const costoPorUnidad = unidadesProducidas > 0 ? costoTotal / unidadesProducidas : 0;
     if (!(unidadesProducidas > 0)) { await cliente.query('ROLLBACK'); return { error: 'La receta no tiene "contenido por unidad" válido -- no se puede calcular cuántas unidades rinde' }; }
+
+    const necesarios = items.map((it) => ({
+      ...it,
+      necesario: it.tipo === 'empaque' ? Number(it.cantidad) * unidadesProducidas : Number(it.cantidad) * lotesNum,
+    }));
+    const faltantes = [];
+    necesarios.forEach((it) => {
+      if (it.necesario > Number(it.stock)) {
+        faltantes.push(`${it.nombre}: hacen falta ${(it.necesario - Number(it.stock)).toFixed(3)} ${it.unidad}`);
+      }
+    });
+    if (faltantes.length) { await cliente.query('ROLLBACK'); return { error: 'Stock insuficiente', faltantes }; }
 
     const { rows: prodRows } = await cliente.query(
       `INSERT INTO lab_producciones (receta_id, lotes, unidades_producidas, costo_total, costo_por_unidad, sumo_almacen, registrado_por)
@@ -1208,12 +1254,11 @@ async function registrarProduccion(recetaId, lotes, sumarAlmacen, usuarioId) {
     );
     const produccion = prodRows[0];
 
-    for (const it of items) {
-      const consumido = Number(it.cantidad) * lotesNum;
-      await cliente.query(`UPDATE lab_materias_primas SET stock = stock - $2 WHERE id = $1`, [it.materia_prima_id, consumido]);
+    for (const it of necesarios) {
+      await cliente.query(`UPDATE lab_materias_primas SET stock = stock - $2 WHERE id = $1`, [it.materia_prima_id, it.necesario]);
       await cliente.query(
         `INSERT INTO lab_produccion_items (produccion_id, materia_prima_id, cantidad_consumida) VALUES ($1,$2,$3)`,
-        [produccion.id, it.materia_prima_id, consumido]
+        [produccion.id, it.materia_prima_id, it.necesario]
       );
     }
 

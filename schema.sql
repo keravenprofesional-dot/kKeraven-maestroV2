@@ -486,3 +486,28 @@ END $$;
 -- Cobrador: fecha en que el cliente promete pagar (dato operativo de cobranza,
 -- distinto de fecha_limite que es la fecha de vencimiento del contrato).
 ALTER TABLE contratos ADD COLUMN IF NOT EXISTS promesa_pago DATE;
+
+-- ── Laboratorio: envase/empaque como materia prima más, punto de reorden,
+-- lote/vencimiento en compras, merma de producción ──
+ALTER TABLE lab_materias_primas ADD COLUMN IF NOT EXISTS stock_minimo NUMERIC(14,3) NOT NULL DEFAULT 0;
+-- Ensancha el CHECK de tipo para admitir 'empaque' (pote, tapa, etiqueta...):
+-- se consume 1 por unidad producida, no escala con el tamaño del lote como
+-- un ingrediente químico/natural. Se hace drop+recreate porque es un CHECK
+-- que ya existía con menos opciones, no una columna nueva.
+ALTER TABLE lab_materias_primas DROP CONSTRAINT IF EXISTS lab_materias_primas_tipo_check;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lab_materias_primas_tipo_check') THEN
+    ALTER TABLE lab_materias_primas ADD CONSTRAINT lab_materias_primas_tipo_check CHECK (tipo IN ('quimico','natural','empaque'));
+  END IF;
+END $$;
+-- Ensancha el CHECK de unidad para admitir 'unidad' (piezas contables:
+-- potes, tapas, etiquetas -- no tienen peso/volumen relevante a la fórmula).
+ALTER TABLE lab_materias_primas DROP CONSTRAINT IF EXISTS lab_materias_primas_unidad_check;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lab_materias_primas_unidad_check') THEN
+    ALTER TABLE lab_materias_primas ADD CONSTRAINT lab_materias_primas_unidad_check CHECK (unidad IN ('gramos','kilogramos','onzas','galon','unidad'));
+  END IF;
+END $$;
+ALTER TABLE lab_entradas ADD COLUMN IF NOT EXISTS lote_proveedor TEXT;
+ALTER TABLE lab_entradas ADD COLUMN IF NOT EXISTS fecha_vencimiento DATE;
+ALTER TABLE lab_recetas ADD COLUMN IF NOT EXISTS merma_pct NUMERIC(5,2) NOT NULL DEFAULT 0;
