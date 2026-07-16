@@ -338,6 +338,37 @@ app.post('/api/contratos/:id/abonar', requireAuth, requireAnyPermiso('cobros', '
   res.json(contrato);
 }));
 
+// Ruta con Mapa: selección manual de la ruta del día (gerente/supervisor
+// buscan y agregan a mano, ya no se arma sola con todo contrato con GPS).
+app.get('/api/ruta/buscar', requireAuth, requirePermiso('ruta'), h(async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) return res.json([]);
+  res.json(await db.buscarContratosParaRuta(q));
+}));
+app.get('/api/ruta/seleccion', requireAuth, requirePermiso('ruta'), h(async (req, res) => {
+  res.json(await db.listarRutaSeleccionHoy());
+}));
+app.post('/api/ruta/seleccion', requireAuth, requirePermiso('ruta'), h(async (req, res) => {
+  const { contratoId, gpsLat, gpsLng } = req.body || {};
+  if (!contratoId) return res.status(400).json({ error: 'Falta contratoId' });
+  if ((gpsLat == null) !== (gpsLng == null)) return res.status(400).json({ error: 'GPS incompleto' });
+  await db.agregarARutaSeleccion(contratoId, req.usuario.id, gpsLat, gpsLng);
+  res.json(await db.listarRutaSeleccionHoy());
+}));
+app.delete('/api/ruta/seleccion/:id', requireAuth, requirePermiso('ruta'), h(async (req, res) => {
+  await db.quitarDeRutaSeleccion(req.params.id);
+  res.json({ ok: true });
+}));
+app.patch('/api/ruta/seleccion/:id', requireAuth, requirePermiso('ruta'), h(async (req, res) => {
+  const { estado, montoResultado, nota } = req.body || {};
+  if (!['pagado', 'abonado', 'no_pago', 'saltado', 'pendiente'].includes(estado)) {
+    return res.status(400).json({ error: 'Estado inválido' });
+  }
+  const fila = await db.actualizarEstadoRuta(req.params.id, estado, montoResultado, nota);
+  if (!fila) return res.status(404).json({ error: 'No encontrado' });
+  res.json(fila);
+}));
+
 // Datos operativos de cobranza (telefono2, fecha limite, promesa de pago,
 // notas de gestion) -- NO toca monto ni saldo, eso solo cambia abonando.
 // Trabajo diario de Cobrador/Cobros/Ruta, no restringido a Gerente/Sub-Gerente.

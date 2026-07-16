@@ -12,17 +12,20 @@
 /* ═══ RESET + BASE ══════════════════════════════════════════════ */
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A1628;letter-spacing:.01em}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#F7F6F3;color:#1A1A1E;letter-spacing:.01em}
 
 /* ═══ CSS VARS BASE ═════════════════════════════════════════════ */
 :root{
-  --gold:#D4AF37;--gold-l:#E8C84B;--gold-m:#B8962E;--gold-p:rgba(212,175,55,.1);
-  --red:#8B1520;--red2:#521018;--red3:#9E1C30;
-  --tx:#1A1628;--t2:#5C5470;--t3:#9088A0;--wh:#fff;
-  --bg:#F8F4EE;--bg2:#F0E8D8;
-  --br:rgba(196,138,31,.15);--br2:rgba(196,138,31,.25);
+  /* Dorado exacto muestreado del logo real (Downloads/KERAVEN, línea Golden Black).
+     "Negro" de marca = azul-negro (marino oscuro), no negro neutro. */
+  --gold:#CE9840;--gold-l:#E2B959;--gold-m:#A87A2E;--gold-p:rgba(206,152,64,.1);
+  --red:#12141F;--red2:#080910;--red3:#262A3D;
+  --silver:#C4C4CC;--silver-l:#E4E4E9;--silver-d:#8A8A94;
+  --tx:#1A1A1E;--t2:#5A5862;--t3:#8E8C96;--wh:#fff;
+  --bg:#F7F6F3;--bg2:#EDEBE6;
+  --br:rgba(206,152,64,.18);--br2:rgba(206,152,64,.28);
   --r:10px;--rl:15px;--rll:20px;
-  --k-cream:#F0E8D8;--k-gold:#C48A1F;--k-ink:#1A1628;--k-mist:#9088A0;--k-stone:#5C5470;
+  --k-cream:#F7F6F3;--k-gold:#CE9840;--k-ink:#1A1A1E;--k-mist:#8E8C96;--k-stone:#5A5862;
   --green:#1a7a42;--gbg:rgba(26,122,66,.08);--gdk:#155a30;
   --blue:#185FA5;--bbg:rgba(24,95,165,.08);--bdk:#0d47a1;
   --er:#c62828;--rbg:rgba(198,40,40,.07);--rdk:#7f0000;
@@ -31,10 +34,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 /* ═══ LOGIN ═════════════════════════════════════════════════════ */
 #login{
   display:flex;align-items:center;justify-content:center;height:100vh;
-  background:radial-gradient(ellipse at 15% 40%,rgba(122,20,34,.07),transparent 55%),
+  background:radial-gradient(ellipse at 15% 40%,rgba(28,27,31,.07),transparent 55%),
     radial-gradient(ellipse at 85% 25%,rgba(196,138,31,.07),transparent 50%),
-    radial-gradient(ellipse at 50% 80%,rgba(122,20,34,.05),transparent 60%),
-    #F8F4EE;
+    radial-gradient(ellipse at 50% 80%,rgba(28,27,31,.05),transparent 60%),
+    #F7F6F3;
   position:relative;overflow:hidden
 }
 #login::before{content:'';position:absolute;width:600px;height:600px;border-radius:50%;
@@ -45,25 +48,15 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
   box-shadow:0 2px 4px rgba(26,22,40,.04),0 20px 60px rgba(26,22,40,.12),0 0 0 1px rgba(196,138,31,.08);
   width:100%;max-width:380px
 }
-.lk-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;
-  background:linear-gradient(90deg,var(--red),var(--gold),var(--red))}
-.lk-head{text-align:center;padding:32px 32px 8px;background:linear-gradient(160deg,rgba(122,20,34,.03),transparent 60%)}
-.lk-logo3d{
-  width:72px;height:72px;border-radius:18px;margin:0 auto 14px;
-  background:linear-gradient(145deg,var(--red2),var(--red3),var(--red));
-  box-shadow:0 8px 30px rgba(122,20,34,.35),0 2px 6px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.1);
-  display:flex;align-items:center;justify-content:center;font-size:30px;position:relative
-}
-.lk-logo3d::after{content:'';position:absolute;inset:0;border-radius:18px;
-  background:linear-gradient(145deg,rgba(255,255,255,.12),transparent 50%)}
-.lk-brand{font-size:26px;font-weight:900;letter-spacing:.12em;
-  background:linear-gradient(135deg,var(--red),var(--gold),var(--red));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.lk-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(180deg,var(--gold),var(--silver))}
+.lk-head{text-align:center;padding:32px 32px 8px;background:linear-gradient(160deg,rgba(28,27,31,.03),transparent 60%)}
+.lk-logo-real{width:auto;height:64px;margin:0 auto 12px;display:block;filter:drop-shadow(0 4px 14px rgba(24,23,23,.18))}
 .lk-sub{font-size:10px;letter-spacing:.2em;color:var(--t2);margin-top:3px;text-transform:uppercase}
 .lk-body{padding:20px 32px 32px}
 .lbl{display:block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin-bottom:5px;margin-top:13px}
 .linp{
-  width:100%;padding:10px 12px;background:#f8f4ee;
+  width:100%;padding:10px 12px;background:#F7F6F3;
   border:1.5px solid rgba(196,138,31,.2);border-radius:var(--r);
   font-size:14px;font-family:inherit;outline:none;
   box-shadow:inset 0 2px 5px rgba(26,22,40,.04);transition:all .2s;color:var(--tx)
@@ -71,7 +64,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 .linp:focus{border-color:var(--gold);background:#fff;box-shadow:0 0 0 3px rgba(196,138,31,.12),inset 0 1px 3px rgba(26,22,40,.02)}
 .pin-row{display:flex;gap:6px;justify-content:center;margin:14px 0}
 .pin-d{
-  width:42px;height:54px;background:#f8f4ee;border:2px solid rgba(196,138,31,.2);
+  width:42px;height:54px;background:#F7F6F3;border:2px solid rgba(196,138,31,.2);
   border-radius:10px;font-size:22px;text-align:center;color:var(--red);font-weight:700;
   outline:none;box-shadow:inset 0 2px 6px rgba(26,22,40,.06);transition:all .2s
 }
@@ -82,11 +75,11 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
   background:linear-gradient(135deg,var(--red),var(--red3));
   color:var(--gold-l);border:none;border-radius:var(--r);
   font-size:13px;font-weight:700;letter-spacing:.06em;cursor:pointer;font-family:inherit;
-  box-shadow:0 6px 20px rgba(122,20,34,.3),0 2px 6px rgba(0,0,0,.1),inset 0 1px 0 rgba(255,255,255,.1);
+  box-shadow:0 6px 20px rgba(28,27,31,.3),0 2px 6px rgba(0,0,0,.1),inset 0 1px 0 rgba(255,255,255,.1);
   transition:all .2s
 }
-.lbtn:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(122,20,34,.38)}
-.lbtn:active{transform:none;box-shadow:0 3px 10px rgba(122,20,34,.25)}
+.lbtn:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(28,27,31,.38)}
+.lbtn:active{transform:none;box-shadow:0 3px 10px rgba(28,27,31,.25)}
 
 /* ═══ APP ═══════════════════════════════════════════════════════ */
 #app{display:none;height:100vh;flex-direction:column}
@@ -97,15 +90,16 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
   background:#fff;display:flex;align-items:center;gap:10px;padding:0 20px;height:54px;flex-shrink:0;
   position:relative;box-shadow:0 1px 0 rgba(26,22,40,.06),0 4px 20px rgba(26,22,40,.05)
 }
-.topbar::before{content:'';position:absolute;left:0;top:0;right:0;height:3px;
-  background:linear-gradient(90deg,var(--red),var(--gold),var(--red))}
+.topbar::before{content:'';position:absolute;left:0;top:0;right:0;height:2px;
+  background:linear-gradient(180deg,var(--gold),var(--silver))}
 .ham{background:none;border:none;font-size:22px;cursor:pointer;color:var(--t2);padding:4px}
+.tb-logo-real{height:26px;width:auto;flex-shrink:0}
 .tb-title{font-size:16px;font-weight:700;flex:1;color:var(--tx)}
 .tb-av{
   width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-size:13px;font-weight:800;color:var(--gold-l);
   background:linear-gradient(135deg,var(--red),var(--red3));
-  border:2px solid var(--gold);box-shadow:0 3px 10px rgba(122,20,34,.3)
+  border:2px solid var(--gold);box-shadow:0 3px 10px rgba(28,27,31,.3)
 }
 
 /* ═══ OVERLAY ═══════════════════════════════════════════════════ */
@@ -115,78 +109,72 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 /* ═══ SIDEBAR ═══════════════════════════════════════════════════ */
 .sidebar{
   position:fixed;top:0;bottom:0;left:0;width:252px;
-  background:linear-gradient(170deg,#0B0E1B 0%,#131530 40%,#0D1122 70%,#0B0E1B 100%);
+  background:#fff;
   display:flex;flex-direction:column;z-index:50;
   transform:translateX(-110%);transition:transform .25s ease;
-  border-right:1px solid rgba(196,138,31,.18);
-  box-shadow:6px 0 40px rgba(0,0,0,.25)
+  border-right:1px solid var(--br2);
+  box-shadow:6px 0 40px rgba(0,0,0,.1)
 }
 .sidebar.on{transform:none}
 .sb-top{
-  background:linear-gradient(135deg,rgba(196,138,31,.12),rgba(122,20,34,.12));
-  border-bottom:1px solid rgba(196,138,31,.2);
-  padding:20px 18px 16px;
+  background:linear-gradient(135deg,var(--gold-p),transparent);
+  border-bottom:1px solid var(--br2);
+  padding:18px 18px 14px;
   position:relative;overflow:hidden;flex-shrink:0
 }
 .sb-top::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;
-  background:radial-gradient(circle,rgba(196,138,31,.15),transparent 70%);border-radius:50%}
-.sb-brand{
-  font-size:20px;font-weight:900;letter-spacing:.14em;display:block;line-height:1.1;
-  background:linear-gradient(135deg,#DBA830,#E8C84B,#C48A1F,#DBA830);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text
-}
-.sb-sub2{font-size:8.5px;letter-spacing:.2em;color:rgba(196,138,31,.55);text-transform:uppercase;margin-top:2px}
-.sb-x{background:none;border:none;color:rgba(212,175,55,.5);font-size:18px;cursor:pointer;
+  background:radial-gradient(circle,var(--gold-p),transparent 70%);border-radius:50%}
+.sb-logo-real{height:34px;width:auto;display:block}
+.sb-sub2{font-size:8.5px;letter-spacing:.2em;color:var(--gold-m);text-transform:uppercase;margin-top:6px;font-weight:700}
+.sb-x{background:none;border:none;color:var(--t3);font-size:18px;cursor:pointer;
   position:absolute;top:14px;right:14px}
-.sb-x:hover{color:var(--gold)}
+.sb-x:hover{color:var(--gold-m)}
 .sb-us{
-  background:rgba(255,255,255,.04);border-bottom:1px solid rgba(196,138,31,.12);
+  background:var(--bg2);border-bottom:1px solid var(--br2);
   padding:11px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0
 }
 .sb-av2{
   width:36px;height:36px;border-radius:50%;
-  background:linear-gradient(135deg,var(--red),var(--red3));
-  border:2px solid rgba(196,138,31,.4);
+  background:linear-gradient(135deg,var(--gold),var(--gold-m));
+  border:2px solid var(--wh);
   display:flex;align-items:center;justify-content:center;
-  font-weight:800;font-size:14px;color:var(--gold-l);
-  flex-shrink:0;box-shadow:0 2px 8px rgba(122,20,34,.4)
+  font-weight:800;font-size:14px;color:#fff;
+  flex-shrink:0;box-shadow:0 2px 8px rgba(206,152,64,.35)
 }
-.sb-nm{font-size:13px;font-weight:600;color:#E8E8F4}
-.sb-rl{font-size:9.5px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.07em;margin-top:1px}
+.sb-nm{font-size:13px;font-weight:700;color:var(--tx)}
+.sb-rl{font-size:9.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-top:1px}
 .sb-nav{flex:1;overflow-y:auto;padding:8px 0}
 .sb-nav::-webkit-scrollbar{width:3px}
-.sb-nav::-webkit-scrollbar-thumb{background:rgba(196,138,31,.2);border-radius:3px}
+.sb-nav::-webkit-scrollbar-thumb{background:var(--br2);border-radius:3px}
 .nav-sec{
-  font-size:8px;letter-spacing:.18em;color:rgba(196,138,31,.35);text-transform:uppercase;
-  padding:14px 18px 5px;font-weight:700
+  font-size:8px;letter-spacing:.18em;color:var(--gold-m);text-transform:uppercase;
+  padding:14px 18px 5px;font-weight:800
 }
 .nav-it{
   display:flex;align-items:center;gap:9px;padding:10px 18px;width:100%;background:none;
   border:none;border-left:2px solid transparent;
-  color:rgba(255,255,255,.92);font-size:14px;font-weight:600;
+  color:var(--tx);font-size:14px;font-weight:600;
   cursor:pointer;font-family:inherit;transition:all .18s;text-align:left;
-  text-shadow:0 0 12px rgba(255,255,255,.15)
 }
-.nav-it i{font-size:15px;width:18px;text-align:center;flex-shrink:0}
+.nav-it i{font-size:15px;width:18px;text-align:center;flex-shrink:0;color:var(--t3)}
 .nav-it:hover{
-  background:rgba(255,255,255,.07);color:#fff;
-  border-left-color:rgba(255,255,255,.4);
-  text-shadow:0 0 14px rgba(255,255,255,.3)
+  background:var(--bg2);color:var(--tx);
+  border-left-color:var(--silver);
 }
 .nav-it.act{
-  background:linear-gradient(90deg,rgba(196,138,31,.18),rgba(196,138,31,.05));
-  color:#FFE066;border-left-color:var(--gold);font-weight:700;
-  text-shadow:0 0 16px rgba(255,224,102,.35)
+  background:linear-gradient(90deg,var(--gold-p),transparent);
+  color:var(--gold-m);border-left-color:var(--gold);font-weight:700;
 }
+.nav-it.act i{color:var(--gold-m)}
 .nav-it.off{opacity:.35;pointer-events:none}
-.nav-bd{background:#e24b4a;color:#fff;border-radius:100px;padding:1px 6px;font-size:9px;font-weight:800;margin-left:auto}
-.sb-bot{padding:10px 14px;border-top:1px solid rgba(196,138,31,.12);flex-shrink:0}
+.nav-bd{background:var(--er);color:#fff;border-radius:100px;padding:1px 6px;font-size:9px;font-weight:800;margin-left:auto}
+.sb-bot{padding:10px 14px;border-top:1px solid var(--br2);flex-shrink:0}
 .sb-out{
   display:flex;align-items:center;gap:7px;padding:9px 13px;width:100%;background:none;
-  border:1px solid rgba(196,138,31,.2);border-radius:var(--r);
-  color:rgba(196,138,31,.6);font-size:12px;cursor:pointer;font-family:inherit;transition:all .2s
+  border:1px solid var(--br2);border-radius:var(--r);
+  color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit;transition:all .2s
 }
-.sb-out:hover{background:rgba(196,138,31,.1);color:var(--gold-l);border-color:var(--gold)}
+.sb-out:hover{background:var(--gold-p);color:var(--gold-m);border-color:var(--gold)}
 
 /* ═══ CONTENT AREA ══════════════════════════════════════════════ */
 .content{flex:1;overflow-y:auto;padding:14px;scroll-behavior:smooth;width:100%}
@@ -221,7 +209,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
   box-shadow:0 8px 60px rgba(26,22,40,.18),0 2px 10px rgba(26,22,40,.08)
 }
 .mhd{
-  background:linear-gradient(135deg,rgba(122,20,34,.04),rgba(196,138,31,.04));
+  background:linear-gradient(135deg,rgba(28,27,31,.04),rgba(196,138,31,.04));
   border-bottom:1px solid rgba(196,138,31,.12);padding:18px 22px;
   border-radius:var(--rll) var(--rll) 0 0;
   display:flex;align-items:center;justify-content:space-between;flex-shrink:0
@@ -243,11 +231,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
   transition:transform .2s,box-shadow .2s
 }
 .ct{
-  font-size:14px;font-weight:700;color:var(--tx);
-  padding-bottom:12px;margin-bottom:13px;display:flex;align-items:center;gap:8px;
-  border-bottom:2px solid;
-  border-image:linear-gradient(90deg,var(--red),var(--gold),transparent) 1
+  font-size:14px;font-weight:800;color:var(--tx);
+  padding:8px 14px;margin:-16px -16px 13px;border-radius:var(--rl) var(--rl) 0 0;
+  display:flex;align-items:center;gap:8px;
+  background:linear-gradient(180deg,#F2BE22 0%,#D8DBE3 100%);
 }
+.ct i{color:var(--tx)}
 .cs{font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.6}
 .sep,.sl{
   font-size:9.5px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;
@@ -272,7 +261,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 
 /* ═══ BUTTONS ════════════════════════════════════════════════════ */
 .bg{
-  background:linear-gradient(135deg,var(--gold),var(--gold-l));color:#1a0a0f;
+  background:linear-gradient(135deg,var(--gold),var(--gold-l));color:#080910;
   border:none;border-radius:var(--r);padding:9px 16px;font-size:12px;font-weight:700;
   cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px;
   box-shadow:0 4px 16px rgba(196,138,31,.22),0 1px 4px rgba(196,138,31,.12);transition:all .2s
@@ -292,12 +281,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 }
 .bv:hover{transform:translateY(-1px);box-shadow:0 5px 16px rgba(26,122,66,.35)}
 .bre{
-  background:linear-gradient(135deg,var(--red),var(--red3));color:var(--gold-l);
+  background:linear-gradient(135deg,var(--er),var(--rdk));color:var(--gold-l);
   border:none;border-radius:var(--r);padding:9px 14px;font-size:12px;font-weight:600;
   cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px;
-  box-shadow:0 4px 14px rgba(122,20,34,.3);transition:all .2s
+  box-shadow:0 4px 14px rgba(198,40,40,.3);transition:all .2s
 }
-.bre:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(122,20,34,.4)}
+.bre:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(198,40,40,.4)}
 .bsm{
   background:#fff;border:1px solid rgba(196,138,31,.25);color:var(--gold-m);
   border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;
@@ -322,7 +311,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 .fi{margin-bottom:11px}
 .fi label{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);margin-bottom:5px}
 .fi input,.fi select,.fi textarea{
-  width:100%;padding:10px 12px;background:#f8f4ee;
+  width:100%;padding:10px 12px;background:#F7F6F3;
   border:1.5px solid rgba(196,138,31,.18);border-radius:var(--r);
   font-size:13px;font-family:inherit;outline:none;color:var(--tx);
   box-shadow:inset 0 1px 4px rgba(26,22,40,.04);transition:all .18s
@@ -355,7 +344,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 .tbl tbody tr:nth-child(even) td{background:rgba(248,244,238,.6)}
 .tbl tbody tr:hover td{background:rgba(196,138,31,.06)!important}
 .tbl tfoot td{
-  background:linear-gradient(90deg,rgba(122,20,34,.06),rgba(196,138,31,.06));
+  background:linear-gradient(90deg,rgba(28,27,31,.06),rgba(196,138,31,.06));
   font-weight:700;padding:10px 14px;border-top:2px solid rgba(196,138,31,.2)
 }
 .tr{text-align:right!important}
@@ -364,7 +353,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 .stp,.sta,.str,.cc-st{border-radius:100px;padding:3px 10px;font-size:10px;font-weight:700;letter-spacing:.04em}
 .stp{background:linear-gradient(135deg,rgba(196,138,31,.12),rgba(196,138,31,.07));color:var(--red);border:1px solid rgba(196,138,31,.25)}
 .sta{background:linear-gradient(135deg,rgba(26,122,66,.1),rgba(26,122,66,.06));color:#1a7a42;border:1px solid rgba(26,122,66,.25)}
-.str{background:linear-gradient(135deg,rgba(122,20,34,.1),rgba(122,20,34,.06));color:var(--red);border:1px solid rgba(122,20,34,.25)}
+.str{background:linear-gradient(135deg,rgba(198,40,40,.1),rgba(198,40,40,.06));color:var(--er);border:1px solid rgba(198,40,40,.25)}
 .pill{background:linear-gradient(135deg,rgba(196,138,31,.1),rgba(196,138,31,.06));border:1px solid rgba(196,138,31,.25);
   color:var(--red);border-radius:100px;padding:3px 10px;font-size:10.5px;font-weight:700;letter-spacing:.03em}
 
@@ -377,7 +366,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 
 /* ═══ EMPTY ═══════════════════════════════════════════════════════ */
 .empty{
-  background:linear-gradient(145deg,rgba(196,138,31,.04),rgba(122,20,34,.03));
+  background:linear-gradient(145deg,rgba(196,138,31,.04),rgba(28,27,31,.03));
   border:2px dashed rgba(196,138,31,.15);border-radius:var(--rll);
   padding:50px 24px;text-align:center;color:var(--t3)
 }
@@ -396,15 +385,15 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 .apg{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:12px 14px;border-top:1px solid rgba(196,138,31,.08)}
 .pna{background:linear-gradient(145deg,rgba(26,122,66,.07),rgba(26,122,66,.04));border:1.5px solid rgba(26,122,66,.2);border-radius:var(--r);padding:12px}
 .pna-t{font-size:12px;font-weight:700;color:#1a7a42;margin-bottom:5px;display:flex;align-items:center;gap:5px}
-.pnr{background:linear-gradient(145deg,rgba(122,20,34,.06),rgba(196,138,31,.04));border:1.5px solid rgba(196,138,31,.2);border-radius:var(--rl);padding:12px}
-.pnr-t{font-size:12px;font-weight:700;color:var(--red);margin-bottom:5px;display:flex;align-items:center;gap:5px}
+.pnr{background:linear-gradient(145deg,rgba(28,27,31,.06),rgba(196,138,31,.04));border:1.5px solid rgba(196,138,31,.2);border-radius:var(--rl);padding:12px}
+.pnr-t{font-size:12px;font-weight:700;color:var(--er);margin-bottom:5px;display:flex;align-items:center;gap:5px}
 .ra{background:linear-gradient(135deg,rgba(26,122,66,.08),rgba(26,122,66,.04));border:1px solid rgba(26,122,66,.2);border-radius:var(--r);padding:10px 13px;font-size:12px;color:#1a7a42;display:flex;align-items:center;gap:7px;margin:10px 14px}
-.rr{background:linear-gradient(135deg,rgba(122,20,34,.06),rgba(122,20,34,.03));border:1px solid rgba(122,20,34,.2);border-radius:var(--r);padding:10px 13px;font-size:12px;color:var(--red);display:flex;align-items:center;gap:7px;margin:10px 14px}
+.rr{background:linear-gradient(135deg,rgba(198,40,40,.06),rgba(198,40,40,.03));border:1px solid rgba(198,40,40,.2);border-radius:var(--r);padding:10px 13px;font-size:12px;color:var(--er);display:flex;align-items:center;gap:7px;margin:10px 14px}
 .dg{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-bottom:12px}
 .dl{font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3)}
 .dv{font-size:13px;color:var(--tx);font-weight:500;margin-top:1px}
 .trow{display:flex;gap:8px;margin-top:8px}
-.th{flex:1;background:#f8f4ee;border-radius:var(--r);overflow:hidden;height:80px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--t3);cursor:pointer}
+.th{flex:1;background:#F7F6F3;border-radius:var(--r);overflow:hidden;height:80px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--t3);cursor:pointer}
 .th img{width:100%;height:100%;object-fit:cover}
 
 /* ═══ PRODUCTS ════════════════════════════════════════════════════ */
@@ -418,9 +407,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 .ppill{background:linear-gradient(135deg,rgba(196,138,31,.1),rgba(196,138,31,.06));border:1px solid rgba(196,138,31,.22);border-radius:100px;font-size:10px;color:var(--red);font-weight:600;padding:3px 8px}
 
 /* ═══ PHOTOS ══════════════════════════════════════════════════════ */
-.fb{border:2px dashed rgba(196,138,31,.25);border-radius:var(--rl);background:linear-gradient(145deg,#f8f4ee,#f0e8d8);min-height:88px;transition:all .2s;position:relative;overflow:hidden;cursor:pointer}
+.fb{border:2px dashed rgba(196,138,31,.25);border-radius:var(--rl);background:linear-gradient(145deg,#F7F6F3,#EDEBE6);min-height:88px;transition:all .2s;position:relative;overflow:hidden;cursor:pointer}
 .fb:hover{border-color:var(--gold);background:rgba(196,138,31,.06);box-shadow:0 4px 16px rgba(196,138,31,.15)}
-.ftop{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--red);padding:4px 8px;background:linear-gradient(90deg,rgba(122,20,34,.07),transparent);border-radius:6px 6px 0 0}
+.ftop{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--red);padding:4px 8px;background:linear-gradient(90deg,rgba(28,27,31,.07),transparent);border-radius:6px 6px 0 0}
 .fb-badge{position:absolute;top:7px;right:7px;background:var(--green);color:#fff;border-radius:100px;padding:2px 7px;font-size:9px;font-weight:700}
 .fb-ov{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.55);padding:5px;display:flex;gap:4px;justify-content:center}
 .fb-ov button{padding:4px 10px;border-radius:5px;border:none;cursor:pointer;font-size:11px;font-family:inherit}
@@ -441,7 +430,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 .ub{width:27px;height:27px;border:1px solid rgba(196,138,31,.2);border-radius:6px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--t2);transition:all .15s}
 .ub:hover{border-color:var(--gold);color:var(--gold)}
 .ub.del:hover{border-color:var(--er);color:var(--er)}
-.af{background:linear-gradient(145deg,#f8f4ee,#f5f0e8);border:1px solid rgba(196,138,31,.18);border-radius:var(--rl);padding:14px;box-shadow:inset 0 2px 8px rgba(26,22,40,.04)}
+.af{background:linear-gradient(145deg,#F7F6F3,#f5f0e8);border:1px solid rgba(196,138,31,.18);border-radius:var(--rl);padding:14px;box-shadow:inset 0 2px 8px rgba(26,22,40,.04)}
 .selfbox{border:2px solid var(--gold);background:rgba(196,138,31,.05);border-radius:var(--rl);padding:12px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 
 /* ═══ COMMISSION CARDS ════════════════════════════════════════════ */
@@ -450,7 +439,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 .pc.tot{background:linear-gradient(135deg,#0d0d0d,#1a1a1a);border:1px solid var(--gold)}
 .pc.cred{background:var(--bbg);border:1px solid rgba(24,95,165,.25)}
 .pc.cont{background:var(--gbg);border:1px solid rgba(26,122,66,.25)}
-.pc.cnt{background:#f7f7f5;border:1px solid rgba(196,138,31,.15)}
+.pc.cnt{background:#F7F6F3;border:1px solid rgba(196,138,31,.15)}
 .pv{font-size:17px;font-weight:700}
 .pc.tot .pv{color:var(--gold-l)}.pc.cred .pv{color:var(--bdk)}.pc.cont .pv{color:var(--gdk)}.pc.cnt .pv{color:var(--tx)}
 .pl{font-size:9px;text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
@@ -477,8 +466,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 .mg{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
 .mc{background:#fff;border:1px solid rgba(196,138,31,.1);border-radius:var(--rl);padding:11px;box-shadow:0 2px 6px rgba(26,22,40,.05);transition:all .18s}
 .mc:hover{border-color:rgba(196,138,31,.25);transform:translateY(-2px);box-shadow:0 6px 18px rgba(26,22,40,.1)}
-.ro{background:#f8f4ee;border:1.5px solid rgba(196,138,31,.2);border-radius:var(--r);color:var(--t2);font-size:13px;transition:all .18s;padding:11px 18px}
-.ro.on{background:linear-gradient(135deg,rgba(122,20,34,.1),rgba(196,138,31,.07));border-color:var(--gold);color:var(--red);font-weight:700}
+.ro{background:#F7F6F3;border:1.5px solid rgba(196,138,31,.2);border-radius:var(--r);color:var(--t2);font-size:13px;transition:all .18s;padding:11px 18px}
+.ro.on{background:linear-gradient(135deg,rgba(28,27,31,.1),rgba(196,138,31,.07));border-color:var(--gold);color:var(--red);font-weight:700}
 
 /* ═══ RESPONSIVE ══════════════════════════════════════════════════ */
 @media(min-width:700px){
@@ -521,8 +510,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
 <div id="login">
   <div class="lk-card" style="margin:16px">
     <div class="lk-head">
-      <div class="lk-logo3d">💎</div>
-      <div class="lk-brand">KERAVEN</div>
+      <img src="/img/logo-keraven.png" alt="KERAVEN Profesional" class="lk-logo-real">
       <div class="lk-sub">Sistema Operativo Profesional</div>
     </div>
     <div class="lk-body">
@@ -549,13 +537,14 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F4EE;color:#1A162
   <div class="topbar" id="topbar">
     <button class="ham" onclick="abrirMenu()"><i class="ti ti-menu-2"></i></button>
     <button class="ham" id="btn_back" onclick="volverAtras()" title="Volver atrás" style="display:none"><i class="ti ti-arrow-left"></i></button>
+    <img src="/img/logo-keraven.png" alt="KERAVEN" class="tb-logo-real">
     <div class="tb-title" id="tbtit">Panel principal</div>
     <div class="tb-av" id="tbav">?</div>
   </div>
   <div id="ov" onclick="cerrarMenu()"></div>
   <div class="sidebar" id="sb">
     <div class="sb-top">
-      <div><span class="sb-brand">KERAVEN</span><span class="sb-sub2">Maestro v2</span></div>
+      <div><img src="/img/logo-keraven.png" alt="KERAVEN" class="sb-logo-real"><span class="sb-sub2">Sistema Profesional</span></div>
       <button class="sb-x" onclick="cerrarMenu()"><i class="ti ti-x"></i></button>
     </div>
     <div class="sb-us">
@@ -622,6 +611,8 @@ const NAV=[
   {id:'contrato', lab:'Facturación',     ico:'ti-file-text',           sec:'Operaciones'},
   {id:'buzon',    lab:'Buzón de aprobación',   ico:'ti-inbox',               sec:'Operaciones',bd:true},
   {id:'cobros',   lab:'Ruta de cobro',         ico:'ti-cash',                sec:'Operaciones'},
+  {id:'cobrador', lab:'Cobrador Automático',   ico:'ti-brand-whatsapp',      sec:'Operaciones'},
+  {id:'ruta',     lab:'Ruta con Mapa',         ico:'ti-map-2',               sec:'Operaciones'},
   {id:'clientes', lab:'Clientes',               ico:'ti-users-group',         sec:'Comercial'},
   {id:'cxc',      lab:'Cuentas por Cobrar',     ico:'ti-file-invoice',        sec:'Comercial'},
   {id:'arqueo',   lab:'Arqueo de almacén',     ico:'ti-clipboard-list',      sec:'Almacén'},
@@ -660,7 +651,7 @@ let contratos=[],semanas=[],pagos=[],facN=1;
 let almM={},almP={},movAlm=[],entAlm=[],despachos=[],arqueos=[],solic=[];
 let selP=[],fotos={f:null,r:null},gps=null,tventa='credito';
 let editU=null,expId=null;
-const COLS=['#B8860B','#185FA5','#0F6E56','#A32D2D','#5B4E8A','#C05621','#2C7A7B','#702459'];
+const COLS=['#A87A2E','#185FA5','#0F6E56','#A32D2D','#5B4E8A','#C05621','#2C7A7B','#702459'];
 
 // ── HELPERS ────────────────────────────────────────────────────────
 const $=id=>document.getElementById(id);
@@ -699,7 +690,7 @@ async function apiFetch(url,opts={}){
 // desde siempre (n, rl, on, ed) para no tener que reescribir cada
 // pantalla que ya lee usuarios con esos nombres de campo.
 function mapUsuarioApi(u){
-  return{id:u.id,n:u.nombre,rol:u.rol,rl:u.rol_label,c:u.color||'#B8860B',
+  return{id:u.id,n:u.nombre,rol:u.rol,rl:u.rol_label,c:u.color||'#A87A2E',
     on:u.activo!==false,ed:u.editable!==false,permisos:u.permisos_custom||null};
 }
 
@@ -791,7 +782,7 @@ async function cargarCrm(){
       en:c.creado_en}));
   }catch(e){console.error('No se pudo cargar el CRM:',e);}
 }
-const CRM_ETAPAS={nuevo:{lab:'Nuevo',c:'#5C5470'},contactado:{lab:'Contactado',c:'#185FA5'},interesado:{lab:'Interesado',c:'#C05621'},cliente:{lab:'Cliente',c:'#1a7a42'},inactivo:{lab:'Inactivo',c:'#9088A0'}};
+const CRM_ETAPAS={nuevo:{lab:'Nuevo',c:'#5A5862'},contactado:{lab:'Contactado',c:'#185FA5'},interesado:{lab:'Interesado',c:'#C05621'},cliente:{lab:'Cliente',c:'#1a7a42'},inactivo:{lab:'Inactivo',c:'#8E8C96'}};
 async function cargarAsientos(){
   try{
     const lista=await apiFetch('/api/asientos');
@@ -989,34 +980,30 @@ function rDash(){
   var clientes=(new Set(contratos.map(function(c){return c.cedula;}))).size;
 
   var ALL_MODS=[
-    {id:'contrato',name:'Facturación',icon:'🧾',bg:'linear-gradient(145deg,#1565C0,#0D47A1,#1976D2)',sh:'0 8px 24px rgba(21,101,192,.45)',stat:'Nueva venta'},
-    {id:'buzon',name:'Buzón',icon:'📬',bg:'linear-gradient(145deg,#7B1FA2,#4A148C,#9C27B0)',sh:'0 8px 24px rgba(123,31,162,.45)',stat:pend+' pendiente'+(pend!==1?'s':'')},
-    {id:'cobros',name:'Cobros',icon:'💰',bg:'linear-gradient(145deg,#2E7D32,#1B5E20,#388E3C)',sh:'0 8px 24px rgba(46,125,50,.45)',stat:'Ruta activa'},
-    {id:'cobrador',name:'Cobrador Auto',icon:'📲',
-     bg:'linear-gradient(145deg,#00796B,#004D40,#00838F)',
-     sh:'0 8px 24px rgba(0,121,107,.45)',stat:'WhatsApp automático'},
-    {id:'ruta',name:'Ruta con Mapa',icon:'🗺️',
-     bg:'linear-gradient(145deg,#0277BD,#01579B,#039BE5)',
-     sh:'0 8px 24px rgba(2,119,189,.45)',stat:'Cobro guiado por GPS'},
-    {id:'clientes',name:'Clientes',icon:'👥',bg:'linear-gradient(145deg,#00695C,#004D40,#00897B)',sh:'0 8px 24px rgba(0,105,92,.45)',stat:clientes+' registrados'},
-    {id:'cxc',name:'CxC',icon:'📄',bg:'linear-gradient(145deg,#D84315,#BF360C,#E64A19)',sh:'0 8px 24px rgba(216,67,21,.45)',stat:'Cuentas por cobrar'},
-    {id:'arqueo',name:'Arqueo',icon:'🧾',bg:'linear-gradient(145deg,#00838F,#006064,#0097A7)',sh:'0 8px 24px rgba(0,131,143,.45)',stat:'Cierre de ruta'},
-    {id:'almp',name:'Almacén',icon:'🏭',bg:'linear-gradient(145deg,#E65100,#BF360C,#F57C00)',sh:'0 8px 24px rgba(230,81,0,.45)',stat:'Inventario'},
-    {id:'almm',name:'Alm. Móvil',icon:'🚐',bg:'linear-gradient(145deg,#5D4037,#3E2723,#795548)',sh:'0 8px 24px rgba(93,64,55,.45)',stat:'Despachos'},
-    {id:'productos',name:'Productos',icon:'🏷️',bg:'linear-gradient(145deg,#00695C,#004D40,#00897B)',sh:'0 8px 24px rgba(0,105,92,.45)',stat:'Catálogo y precios'},
-    {id:'laboratorio',name:'Laboratorio',icon:'🧪',bg:'linear-gradient(145deg,#4527A0,#311B92,#5E35B1)',sh:'0 8px 24px rgba(69,39,160,.45)',stat:'Fabricación'},
-    {id:'com',name:'Comisiones',icon:'📊',bg:'linear-gradient(145deg,#C2185B,#880E4F,#E91E63)',sh:'0 8px 24px rgba(194,24,91,.45)',stat:'Día 5'},
-    {id:'miscom',name:'Cuadre Com.',icon:'💳',bg:'linear-gradient(145deg,#AD1457,#880E4F,#C2185B)',sh:'0 8px 24px rgba(173,20,87,.45)',stat:'Promotores'},
-    {id:'cxp',name:'CxP',icon:'🏦',bg:'linear-gradient(145deg,#C62828,#7F0000,#D32F2F)',sh:'0 8px 24px rgba(198,40,40,.45)',stat:'Por pagar'},
-    {id:'nomina',name:'Nómina',icon:'👔',bg:'linear-gradient(145deg,#1B5E20,#003300,#2E7D32)',sh:'0 8px 24px rgba(27,94,32,.45)',stat:'Empleados'},
-    {id:'contab',name:'Contabilidad',icon:'📒',bg:'linear-gradient(145deg,#0D47A1,#002171,#1565C0)',sh:'0 8px 24px rgba(13,71,161,.45)',stat:'Asientos'},
-    {id:'ccrm',name:'CRM',icon:'🤝',bg:'linear-gradient(145deg,#6A1B9A,#4A148C,#7B1FA2)',sh:'0 8px 24px rgba(106,27,154,.45)',stat:'Relaciones'},
-    {id:'pedidos',name:'Pedidos',icon:'🛍️',bg:'linear-gradient(145deg,#0277BD,#01579B,#0288D1)',sh:'0 8px 24px rgba(2,119,189,.45)',stat:'Catálogo online'},
-    {id:'rendimiento',name:'Rendimiento',icon:'📈',bg:'linear-gradient(145deg,#1565C0,#0D47A1,#42A5F5)',sh:'0 8px 24px rgba(21,101,192,.45)',stat:'Reportes'},
-    {id:'users',name:'Usuarios',icon:'👤',bg:'linear-gradient(145deg,#3949AB,#1A237E,#3F51B5)',sh:'0 8px 24px rgba(57,73,171,.45)',stat:'Equipo'},
-    {id:'delfac',name:'Eliminar Fac.',icon:'🗑️',bg:'linear-gradient(145deg,#B71C1C,#7F0000,#C62828)',sh:'0 8px 24px rgba(183,28,28,.45)',stat:'Admin'},
-    {id:'cfg',name:'Config.',icon:'⚙️',bg:'linear-gradient(145deg,#424242,#212121,#616161)',sh:'0 8px 24px rgba(66,66,66,.45)',stat:'Sistema'},
-    {id:'asistente',name:'IA',icon:'🤖',bg:'linear-gradient(145deg,#005EB8,#003d8a,#0078D4)',sh:'0 8px 24px rgba(0,94,184,.45)',stat:'Asistente'},
+    {id:'contrato',name:'Facturación',ico:'ti-file-text',stat:'Nueva venta'},
+    {id:'buzon',name:'Buzón',ico:'ti-inbox',stat:pend+' pendiente'+(pend!==1?'s':'')},
+    {id:'cobros',name:'Cobros',ico:'ti-cash',stat:'Ruta activa'},
+    {id:'cobrador',name:'Cobrador Auto',ico:'ti-brand-whatsapp',stat:'WhatsApp automático'},
+    {id:'ruta',name:'Ruta con Mapa',ico:'ti-map-2',stat:'Cobro guiado por GPS'},
+    {id:'clientes',name:'Clientes',ico:'ti-users-group',stat:clientes+' registrados'},
+    {id:'cxc',name:'CxC',ico:'ti-file-invoice',stat:'Cuentas por cobrar'},
+    {id:'arqueo',name:'Arqueo',ico:'ti-clipboard-list',stat:'Cierre de ruta'},
+    {id:'almp',name:'Almacén',ico:'ti-building-warehouse',stat:'Inventario'},
+    {id:'almm',name:'Alm. Móvil',ico:'ti-truck',stat:'Despachos'},
+    {id:'productos',name:'Productos',ico:'ti-tag',stat:'Catálogo y precios'},
+    {id:'laboratorio',name:'Laboratorio',ico:'ti-flask',stat:'Fabricación'},
+    {id:'com',name:'Comisiones',ico:'ti-chart-bar',stat:'Día 5'},
+    {id:'miscom',name:'Cuadre Com.',ico:'ti-coin',stat:'Promotores'},
+    {id:'cxp',name:'CxP',ico:'ti-cash-banknote',stat:'Por pagar'},
+    {id:'nomina',name:'Nómina',ico:'ti-users',stat:'Empleados'},
+    {id:'contab',name:'Contabilidad',ico:'ti-book',stat:'Asientos'},
+    {id:'ccrm',name:'CRM',ico:'ti-users-group',stat:'Relaciones'},
+    {id:'pedidos',name:'Pedidos',ico:'ti-shopping-bag',stat:'Catálogo online'},
+    {id:'rendimiento',name:'Rendimiento',ico:'ti-chart-dots',stat:'Reportes'},
+    {id:'users',name:'Usuarios',ico:'ti-users',stat:'Equipo'},
+    {id:'delfac',name:'Eliminar Fac.',ico:'ti-trash',stat:'Admin'},
+    {id:'cfg',name:'Config.',ico:'ti-settings',stat:'Sistema'},
+    {id:'asistente',name:'IA',ico:'ti-robot',stat:'Asistente'},
   ];
 
   var p=perms();
@@ -1049,13 +1036,16 @@ function rDash(){
     '</div>'+
   '</div>'+
   '<div class="launcher-grid" id="kv_grid">'+
-  visible.map(function(m){
+  visible.map(function(m,mi){
     var badge=m.id==='buzon'&&pend>0?'<div class="lc-badge">'+pend+'</div>':'';
+    var esDorado=mi%2===0;
+    var acento=esDorado?'var(--gold)':'var(--silver-d)';
+    var iconoBg=esDorado?'linear-gradient(135deg,var(--gold),var(--gold-m))':'linear-gradient(135deg,var(--silver),var(--silver-d))';
     return'<div class="lc" id="lc_'+m.id+'" data-id="'+m.id+'" draggable="false"'+
       ' onclick="kvLcClick(event,\''+m.id+'\')"'+
-      ' style="background:'+m.bg+';box-shadow:'+m.sh+'">'+
+      ' style="border-top-color:'+acento+'">'+
       badge+
-      '<div class="lc-icon">'+m.icon+'</div>'+
+      '<div class="lc-icon" style="background:'+iconoBg+'"><i class="ti '+m.ico+'"></i></div>'+
       '<div class="lc-name">'+m.name+'</div>'+
       '<div class="lc-stat">'+m.stat+'</div>'+
     '</div>';
@@ -1264,7 +1254,7 @@ function rContrato(){
           <img id="fp_f" alt=""><div class="fb-badge" id="fbd_f"><i class="ti ti-check" style="font-size:9px"></i>OK</div>
           <div class="fb-ov" id="fov_f">
             <button style="background:#fff;color:#111" onclick="event.stopPropagation();tF('f')"><i class="ti ti-camera"></i> Cambiar</button>
-            <button style="background:var(--red);color:#fff" onclick="event.stopPropagation();clF('f')"><i class="ti ti-trash"></i></button>
+            <button style="background:var(--er);color:#fff" onclick="event.stopPropagation();clF('f')"><i class="ti ti-trash"></i></button>
           </div>
         </div>
         <div class="em" id="e_ff"></div>
@@ -1276,7 +1266,7 @@ function rContrato(){
           <img id="fp_r" alt=""><div class="fb-badge" id="fbd_r"><i class="ti ti-check" style="font-size:9px"></i>OK</div>
           <div class="fb-ov" id="fov_r">
             <button style="background:#fff;color:#111" onclick="event.stopPropagation();tF('r')"><i class="ti ti-camera"></i> Cambiar</button>
-            <button style="background:var(--red);color:#fff" onclick="event.stopPropagation();clF('r')"><i class="ti ti-trash"></i></button>
+            <button style="background:var(--er);color:#fff" onclick="event.stopPropagation();clF('r')"><i class="ti ti-trash"></i></button>
           </div>
         </div>
         <div class="em" id="e_fr"></div>
@@ -1324,7 +1314,7 @@ function rContrato(){
           <div class="fb-badge" id="fbd_fac" style="display:none"><i class="ti ti-check" style="font-size:9px"></i>OK</div>
           <div class="fb-ov" id="fov_fac" style="display:none">
             <button style="background:#fff;color:#111" onclick="event.stopPropagation();tF('fac')"><i class="ti ti-camera"></i> Cambiar</button>
-            <button style="background:var(--red);color:#fff" onclick="event.stopPropagation();clF('fac')"><i class="ti ti-trash"></i></button>
+            <button style="background:var(--er);color:#fff" onclick="event.stopPropagation();clF('fac')"><i class="ti ti-trash"></i></button>
           </div>
         </div>
         <div id="fac_quality" style="margin-top:5px;min-height:18px"></div>
@@ -1360,7 +1350,7 @@ function rContrato(){
           </select><div class="em" id="e_pl"></div></div>
         <div class="fi"><label>Fecha límite</label><input type="date" id="cf_fl" readonly></div>
       </div>
-      <div id="pl_info" style="display:none;align-items:center;gap:7px;padding:7px 10px;background:#f7f7f5;border:1px solid var(--br);border-radius:var(--r);font-size:12px">
+      <div id="pl_info" style="display:none;align-items:center;gap:7px;padding:7px 10px;background:#F7F6F3;border:1px solid var(--br);border-radius:var(--r);font-size:12px">
         <i class="ti ti-calendar-event" style="color:var(--gold);font-size:14px"></i>
         <span style="color:var(--t2)">Vence:</span>
         <span id="pl_txt" style="font-weight:500"></span>
@@ -1555,7 +1545,7 @@ function capGPS(){
     st.innerHTML=
       '<span style="color:var(--green)">✅ Capturado</span> · '+
       '<span style="color:'+col+'">±'+acc+'m</span> · '+
-      '<b style="background:#faeeda;border:1px solid #ba7517;color:#633806;padding:2px 8px;border-radius:4px;font-size:12px">'+pcs+'</b>';
+      '<b style="background:#faeeda;border:1px solid #A87A2E;color:#5C4212;padding:2px 8px;border-radius:4px;font-size:12px">'+pcs+'</b>';
     if(ma)ma.style.display='flex';
     btn.disabled=false;
     btn.innerHTML='<i class="ti ti-current-location" style="font-size:12px"></i> Actualizar';
@@ -1714,7 +1704,7 @@ function ccCard(c){
         <div><div class="dl">Barrio/Sector</div><div class="dv">${c.barrio||'—'}</div></div>
         <div><div class="dl">Dirección</div><div class="dv">${c.dir||'—'}</div></div>
         <div><div class="dl">GPS</div><div class="dv" style="font-size:10px">${c.gps||'—'}</div></div>
-        ${c.descuento>0?`<div><div class="dl">Descuento</div><div class="dv" style="color:var(--red)">- ${fM(c.descuento)}</div></div><div><div class="dl">Neto</div><div class="dv" style="color:var(--green);font-weight:700">${fM(c.neto||c.monto)}</div></div>`:''}
+        ${c.descuento>0?`<div><div class="dl">Descuento</div><div class="dv" style="color:var(--er)">- ${fM(c.descuento)}</div></div><div><div class="dl">Neto</div><div class="dv" style="color:var(--green);font-weight:700">${fM(c.neto||c.monto)}</div></div>`:''}
         ${c.tipo==='credito'?`<div><div class="dl">Vence</div><div class="dv">${fD(c.lim)} (${c.plazo}d)</div></div>`:''}
         ${c.obs?`<div style="grid-column:span 2"><div class="dl">Observaciones</div><div class="dv">${c.obs}</div></div>`:''}
       </div>
@@ -1817,9 +1807,9 @@ function cobCard(c){
         <div><div class="dl">Cédula</div><div class="dv">${c.cedula}</div></div>
         <div><div class="dl">Teléfono</div><div class="dv">${c.tel1}</div></div>
         <div><div class="dl">Monto original</div><div class="dv">${fM(c.monto)}</div></div>
-        ${c.descuento>0?`<div><div class="dl">Descuento</div><div class="dv" style="color:var(--red)">- ${fM(c.descuento)}</div></div>
+        ${c.descuento>0?`<div><div class="dl">Descuento</div><div class="dv" style="color:var(--er)">- ${fM(c.descuento)}</div></div>
         <div><div class="dl">Neto</div><div class="dv" style="color:var(--green);font-weight:700">${fM(c.neto||c.monto)}</div></div>`:''}
-        <div><div class="dl">Saldo</div><div class="dv" style="font-weight:600;color:${saldo>0?'var(--red)':'var(--green)'}">${fM(saldo)}</div></div>
+        <div><div class="dl">Saldo</div><div class="dv" style="font-weight:600;color:${saldo>0?'var(--er)':'var(--green)'}">${fM(saldo)}</div></div>
         ${c.tipo==='credito'?`<div><div class="dl">Vence</div><div class="dv">${fD(c.lim)}</div></div>`:''}
         <div><div class="dl">Tipo</div><div class="dv">${c.tipo}</div></div>
       </div>
@@ -1856,7 +1846,7 @@ function cobCard(c){
         <div style="font-size:10px;color:var(--t2);margin-top:1px">${c.fac} · ${c.promotor} · ${fD(c.fecha)}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:14px;font-weight:700;color:${saldo>0?'var(--red)':'var(--green)'}">${fM(saldo)}</div>
+        <div style="font-size:14px;font-weight:700;color:${saldo>0?'var(--er)':'var(--green)'}">${fM(saldo)}</div>
         <div style="font-size:10px;color:var(--t2)">${saldo>0?'Pendiente':'Saldado'}</div>
       </div>
       <i class="ti ti-chevron-${isE?'up':'down'}" style="font-size:14px;color:var(--t2)"></i>
@@ -1939,9 +1929,9 @@ function apTab(t){
   if(t==='stk'){
     const ago=PRODS.filter(p=>!almP[p]||almP[p]===0).length;
     const baj=PRODS.filter(p=>almP[p]>0&&almP[p]<5).length;
-    c.innerHTML=`${ago>0||baj>0?`<div style="padding:8px 11px;background:var(--rbg);border:1px solid var(--red);border-radius:var(--r);font-size:12px;color:var(--rdk);margin-bottom:9px"><i class="ti ti-alert-triangle"></i> ${ago} agotado${ago!==1?'s':''}, ${baj} con stock bajo</div>`:''}
+    c.innerHTML=`${ago>0||baj>0?`<div style="padding:8px 11px;background:var(--rbg);border:1px solid var(--er);border-radius:var(--r);font-size:12px;color:var(--rdk);margin-bottom:9px"><i class="ti ti-alert-triangle"></i> ${ago} agotado${ago!==1?'s':''}, ${baj} con stock bajo</div>`:''}
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Producto</th><th class="tr">Stock</th><th class="tr">Estado</th></tr></thead>
-    <tbody>${PRODS.map(p=>{const q=almP[p]||0;const cls=q===0?'var(--red)':q<5?'#D97706':'var(--green)';const lab=q===0?'Agotado':q<5?'Bajo':'OK';return`<tr><td style="font-size:11px">${p}</td><td class="tr" style="font-weight:600">${q}</td><td class="tr"><span style="padding:2px 6px;border-radius:100px;font-size:10px;font-weight:600;background:${q===0?'var(--rbg)':q<5?'#FAEEDA':'var(--gbg)'};color:${cls};border:1px solid ${cls}">${lab}</span></td></tr>`}).join('')}</tbody></table></div>`;
+    <tbody>${PRODS.map(p=>{const q=almP[p]||0;const cls=q===0?'var(--er)':q<5?'#D97706':'var(--green)';const lab=q===0?'Agotado':q<5?'Bajo':'OK';return`<tr><td style="font-size:11px">${p}</td><td class="tr" style="font-weight:600">${q}</td><td class="tr"><span style="padding:2px 6px;border-radius:100px;font-size:10px;font-weight:600;background:${q===0?'var(--rbg)':q<5?'#FAEEDA':'var(--gbg)'};color:${cls};border:1px solid ${cls}">${lab}</span></td></tr>`}).join('')}</tbody></table></div>`;
   } else if(t==='ent'){
     c.innerHTML=`<div class="sl">Registrar entrada</div>
     <div class="fi"><label>Proveedor</label><input id="ap_prov" placeholder="Nombre del proveedor" oninput="upper(this)"></div>
@@ -1986,7 +1976,7 @@ function amTab(t){
   if(t==='inv'){
     const tot=PRODS.reduce((s,p)=>s+(almM[p]||0),0);
     c.innerHTML=`<div style="font-size:12px;color:var(--t2);margin-bottom:9px">Total en ruta: <b style="color:var(--tx)">${tot} unidades</b></div>
-    <div class="ig">${PRODS.map(p=>{const q=almM[p]||0,mx=almP[p]>0?almP[p]:q||1,pct=Math.min(100,Math.round(q/mx*100)),cls=q===0?'crit':q<3?'warn':'ok';return`<div class="ic ${cls}"><div class="in">${p.substring(0,20)}</div><div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--t2)">Disponible</span><b style="color:${q===0?'var(--red)':q<3?'#D97706':'var(--green)'}">${q}</b></div><div class="ibg"><div class="ib" style="width:${pct}%;background:${q===0?'var(--red)':q<3?'#D97706':'var(--green)'}"></div></div></div>`;}).join('')}</div>`;
+    <div class="ig">${PRODS.map(p=>{const q=almM[p]||0,mx=almP[p]>0?almP[p]:q||1,pct=Math.min(100,Math.round(q/mx*100)),cls=q===0?'crit':q<3?'warn':'ok';return`<div class="ic ${cls}"><div class="in">${p.substring(0,20)}</div><div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--t2)">Disponible</span><b style="color:${q===0?'var(--er)':q<3?'#D97706':'var(--green)'}">${q}</b></div><div class="ibg"><div class="ib" style="width:${pct}%;background:${q===0?'var(--er)':q<3?'#D97706':'var(--green)'}"></div></div></div>`;}).join('')}</div>`;
   } else if(t==='vta'){
     c.innerHTML=`<div class="sl">Registrar venta en ruta</div>
     <div class="fi"><label>Cliente</label><input id="am_cli" placeholder="Nombre del cliente" oninput="upper(this)"></div>
@@ -2110,7 +2100,7 @@ function cTab(t){
           <b style="color:var(--gold);font-size:15px">${fM(s.tot)}</b>
           <div style="font-size:9px;color:var(--t2)">comisión</div>
         </div>
-        <span style="padding:2px 8px;border-radius:100px;font-size:10px;font-weight:600;background:${s.pag?'var(--gbg)':'#FAEEDA'};color:${s.pag?'var(--gdk)':'#633806'};border:1px solid ${s.pag?'var(--green)':'#BA7517'}">${s.pag?'Pagado':'Pendiente'}</span>
+        <span style="padding:2px 8px;border-radius:100px;font-size:10px;font-weight:600;background:${s.pag?'var(--gbg)':'#FAEEDA'};color:${s.pag?'var(--gdk)':'#5C4212'};border:1px solid ${s.pag?'var(--green)':'#A87A2E'}">${s.pag?'Pagado':'Pendiente'}</span>
         <i class="ti ti-chevron-down" style="font-size:13px;color:var(--t2)"></i>
       </div>
       <div style="display:none;padding:10px 13px;border-top:1px solid var(--br)">
@@ -2181,7 +2171,7 @@ async function marcarPag(){
 }
 
 // ── USUARIOS ───────────────────────────────────────────────────────
-const GRPS=[{lab:'Gerencia',roles:['gerente','subgerente'],c:'#B8860B'},{lab:'Operaciones',roles:['coordinador','supervisor'],c:'#185FA5'},{lab:'Almacén',roles:['almacen'],c:'#5B4E8A'},{lab:'Promotores',roles:['promotor'],c:'#0F6E56'}];
+const GRPS=[{lab:'Gerencia',roles:['gerente','subgerente'],c:'#A87A2E'},{lab:'Operaciones',roles:['coordinador','supervisor'],c:'#185FA5'},{lab:'Almacén',roles:['almacen'],c:'#5B4E8A'},{lab:'Promotores',roles:['promotor'],c:'#0F6E56'}];
 function rUsers(){
   const esGer=['gerente','subgerente'].includes(ses.rol);
   let h=`<div class="card">
@@ -2259,7 +2249,7 @@ function rUsers(){
   const inac=USUARIOS.filter(u=>!u.on);
   if(inac.length){
     h+=`<div class="sl"><i class="ti ti-user-off" style="font-size:11px"></i>Inactivos (${inac.length})</div>`;
-    inac.forEach(u=>{h+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 11px;background:#f7f7f5;border:1px solid var(--br);border-radius:var(--r);margin-bottom:5px;opacity:.6">
+    inac.forEach(u=>{h+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 11px;background:#F7F6F3;border:1px solid var(--br);border-radius:var(--r);margin-bottom:5px;opacity:.6">
       <div style="width:28px;height:28px;border-radius:50%;background:${u.c};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff">${u.n[0]}</div>
       <div style="flex:1"><div style="font-size:12px;font-weight:600">${u.n}</div><div style="font-size:10px;color:var(--t2)">${u.rl}</div></div>
       <button class="bsm" onclick="reactU(${u.id})"><i class="ti ti-user-check"></i> Reactivar</button>
@@ -2423,12 +2413,12 @@ function rCfg(){
     <div class="ct"><i class="ti ti-settings" style="color:var(--gold);font-size:18px"></i>Configuración
       <span class="pill" style="margin-left:auto;background:${cfg?'var(--gbg)':'var(--gold-p)'};border-color:${cfg?'var(--green)':'var(--gold)'};color:${cfg?'var(--gdk)':'var(--gold-m)'}">${cfg?'Firebase activo':'Sin sync'}</span></div>
     <div class="cs">Sincronización en tiempo real entre dispositivos. Gratis con Firebase.</div>
-    <div style="background:#f7f7f5;border:1px solid var(--br);border-radius:var(--rl);padding:12px;margin-bottom:12px">
+    <div style="background:#F7F6F3;border:1px solid var(--br);border-radius:var(--rl);padding:12px;margin-bottom:12px">
       <div style="font-size:12px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:5px"><i class="ti ti-help-circle" style="color:var(--gold)"></i>Cómo configurar (gratis, 5 min)</div>
       <div style="font-size:11px;color:var(--t2);line-height:1.9">
         <b>1.</b> Ve a <a href="https://firebase.google.com" target="_blank" style="color:var(--blue)">firebase.google.com</a> → Crear proyecto<br>
         <b>2.</b> Activa <b>Firestore Database</b> → Modo producción<br>
-        <b>3.</b> Reglas: <code style="background:#111;color:#D4AF37;padding:1px 5px;border-radius:3px;font-size:10px">allow read, write: if true;</code><br>
+        <b>3.</b> Reglas: <code style="background:#111;color:#CE9840;padding:1px 5px;border-radius:3px;font-size:10px">allow read, write: if true;</code><br>
         <b>4.</b> Configuración → Agrega app web → Copia el objeto firebaseConfig<br>
         <b>5.</b> Pega abajo y toca Conectar
       </div>
@@ -2501,21 +2491,21 @@ function _repHTML(data,cols,nom,modTit){
   var hora=ahora.toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'});
   var nc=cols.length;
 
-  // Colores CELESTE/AZUL CLARO
+  // Colores DORADO/NEGRO (marca KERAVEN)
   var C={
-    hdr1:'#0277BD',   // azul marino suave (encabezado empresa)
-    hdr2:'#0288D1',   // azul medio (subtítulo)
-    hdr3:'#29B6F6',   // celeste claro (módulo)
-    hdr4:'#E1F5FE',   // celeste muy claro (metadata)
-    colHdr:'#01579B', // azul oscuro (columnas)
+    hdr1:'#1C1B1F',   // negro marca (encabezado empresa)
+    hdr2:'#3A383F',   // gris carbón (subtítulo)
+    hdr3:'#CE9840',   // dorado (módulo)
+    hdr4:'#FAF3DF',   // dorado muy claro (metadata)
+    colHdr:'#1C1B1F', // negro (columnas)
     colTxt:'#FFFFFF', // blanco (texto en columnas)
-    row1:'#E3F2FD',   // celeste pálido (filas pares)
+    row1:'#FBF6E9',   // dorado pálido (filas pares)
     row2:'#FFFFFF',   // blanco (filas impares)
-    rowTxt:'#0D1B2A', // casi negro azulado (texto datos)
-    foot:'#0277BD',   // azul (pie)
+    rowTxt:'#1A1A1E', // casi negro (texto datos)
+    foot:'#1C1B1F',   // negro (pie)
     footTxt:'#FFFFFF', // blanco (texto pie)
-    accent:'#29B6F6', // acento celeste
-    border:'#BBDEFB'  // borde celeste claro
+    accent:'#CE9840', // acento dorado
+    border:'#E0D3A8'  // borde dorado claro
   };
 
   function isNum(v){return v!==''&&v!==null&&v!==undefined&&!isNaN(Number(v))&&typeof v!=='boolean';}
@@ -2900,8 +2890,8 @@ function pedRenderProductos(){
   if(totalItems>0){
     h+=`<div class="ped-floatbar">
       <div>
-        <div style="font-size:11px;color:#f5ede8">${totalItems} producto${totalItems!==1?'s':''}</div>
-        <div style="font-size:16px;font-weight:700;color:#d4af37">RD$${pedFmt(totalMonto)}</div>
+        <div style="font-size:11px;color:#EDEBE6">${totalItems} producto${totalItems!==1?'s':''}</div>
+        <div style="font-size:16px;font-weight:700;color:#CE9840">RD$${pedFmt(totalMonto)}</div>
       </div>
       <button class="ped-floatbar-btn" onclick="pedPaso=3;window.scrollTo(0,0);pedRender()">Método de Pago →</button>
     </div>`;
@@ -2932,26 +2922,26 @@ function pedRenderPago(){
     h+=`<button class="ped-metodo${selCls}" onclick="pedSelMetodo('${m.id}')">
       <span style="font-size:22px">${m.icon}</span>
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:700;color:${pedMetodo===m.id?(m.id==='credito'?'#6496ff':m.id==='cash'?'#2ecc71':'#d4af37'):'#f5ede8'}">${m.label}</div>
-        <div style="font-size:10px;color:#c9a882">${m.sub}</div>
+        <div style="font-size:13px;font-weight:700;color:${pedMetodo===m.id?(m.id==='credito'?'#6496ff':m.id==='cash'?'#2ecc71':'#CE9840'):'#EDEBE6'}">${m.label}</div>
+        <div style="font-size:10px;color:#C4C4CC">${m.sub}</div>
       </div>
-      <span style="color:#d4af37;font-size:14px">${pedMetodo===m.id?'✓':'○'}</span>
+      <span style="color:#CE9840;font-size:14px">${pedMetodo===m.id?'✓':'○'}</span>
     </button>`;
   });
 
   if(pedMetodo==='credito'){
     if(!pedCredito){
-      h+=`<div id="ped-cre-check" style="text-align:center;padding:10px;color:#c9a882;font-size:12px">⏳ Verificando credencial...</div>`;
+      h+=`<div id="ped-cre-check" style="text-align:center;padding:10px;color:#C4C4CC;font-size:12px">⏳ Verificando credencial...</div>`;
     } else {
       h+=`<div class="ped-cre-ok">
         <div style="font-size:11px;letter-spacing:2px;color:#2ecc71;font-weight:700;margin-bottom:5px">✓ CRÉDITO AUTORIZADO</div>
-        <div style="font-size:13px;color:#f5ede8;margin-bottom:3px">${pedCredito.nombre}</div>
-        <div style="font-size:11px;color:#c9a882">Código: <strong style="color:#d4af37">${pedCredito.codigo}</strong>${pedCredito.limite?` · Límite: RD$${parseInt(pedCredito.limite).toLocaleString()}`:''}</div>
+        <div style="font-size:13px;color:#EDEBE6;margin-bottom:3px">${pedCredito.nombre}</div>
+        <div style="font-size:11px;color:#C4C4CC">Código: <strong style="color:#CE9840">${pedCredito.codigo}</strong>${pedCredito.limite?` · Límite: RD$${parseInt(pedCredito.limite).toLocaleString()}`:''}</div>
         <div class="ped-sec" style="margin:14px 0 10px">✦ Plazo de Pago</div>
         <div class="ped-plazos">${PED_PLAZOS.map(d=>`<button class="ped-plazo${pedPlazo===d?' sel':''}" onclick="pedPlazo=${d};pedRender()">${d}d</button>`).join('')}</div>
         ${pedPlazo?`<div class="ped-venc">
-          <div><div style="font-size:9px;letter-spacing:2px;color:#c9a882">FECHA LÍMITE</div><div style="font-size:14px;font-weight:700;color:#d4af37">${pedVence(pedPlazo)}</div></div>
-          <div style="text-align:right"><div style="font-size:9px;color:#c9a882">PLAZO</div><div style="font-size:20px;font-weight:700;color:#d4af37">${pedPlazo}<span style="font-size:11px"> días</span></div></div>
+          <div><div style="font-size:9px;letter-spacing:2px;color:#C4C4CC">FECHA LÍMITE</div><div style="font-size:14px;font-weight:700;color:#CE9840">${pedVence(pedPlazo)}</div></div>
+          <div style="text-align:right"><div style="font-size:9px;color:#C4C4CC">PLAZO</div><div style="font-size:20px;font-weight:700;color:#CE9840">${pedPlazo}<span style="font-size:11px"> días</span></div></div>
         </div>`:''}
       </div>`;
     }
@@ -2990,7 +2980,7 @@ function pedRenderResumen(){
   const items=PRODS.filter(p=>pedCarrito[p]);
   const total=items.reduce((s,p)=>s+(pedCarrito[p]||0)*(PED_PRICES[p]||0),0);
   const mLabel=pedMetodo==='transferencia'?'Transferencia Bancaria':pedMetodo==='cash'?'Cash — Efectivo':'Crédito KERAVEN';
-  const mColor=pedMetodo==='credito'?'#6496ff':pedMetodo==='cash'?'#2ecc71':'#d4af37';
+  const mColor=pedMetodo==='credito'?'#6496ff':pedMetodo==='cash'?'#2ecc71':'#CE9840';
 
   let h=`<div class="ped-conduce">
     <div class="ped-conduce-sub">CONDUCE DE PEDIDO</div>
@@ -3011,12 +3001,12 @@ function pedRenderResumen(){
       <span style="font-size:24px">${pedMetodo==='transferencia'?'🏦':pedMetodo==='cash'?'💵':'💳'}</span>
       <div>
         <div style="font-size:14px;font-weight:700;color:${mColor}">${mLabel}</div>
-        ${pedMetodo==='credito'&&pedCredito?`<div style="font-size:11px;color:#c9a882">Código: <span style="color:#d4af37">${pedCredito.codigo}</span></div>`:''}
+        ${pedMetodo==='credito'&&pedCredito?`<div style="font-size:11px;color:#C4C4CC">Código: <span style="color:#CE9840">${pedCredito.codigo}</span></div>`:''}
       </div>
     </div>
     ${pedMetodo==='credito'&&pedPlazo?`<div class="ped-venc" style="margin-top:12px">
-      <div><div style="font-size:9px;color:#c9a882">PLAZO</div><div style="font-size:14px;font-weight:700;color:#d4af37">${pedPlazo} días</div></div>
-      <div style="text-align:right"><div style="font-size:9px;color:#c9a882">FECHA LÍMITE</div><div style="font-size:13px;font-weight:700;color:#e67e22">${pedVence(pedPlazo)}</div></div>
+      <div><div style="font-size:9px;color:#C4C4CC">PLAZO</div><div style="font-size:14px;font-weight:700;color:#CE9840">${pedPlazo} días</div></div>
+      <div style="text-align:right"><div style="font-size:9px;color:#C4C4CC">FECHA LÍMITE</div><div style="font-size:13px;font-weight:700;color:#e67e22">${pedVence(pedPlazo)}</div></div>
     </div>`:''}
   </div>
   <div class="ped-card">
@@ -3026,27 +3016,27 @@ function pedRenderResumen(){
         <div class="ped-prod-nm">${p.charAt(0)+p.slice(1).toLowerCase()}</div>
         <div class="ped-prod-pr" style="font-size:10px">x${pedCarrito[p]} · RD$${pedFmt(PED_PRICES[p]||0)} c/u</div>
       </div>
-      <span style="font-size:13px;font-weight:700;color:#d4af37">RD$${pedFmt((pedCarrito[p]||0)*(PED_PRICES[p]||0))}</span>
+      <span style="font-size:13px;font-weight:700;color:#CE9840">RD$${pedFmt((pedCarrito[p]||0)*(PED_PRICES[p]||0))}</span>
     </div>`).join('')}
     <div class="ped-total">
-      <span style="font-size:13px;color:#d4af37;letter-spacing:2px;font-weight:700">TOTAL</span>
-      <span style="font-size:19px;font-weight:700;color:#d4af37">RD$${pedFmt(total)}</span>
+      <span style="font-size:13px;color:#CE9840;letter-spacing:2px;font-weight:700">TOTAL</span>
+      <span style="font-size:19px;font-weight:700;color:#CE9840">RD$${pedFmt(total)}</span>
     </div>
   </div>
   <div class="ped-card">
     <div class="ped-sec">✦ Enviar Conduce en PDF</div>
-    <div class="ped-lock"><span style="font-size:17px">🔒</span><span>El PDF se genera como <strong style="color:#f5ede8">imagen bloqueada</strong> — no puede ser editado ni alterado.</span></div>`;
+    <div class="ped-lock"><span style="font-size:17px">🔒</span><span>El PDF se genera como <strong style="color:#EDEBE6">imagen bloqueada</strong> — no puede ser editado ni alterado.</span></div>`;
 
   if(pedEnviando){
-    h+=`<div class="ped-spin"><div class="ped-spin-ring"></div><div style="color:#d4af37;font-size:12px;letter-spacing:2px">Generando PDF seguro…</div></div>`;
+    h+=`<div class="ped-spin"><div class="ped-spin-ring"></div><div style="color:#CE9840;font-size:12px;letter-spacing:2px">Generando PDF seguro…</div></div>`;
   } else if(pedEnviado){
     h+=`<div class="ped-ok">
       <div style="font-size:36px;margin-bottom:9px">✅</div>
       <div style="font-size:14px;font-weight:700;color:#2ecc71">¡PDF enviado a KERAVEN!</div>
-      <div style="font-size:11px;color:#c9a882;margin-top:5px;line-height:1.6">Conduce <strong style="color:#d4af37">${pedConduce}</strong> enviado.<br>El equipo procesará tu pedido.</div>
+      <div style="font-size:11px;color:#C4C4CC;margin-top:5px;line-height:1.6">Conduce <strong style="color:#CE9840">${pedConduce}</strong> enviado.<br>El equipo procesará tu pedido.</div>
     </div>
     <button class="ped-btn-g" onclick="pedFinalizar()" style="font-size:14px;padding:17px;letter-spacing:4px;font-weight:900">🏁 Finalizar Pedido</button>
-    <div style="text-align:center;font-size:10px;color:#c9a882;margin-top:8px">Al finalizar el formulario se reinicia para un nuevo pedido</div>`;
+    <div style="text-align:center;font-size:10px;color:#C4C4CC;margin-top:8px">Al finalizar el formulario se reinicia para un nuevo pedido</div>`;
   } else {
     if(pedErrEnvio)h+=`<div style="background:rgba(231,76,60,.07);border:1px solid rgba(231,76,60,.38);border-radius:9px;padding:11px;margin-bottom:13px;font-size:11px;color:#e74c3c">${pedErrEnvio}</div>`;
     h+=`<button class="ped-btn-wa" onclick="pedEnviarWA()"><span style="font-size:21px">📱</span> Enviar PDF por WhatsApp</button>`;
@@ -3074,82 +3064,82 @@ function pedMakeReceiptHTML(){
   const items=PRODS.filter(p=>pedCarrito[p]);
   const total=items.reduce((s,p)=>s+(pedCarrito[p]||0)*(PED_PRICES[p]||0),0);
   const mLabel=pedMetodo==='transferencia'?'Transferencia Bancaria':pedMetodo==='cash'?'Pago en Efectivo (Cash)':'Crédito KERAVEN';
-  const mColor=pedMetodo==='credito'?'#4a6cf7':pedMetodo==='cash'?'#1a9e5c':'#b8962e';
+  const mColor=pedMetodo==='credito'?'#4a6cf7':pedMetodo==='cash'?'#1a9e5c':'#A87A2E';
   const rows=items.map((p,i)=>`<tr>
-    <td style="padding:10px 12px;background:${i%2===0?'#fdf8f0':'#fff8ee'};font-size:12px;color:#2d1017;border-bottom:1px solid #f0e0c0">${p.charAt(0)+p.slice(1).toLowerCase()}</td>
-    <td style="padding:10px 12px;background:${i%2===0?'#fdf8f0':'#fff8ee'};text-align:center;font-weight:700;font-size:13px;color:#8b1a2a;border-bottom:1px solid #f0e0c0">${pedCarrito[p]}</td>
-    <td style="padding:10px 12px;background:${i%2===0?'#fdf8f0':'#fff8ee'};text-align:right;font-size:12px;color:#6b3a2a;border-bottom:1px solid #f0e0c0">RD$${pedFmt(PED_PRICES[p]||0)}</td>
-    <td style="padding:10px 12px;background:${i%2===0?'#fdf8f0':'#fff8ee'};text-align:right;font-weight:700;font-size:12px;color:#8b1a2a;border-bottom:1px solid #f0e0c0">RD$${pedFmt((pedCarrito[p]||0)*(PED_PRICES[p]||0))}</td>
+    <td style="padding:10px 12px;background:${i%2===0?'#F7F6F3':'#F7F6F3'};font-size:12px;color:#080910;border-bottom:1px solid #EDEBE6">${p.charAt(0)+p.slice(1).toLowerCase()}</td>
+    <td style="padding:10px 12px;background:${i%2===0?'#F7F6F3':'#F7F6F3'};text-align:center;font-weight:700;font-size:13px;color:#12141F;border-bottom:1px solid #EDEBE6">${pedCarrito[p]}</td>
+    <td style="padding:10px 12px;background:${i%2===0?'#F7F6F3':'#F7F6F3'};text-align:right;font-size:12px;color:#6b3a2a;border-bottom:1px solid #EDEBE6">RD$${pedFmt(PED_PRICES[p]||0)}</td>
+    <td style="padding:10px 12px;background:${i%2===0?'#F7F6F3':'#F7F6F3'};text-align:right;font-weight:700;font-size:12px;color:#12141F;border-bottom:1px solid #EDEBE6">RD$${pedFmt((pedCarrito[p]||0)*(PED_PRICES[p]||0))}</td>
   </tr>`).join('');
   const cBlq=pedMetodo==='credito'&&pedCredito&&pedPlazo?`<div style="background:#fffbea;border:1.5px solid #f0c040;border-radius:10px;padding:12px 16px;margin-top:12px">
     <div style="display:flex;gap:20px;flex-wrap:wrap">
-      <div><div style="font-size:9px;letter-spacing:2px;color:#8b6a00;text-transform:uppercase">Código</div><div style="font-size:14px;font-weight:700;color:#8b1a2a">${pedCredito.codigo}</div></div>
-      <div><div style="font-size:9px;letter-spacing:2px;color:#8b6a00;text-transform:uppercase">Plazo</div><div style="font-size:14px;font-weight:700;color:#8b1a2a">${pedPlazo} días</div></div>
-      <div><div style="font-size:9px;letter-spacing:2px;color:#8b6a00;text-transform:uppercase">Vence</div><div style="font-size:13px;font-weight:700;color:#c0392b">${pedVence(pedPlazo)}</div></div>
+      <div><div style="font-size:9px;letter-spacing:2px;color:#805812;text-transform:uppercase">Código</div><div style="font-size:14px;font-weight:700;color:#12141F">${pedCredito.codigo}</div></div>
+      <div><div style="font-size:9px;letter-spacing:2px;color:#805812;text-transform:uppercase">Plazo</div><div style="font-size:14px;font-weight:700;color:#12141F">${pedPlazo} días</div></div>
+      <div><div style="font-size:9px;letter-spacing:2px;color:#805812;text-transform:uppercase">Vence</div><div style="font-size:13px;font-weight:700;color:#c0392b">${pedVence(pedPlazo)}</div></div>
     </div></div>`:'';
 
-  return `<div style="width:760px;font-family:Arial,sans-serif;background:#fff;color:#2d1017">
-  <div style="background:linear-gradient(135deg,#7a1020,#a01828,#7a1020);padding:26px 32px;overflow:hidden">
+  return `<div style="width:760px;font-family:Arial,sans-serif;background:#fff;color:#080910">
+  <div style="background:linear-gradient(135deg,#080910,#12141F,#080910);padding:26px 32px;overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">
       <div>
-        <div style="font-size:34px;font-weight:900;color:#d4af37;letter-spacing:8px;line-height:1">KERAVEN</div>
+        <div style="font-size:34px;font-weight:900;color:#CE9840;letter-spacing:8px;line-height:1">KERAVEN</div>
         <div style="font-size:10px;letter-spacing:3px;color:rgba(245,237,232,.6);margin-top:4px;text-transform:uppercase">Hair Care &amp; Beauty Products</div>
         <div style="margin-top:8px;font-size:10px;color:rgba(245,237,232,.45)">📞 809-935-2191</div>
       </div>
       <div style="background:rgba(212,175,55,.12);border:1.5px solid rgba(212,175,55,.4);border-radius:10px;padding:12px 18px;text-align:right">
-        <div style="font-size:9px;letter-spacing:3px;color:#d4af37;text-transform:uppercase;margin-bottom:5px">Conduce N°</div>
-        <div style="font-size:17px;font-weight:700;color:#d4af37;letter-spacing:2px">${pedConduce}</div>
+        <div style="font-size:9px;letter-spacing:3px;color:#CE9840;text-transform:uppercase;margin-bottom:5px">Conduce N°</div>
+        <div style="font-size:17px;font-weight:700;color:#CE9840;letter-spacing:2px">${pedConduce}</div>
         <div style="font-size:10px;color:rgba(245,237,232,.5);margin-top:5px">${pedHoy()}</div>
       </div>
     </div>
   </div>
-  <div style="background:linear-gradient(90deg,#d4af37,#c9a830,#d4af37);padding:7px 32px;display:flex;justify-content:space-between">
-    <span style="font-size:9px;letter-spacing:3px;color:#1a0a0f;text-transform:uppercase;font-weight:700">✦ Comprobante Oficial · NO MODIFICABLE</span>
-    <span style="font-size:9px;color:#1a0a0f;font-weight:700">${pedHoy()}</span>
+  <div style="background:linear-gradient(90deg,#CE9840,#c9a830,#CE9840);padding:7px 32px;display:flex;justify-content:space-between">
+    <span style="font-size:9px;letter-spacing:3px;color:#080910;text-transform:uppercase;font-weight:700">✦ Comprobante Oficial · NO MODIFICABLE</span>
+    <span style="font-size:9px;color:#080910;font-weight:700">${pedHoy()}</span>
   </div>
   <div style="padding:20px 32px;position:relative">
     <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);border:4px solid rgba(139,26,42,.1);border-radius:12px;padding:8px 20px;font-size:22px;font-weight:900;color:rgba(139,26,42,.09);letter-spacing:4px;text-transform:uppercase;white-space:nowrap;pointer-events:none">KERAVEN OFICIAL</div>
     <div style="display:flex;gap:14px;margin-bottom:18px">
-      <div style="flex:1;background:#fdf8f0;border:1px solid #e8d5b0;border-radius:10px;padding:16px">
-        <div style="font-size:9px;letter-spacing:3px;color:#8b1a2a;text-transform:uppercase;font-weight:700;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #d4af37">👤 Datos de la Clienta</div>
+      <div style="flex:1;background:#F7F6F3;border:1px solid #E4E4E9;border-radius:10px;padding:16px">
+        <div style="font-size:9px;letter-spacing:3px;color:#12141F;text-transform:uppercase;font-weight:700;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #CE9840">👤 Datos de la Clienta</div>
         ${[['Nombre',pedInfo.nombre],['Cédula',pedInfo.cedula],['Tel. Principal',pedInfo.tel1],
            ['Tel. Secundario',pedInfo.tel2||'—'],['Correo',pedInfo.email||'—'],
            ['Ciudad',pedInfo.ciudad],['Dirección',pedInfo.direccion],['Referencia',pedInfo.referencia]
-          ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0e0c0;font-size:11px"><span style="color:#8b6a50;font-weight:500">${l}</span><span style="color:#2d1017;font-weight:600;text-align:right;max-width:58%">${v}</span></div>`).join('')}
+          ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #EDEBE6;font-size:11px"><span style="color:#8A8A94;font-weight:500">${l}</span><span style="color:#080910;font-weight:600;text-align:right;max-width:58%">${v}</span></div>`).join('')}
       </div>
-      <div style="flex:1;background:#fdf8f0;border:1px solid #e8d5b0;border-radius:10px;padding:16px">
-        <div style="font-size:9px;letter-spacing:3px;color:#8b1a2a;text-transform:uppercase;font-weight:700;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #d4af37">📍 Entrega &amp; Pago</div>
-        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0e0c0;font-size:11px;margin-bottom:10px"><span style="color:#8b6a50">Parada</span><span style="color:#2d1017;font-weight:600">${pedInfo.parada}</span></div>
+      <div style="flex:1;background:#F7F6F3;border:1px solid #E4E4E9;border-radius:10px;padding:16px">
+        <div style="font-size:9px;letter-spacing:3px;color:#12141F;text-transform:uppercase;font-weight:700;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #CE9840">📍 Entrega &amp; Pago</div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #EDEBE6;font-size:11px;margin-bottom:10px"><span style="color:#8A8A94">Parada</span><span style="color:#080910;font-weight:600">${pedInfo.parada}</span></div>
         <div style="background:${mColor}18;border:1.5px solid ${mColor}55;border-radius:8px;padding:10px 12px">
-          <div style="font-size:9px;letter-spacing:2px;color:#8b6a50;text-transform:uppercase;margin-bottom:4px">Método de Pago</div>
+          <div style="font-size:9px;letter-spacing:2px;color:#8A8A94;text-transform:uppercase;margin-bottom:4px">Método de Pago</div>
           <div style="font-size:13px;font-weight:700;color:${mColor}">${mLabel}</div>
         </div>
         ${cBlq}
       </div>
     </div>
     <div style="margin-bottom:18px">
-      <div style="font-size:9px;letter-spacing:3px;color:#8b1a2a;text-transform:uppercase;font-weight:700;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #d4af37">🛍️ Productos Solicitados</div>
-      <table style="width:100%;border-collapse:collapse;border:1px solid #e8d5b0;border-radius:10px;overflow:hidden">
-        <thead><tr style="background:linear-gradient(135deg,#7a1020,#a01828)">
-          <th style="padding:9px 12px;text-align:left;font-size:9px;letter-spacing:2px;color:#d4af37;font-weight:700;text-transform:uppercase">Producto</th>
-          <th style="padding:9px 12px;text-align:center;font-size:9px;letter-spacing:2px;color:#d4af37;font-weight:700;text-transform:uppercase">Cant.</th>
-          <th style="padding:9px 12px;text-align:right;font-size:9px;letter-spacing:2px;color:#d4af37;font-weight:700;text-transform:uppercase">P. Unit.</th>
-          <th style="padding:9px 12px;text-align:right;font-size:9px;letter-spacing:2px;color:#d4af37;font-weight:700;text-transform:uppercase">Subtotal</th>
+      <div style="font-size:9px;letter-spacing:3px;color:#12141F;text-transform:uppercase;font-weight:700;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #CE9840">🛍️ Productos Solicitados</div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #E4E4E9;border-radius:10px;overflow:hidden">
+        <thead><tr style="background:linear-gradient(135deg,#080910,#12141F)">
+          <th style="padding:9px 12px;text-align:left;font-size:9px;letter-spacing:2px;color:#CE9840;font-weight:700;text-transform:uppercase">Producto</th>
+          <th style="padding:9px 12px;text-align:center;font-size:9px;letter-spacing:2px;color:#CE9840;font-weight:700;text-transform:uppercase">Cant.</th>
+          <th style="padding:9px 12px;text-align:right;font-size:9px;letter-spacing:2px;color:#CE9840;font-weight:700;text-transform:uppercase">P. Unit.</th>
+          <th style="padding:9px 12px;text-align:right;font-size:9px;letter-spacing:2px;color:#CE9840;font-weight:700;text-transform:uppercase">Subtotal</th>
         </tr></thead>
         <tbody>${rows}</tbody>
-        <tfoot><tr style="background:linear-gradient(135deg,#1a0a0f,#2d1017)">
-          <td colspan="3" style="padding:12px;font-size:11px;letter-spacing:3px;color:#d4af37;font-weight:700;text-transform:uppercase">TOTAL DEL PEDIDO</td>
-          <td style="padding:12px;text-align:right;font-size:18px;font-weight:700;color:#d4af37">RD$${pedFmt(total)}</td>
+        <tfoot><tr style="background:linear-gradient(135deg,#080910,#080910)">
+          <td colspan="3" style="padding:12px;font-size:11px;letter-spacing:3px;color:#CE9840;font-weight:700;text-transform:uppercase">TOTAL DEL PEDIDO</td>
+          <td style="padding:12px;text-align:right;font-size:18px;font-weight:700;color:#CE9840">RD$${pedFmt(total)}</td>
         </tr></tfoot>
       </table>
     </div>
     <div style="display:flex;gap:36px;margin-top:16px">
-      <div style="flex:1;text-align:center"><div style="height:38px"></div><div style="border-top:2px solid #8b1a2a;padding-top:8px"><div style="font-size:9px;letter-spacing:2px;color:#8b6a50;text-transform:uppercase">Firma de la Clienta</div><div style="font-size:11px;color:#2d1017;font-weight:600;margin-top:3px">${pedInfo.nombre}</div></div></div>
-      <div style="flex:1;text-align:center"><div style="height:38px"></div><div style="border-top:2px solid #8b1a2a;padding-top:8px"><div style="font-size:9px;letter-spacing:2px;color:#8b6a50;text-transform:uppercase">Autorizado por KERAVEN</div><div style="font-size:11px;color:#2d1017;font-weight:600;margin-top:3px">___________________</div></div></div>
+      <div style="flex:1;text-align:center"><div style="height:38px"></div><div style="border-top:2px solid #12141F;padding-top:8px"><div style="font-size:9px;letter-spacing:2px;color:#8A8A94;text-transform:uppercase">Firma de la Clienta</div><div style="font-size:11px;color:#080910;font-weight:600;margin-top:3px">${pedInfo.nombre}</div></div></div>
+      <div style="flex:1;text-align:center"><div style="height:38px"></div><div style="border-top:2px solid #12141F;padding-top:8px"><div style="font-size:9px;letter-spacing:2px;color:#8A8A94;text-transform:uppercase">Autorizado por KERAVEN</div><div style="font-size:11px;color:#080910;font-weight:600;margin-top:3px">___________________</div></div></div>
     </div>
   </div>
-  <div style="background:linear-gradient(135deg,#1a0a0f,#2d1017);padding:16px 32px;text-align:center;border-top:2px solid #d4af37">
-    <div style="font-size:14px;font-weight:700;color:#d4af37;letter-spacing:5px;margin-bottom:4px">KERAVEN</div>
+  <div style="background:linear-gradient(135deg,#080910,#080910);padding:16px 32px;text-align:center;border-top:2px solid #CE9840">
+    <div style="font-size:14px;font-weight:700;color:#CE9840;letter-spacing:5px;margin-bottom:4px">KERAVEN</div>
     <div style="font-size:8px;letter-spacing:2px;color:rgba(245,237,232,.35);text-transform:uppercase">Hair Care &amp; Beauty Products · República Dominicana</div>
     <div style="font-size:8px;color:rgba(245,237,232,.25);margin-top:4px">${pedConduce} · ${pedHoy()} · DOCUMENTO OFICIAL NO MODIFICABLE</div>
   </div>
@@ -3306,7 +3296,7 @@ async function padTab(t){
     h+=pedCliArr.map(cli=>`<div class="card" style="margin-bottom:8px;padding:12px 14px">
       <div style="display:flex;align-items:center;gap:8px;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
-          <span style="width:8px;height:8px;border-radius:50%;background:${cli.activo?'var(--green)':'var(--red)'};flex-shrink:0;display:inline-block"></span>
+          <span style="width:8px;height:8px;border-radius:50%;background:${cli.activo?'var(--green)':'var(--er)'};flex-shrink:0;display:inline-block"></span>
           <div>
             <div style="font-size:13px;font-weight:600">${cli.nombre}</div>
             <div style="font-size:10px;color:var(--t2)">${cli.codigo} · ${cli.cedula} · ${cli.ciudad}</div>
@@ -3315,7 +3305,7 @@ async function padTab(t){
         </div>
         <div style="display:flex;gap:5px">
           <button class="bsm" onclick="padEditCli('${cli.codigo}')"><i class="ti ti-edit"></i></button>
-          <button class="bsm" onclick="padDelCli('${cli.codigo}')" style="color:var(--red)"><i class="ti ti-trash"></i></button>
+          <button class="bsm" onclick="padDelCli('${cli.codigo}')" style="color:var(--er)"><i class="ti ti-trash"></i></button>
         </div>
       </div>
     </div>`).join('');
@@ -3481,12 +3471,12 @@ function nomRenderEmps(c){
           <div style="font-size:10px;color:var(--t3)">quincena neta</div>
         </div>
       </div>
-      <div style="background:#f7f7f5;border:1px solid var(--br);border-radius:var(--r);padding:10px 12px">
+      <div style="background:#F7F6F3;border:1px solid var(--br);border-radius:var(--r);padding:10px 12px">
         <div style="font-size:9px;color:var(--t3);margin-bottom:7px;letter-spacing:.06em">DESCUENTOS MENSUALES (LEY RD)</div>
         <div class="g4">
           <div style="text-align:center"><div style="font-size:9px;color:var(--t3)">AFP 2.87%</div><div style="font-size:12px;font-weight:700;color:#C05621">${fM(d.afp)}</div></div>
           <div style="text-align:center"><div style="font-size:9px;color:var(--t3)">SFS 3.04%</div><div style="font-size:12px;font-weight:700;color:var(--blue)">${fM(d.sfs)}</div></div>
-          <div style="text-align:center"><div style="font-size:9px;color:var(--t3)">ISR ${d.escala}</div><div style="font-size:12px;font-weight:700;color:var(--red)">${fM(d.isr)}</div></div>
+          <div style="text-align:center"><div style="font-size:9px;color:var(--t3)">ISR ${d.escala}</div><div style="font-size:12px;font-weight:700;color:var(--er)">${fM(d.isr)}</div></div>
           <div style="text-align:center"><div style="font-size:9px;color:var(--t3)">NETO MES</div><div style="font-size:13px;font-weight:700;color:var(--green)">${fM(d.neto)}</div></div>
         </div>
       </div>
@@ -3522,7 +3512,7 @@ function nomRenderComisiones(c){
     Comisiones pendientes: <strong style="color:var(--gold)">${fM(pendT)}</strong>
     ${pendT>0?`<button class="bsm" style="margin-left:8px" onclick="ir('com')"><i class="ti ti-arrow-right"></i> Ver módulo completo</button>`:''}
   </div>
-  <div style="background:#f7f7f5;border:1px solid var(--br);border-radius:var(--r);padding:12px;font-size:12px;color:var(--t2)">
+  <div style="background:#F7F6F3;border:1px solid var(--br);border-radius:var(--r);padding:12px;font-size:12px;color:var(--t2)">
     <i class="ti ti-info-circle" style="color:var(--gold)"></i> Las comisiones de vendedores se gestionan en el módulo <b>Comisiones</b> del menú principal (crédito 8% · contado 16% · pago el día 5).
   </div>`;
 }
@@ -3536,9 +3526,9 @@ function nomRenderISR(c){
       <tr><td>Hasta RD$416,220</td><td><span class="pill">Exento</span></td><td>${fM(calcDesc(30000).isr===0?0:calcDesc(30000).isr)} — ${calcDesc(30000).escala}</td></tr>
       <tr><td>RD$416,220 – 624,329</td><td style="color:var(--blue);font-weight:600">15%</td><td></td></tr>
       <tr><td>RD$624,329 – 867,123</td><td style="color:var(--gold);font-weight:600">20%</td><td></td></tr>
-      <tr><td>Más de RD$867,123</td><td style="color:var(--red);font-weight:600">25%</td><td></td></tr>
+      <tr><td>Más de RD$867,123</td><td style="color:var(--er);font-weight:600">25%</td><td></td></tr>
     </tbody></table>
-    <div style="margin-top:12px;background:#f7f7f5;border:1px solid var(--br);border-radius:var(--r);padding:12px;font-size:11px;color:var(--t2);line-height:1.8">
+    <div style="margin-top:12px;background:#F7F6F3;border:1px solid var(--br);border-radius:var(--r);padding:12px;font-size:11px;color:var(--t2);line-height:1.8">
       <b>Cálculo empleado:</b> AFP 2.87% + SFS 3.04% + ISR (sobre base anual neta de AFP/SFS) ÷ 12<br>
       <b>Aportes patronales:</b> AFP 7.10% · SFS 7.09% · SRL 1.10% · INFOTEP 1%<br>
       <b>Quincenas:</b> Los descuentos se dividen automáticamente en dos (día 15 y día 30/último del mes).
@@ -3576,11 +3566,11 @@ function nomOpenEmp(){
   $('ne_sl').oninput=function(){
     const s=Number(this.value||0);if(!s)return;
     const d=calcDesc(s);
-    $('ne_preview').innerHTML=`<div style="background:#f7f7f5;border:1px solid var(--br);border-radius:var(--r);padding:10px 12px;font-size:12px">
+    $('ne_preview').innerHTML=`<div style="background:#F7F6F3;border:1px solid var(--br);border-radius:var(--r);padding:10px 12px;font-size:12px">
       <div class="g4">
         <div style="text-align:center"><div style="font-size:9px;color:var(--t3)">AFP 2.87%</div><div style="font-weight:700;color:#C05621">${fM(d.afp)}</div></div>
         <div style="text-align:center"><div style="font-size:9px;color:var(--t3)">SFS 3.04%</div><div style="font-weight:700;color:var(--blue)">${fM(d.sfs)}</div></div>
-        <div style="text-align:center"><div style="font-size:9px;color:var(--t3)">ISR ${d.escala}</div><div style="font-weight:700;color:var(--red)">${fM(d.isr)}</div></div>
+        <div style="text-align:center"><div style="font-size:9px;color:var(--t3)">ISR ${d.escala}</div><div style="font-weight:700;color:var(--er)">${fM(d.isr)}</div></div>
         <div style="text-align:center"><div style="font-size:9px;color:var(--t3)">NETO MES</div><div style="font-weight:700;color:var(--green)">${fM(d.neto)}</div></div>
       </div>
     </div>`;
@@ -3624,7 +3614,7 @@ function nomOpenProc(){
             <option value="segunda">2ª Quincena — Pago día 30</option>
           </select>
         </div>
-        <div style="background:#f7f7f5;border:1px solid var(--br);border-radius:var(--r);padding:10px 12px;font-size:12px;margin-bottom:14px">
+        <div style="background:#F7F6F3;border:1px solid var(--br);border-radius:var(--r);padding:10px 12px;font-size:12px;margin-bottom:14px">
           <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--t2)">Empleados activos</span><b>${empleados.filter(e=>e.activo).length}</b></div>
           <div style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">AFP, SFS e ISR se dividen en dos quincenas automáticamente.</div>
         </div>
@@ -3646,7 +3636,7 @@ async function nomProcesar(){
 
 function nomVerDetalle(id){
   const n=nominas.find(x=>x.id===id);if(!n)return;
-  const filas=n.det.map((d,i)=>`<tr style="background:${i%2===0?'transparent':'#f7f7f5'}">
+  const filas=n.det.map((d,i)=>`<tr style="background:${i%2===0?'transparent':'#F7F6F3'}">
     <td class="tr" style="font-size:10px;color:var(--gold)">${d.codigo||'—'}</td>
     <td style="font-size:12px;font-weight:600">${d.nombre}</td>
     <td style="font-size:11px;color:var(--t2)">${d.cedula||'—'}</td>
@@ -3654,7 +3644,7 @@ function nomVerDetalle(id){
     <td class="tr">${fM(d.bruto)}</td>
     <td class="tr" style="color:#C05621">${fM(d.afp)}</td>
     <td class="tr" style="color:var(--blue)">${fM(d.sfs)}</td>
-    <td class="tr" style="color:var(--red)">${fM(d.isr)}</td>
+    <td class="tr" style="color:var(--er)">${fM(d.isr)}</td>
     <td class="tr" style="font-weight:700;color:var(--green)">${fM(d.neto)}</td>
   </tr>`).join('');
   const m=$('main');
@@ -3737,8 +3727,8 @@ function contRender(){
     c.innerHTML=`
       <div class="sg" style="margin-bottom:14px">
         <div class="st"><div class="sv" style="color:var(--green)">${fM(ingresos)}</div><div class="sl2">Ingresos</div></div>
-        <div class="st"><div class="sv" style="color:var(--red)">${fM(gTotal)}</div><div class="sl2">Gastos</div></div>
-        <div class="st" style="border-color:${util>=0?'var(--green)':'var(--red)'}"><div class="sv" style="color:${util>=0?'var(--green)':'var(--red)'};font-size:16px">${fM(util)}</div><div class="sl2">Utilidad</div></div>
+        <div class="st"><div class="sv" style="color:var(--er)">${fM(gTotal)}</div><div class="sl2">Gastos</div></div>
+        <div class="st" style="border-color:${util>=0?'var(--green)':'var(--er)'}"><div class="sv" style="color:${util>=0?'var(--green)':'var(--er)'};font-size:16px">${fM(util)}</div><div class="sl2">Utilidad</div></div>
         <div class="st"><div class="sv">${asientos.length}</div><div class="sl2">Asientos</div></div>
       </div>
       <div class="card" style="margin-bottom:10px">
@@ -3747,9 +3737,9 @@ function contRender(){
       </div>
       <div class="card">
         <div style="font-weight:600;margin-bottom:10px">💸 Gastos</div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--br);font-size:13px"><span style="color:var(--t2)">Cuentas por pagar abonadas</span><b style="color:var(--red)">${fM(gPagar)}</b></div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--br);font-size:13px"><span style="color:var(--t2)">Nóminas procesadas</span><b style="color:var(--red)">${fM(gNomina)}</b></div>
-        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:700"><span>TOTAL GASTOS</span><b style="color:var(--red)">${fM(gTotal)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--br);font-size:13px"><span style="color:var(--t2)">Cuentas por pagar abonadas</span><b style="color:var(--er)">${fM(gPagar)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--br);font-size:13px"><span style="color:var(--t2)">Nóminas procesadas</span><b style="color:var(--er)">${fM(gNomina)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:700"><span>TOTAL GASTOS</span><b style="color:var(--er)">${fM(gTotal)}</b></div>
       </div>`;
   } else if(contTab==='resultados'){
     c.innerHTML=`<div class="card">
@@ -3764,13 +3754,13 @@ function contRender(){
       </div>
       <div style="border-bottom:2px solid var(--br);padding-bottom:12px;margin-bottom:12px">
         <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:8px;letter-spacing:.05em">GASTOS</div>
-        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px"><span style="color:var(--t2)">Gastos operativos</span><b style="color:var(--red)">${fM(gPagar)}</b></div>
-        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px"><span style="color:var(--t2)">Nómina</span><b style="color:var(--red)">${fM(gNomina)}</b></div>
-        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:800;border-top:1px solid var(--br);margin-top:6px"><span>TOTAL GASTOS</span><b style="color:var(--red)">${fM(gTotal)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px"><span style="color:var(--t2)">Gastos operativos</span><b style="color:var(--er)">${fM(gPagar)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px"><span style="color:var(--t2)">Nómina</span><b style="color:var(--er)">${fM(gNomina)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:800;border-top:1px solid var(--br);margin-top:6px"><span>TOTAL GASTOS</span><b style="color:var(--er)">${fM(gTotal)}</b></div>
       </div>
-      <div style="background:${util>=0?'var(--gbg)':'var(--rbg)'};border:1px solid ${util>=0?'var(--green)':'var(--red)'};border-radius:var(--r);padding:16px;text-align:center">
+      <div style="background:${util>=0?'var(--gbg)':'var(--rbg)'};border:1px solid ${util>=0?'var(--green)':'var(--er)'};border-radius:var(--r);padding:16px;text-align:center">
         <div style="font-size:11px;color:var(--t2);margin-bottom:4px">UTILIDAD / PÉRDIDA NETA</div>
-        <div style="font-size:28px;font-weight:900;color:${util>=0?'var(--green)':'var(--red)'}">${fM(util)}</div>
+        <div style="font-size:28px;font-weight:900;color:${util>=0?'var(--green)':'var(--er)'}">${fM(util)}</div>
         <div style="font-size:12px;color:var(--t3);margin-top:4px">${util>=0?'✅ Ganancia':'⚠️ Pérdida'}</div>
       </div>
     </div>`;
@@ -3789,7 +3779,7 @@ function contRender(){
             <td style="font-size:11px;color:var(--t2)">${a.cuenta}</td>
             <td><span class="pill" style="background:var(--bbg);border-color:var(--blue);color:var(--bdk)">${a.tipo}</span></td>
             <td class="tr" style="color:var(--green);font-weight:600">${a.debe?fM(a.debe):''}</td>
-            <td class="tr" style="color:var(--red);font-weight:600">${a.haber?fM(a.haber):''}</td>
+            <td class="tr" style="color:var(--er);font-weight:600">${a.haber?fM(a.haber):''}</td>
           </tr>`).join('')}
         </tbody>
       </table></div>`;
@@ -3849,7 +3839,7 @@ function rCRM(){
     <div class="cs">Registro de clientes con etapa, seguimiento, vendedor asignado e historial de compras real.</div>
     <div class="sg" style="margin-bottom:10px">
       <div class="st"><div class="sv">${crm.length}</div><div class="sl2">Total</div></div>
-      <div class="st"><div class="sv" style="color:${vencidos>0?'var(--red)':'inherit'}">${vencidos}</div><div class="sl2">Seguimiento vencido</div></div>
+      <div class="st"><div class="sv" style="color:${vencidos>0?'var(--er)':'inherit'}">${vencidos}</div><div class="sl2">Seguimiento vencido</div></div>
       <div class="st"><div class="sv" style="color:var(--green)">${crm.filter(cl=>cl.estado==='cliente').length}</div><div class="sl2">Clientes</div></div>
       <div class="st"><div class="sv">${crm.filter(cl=>cl.estado==='nuevo').length}</div><div class="sl2">Nuevos</div></div>
     </div>
@@ -3889,7 +3879,7 @@ function rCRMBody(){
         </div>
         <div class="sl">Historial de compras (${compras.length})</div>
         ${compras.length?compras.map(o=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--br)">
-          <span>${o.fac} · ${fD(o.fecha)}</span><b style="color:${o.saldo>0?'var(--red)':'var(--green)'}">${fM(o.monto)}${o.saldo>0?' (debe '+fM(o.saldo)+')':''}</b>
+          <span>${o.fac} · ${fD(o.fecha)}</span><b style="color:${o.saldo>0?'var(--er)':'var(--green)'}">${fM(o.monto)}${o.saldo>0?' (debe '+fM(o.saldo)+')':''}</b>
         </div>`).join(''):`<div style="font-size:12px;color:var(--t3);padding:4px 0">Sin compras registradas todavía.</div>`}
         <div class="sl" style="margin-top:10px">Notas de contacto</div>
         ${hist.map(h=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--br)22">
@@ -3908,7 +3898,7 @@ function rCRMBody(){
       <div class="cc-hd" onclick="crmToggle(${cl.id})">
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600">${cl.nombre}</div>
-          <div style="font-size:10px;color:var(--t2)">${cl.tel||''} · ${cl.cedula||''}${cl.vendedor?' · '+cl.vendedor:''}${cl.seguimiento?` · <span style="color:${vencido?'var(--red)':'var(--t2)'}">Seguimiento: ${fD(cl.seguimiento)}</span>`:''}</div>
+          <div style="font-size:10px;color:var(--t2)">${cl.tel||''} · ${cl.cedula||''}${cl.vendedor?' · '+cl.vendedor:''}${cl.seguimiento?` · <span style="color:${vencido?'var(--er)':'var(--t2)'}">Seguimiento: ${fD(cl.seguimiento)}</span>`:''}</div>
         </div>
         <span class="pill" style="background:${et.c}22;border-color:${et.c}55;color:${et.c}">${et.lab}</span>
         <span class="pill">${cl.tipo||'General'}</span>
@@ -3993,13 +3983,13 @@ function rPagar(){
     <div class="ct"><i class="ti ti-cash-banknote" style="color:var(--red);font-size:18px"></i>Cuentas por Pagar
       <button class="bg" style="margin-left:auto" onclick="pagarAbrirNuevo()"><i class="ti ti-plus"></i> Nueva</button></div>
     <div class="sg" style="margin-bottom:10px">
-      <div class="st"><div class="sv" style="color:var(--red)">${fM(pendT)}</div><div class="sl2">Pendiente</div></div>
-      <div class="st"><div class="sv" style="color:${venc.length>0?'var(--red)':'var(--t3)'}">⚠️ ${venc.length}</div><div class="sl2">Vencidas</div></div>
+      <div class="st"><div class="sv" style="color:var(--er)">${fM(pendT)}</div><div class="sl2">Pendiente</div></div>
+      <div class="st"><div class="sv" style="color:${venc.length>0?'var(--er)':'var(--t3)'}">⚠️ ${venc.length}</div><div class="sl2">Vencidas</div></div>
       <div class="st"><div class="sv">${pagar.filter(p=>p.estado!=='pagado').length}</div><div class="sl2">Activas</div></div>
       <div class="st"><div class="sv">${pagar.filter(p=>p.estado==='pagado').length}</div><div class="sl2">Pagadas</div></div>
     </div>`;
   if(venc.length){
-    h+=`<div style="padding:10px 12px;background:var(--rbg);border:1px solid var(--red);border-radius:var(--r);font-size:12px;color:var(--rdk);margin-bottom:10px">
+    h+=`<div style="padding:10px 12px;background:var(--rbg);border:1px solid var(--er);border-radius:var(--r);font-size:12px;color:var(--rdk);margin-bottom:10px">
       <b><i class="ti ti-alert-triangle"></i> ${venc.length} pago(s) vencido(s):</b>
       ${venc.map(v=>`<div style="margin-top:3px;font-weight:500">${v.proveedor} — ${fM(v.monto)} (venció ${fD(v.vence)})</div>`).join('')}
     </div>`;
@@ -4017,7 +4007,7 @@ function rPagar(){
           <div><div class="dl">Proveedor</div><div class="dv">${p.proveedor}</div></div>
           <div><div class="dl">Concepto</div><div class="dv">${p.concepto||'—'}</div></div>
           <div><div class="dl">Monto</div><div class="dv">${fM(p.monto)}</div></div>
-          <div><div class="dl">Vencimiento</div><div class="dv" style="${vencida?'color:var(--red);font-weight:600':''}">${fD(p.vence)}</div></div>
+          <div><div class="dl">Vencimiento</div><div class="dv" style="${vencida?'color:var(--er);font-weight:600':''}">${fD(p.vence)}</div></div>
         </div>
         ${hist?`<div class="sl">Pagos realizados</div>${hist}`:''}
         ${p.estado!=='pagado'?`
@@ -4029,13 +4019,13 @@ function rPagar(){
       </div>`;
     }
     h+=`<div class="cobc${isE?' exp':''}">
-      <div class="cob-hd" onclick="pagToggle(${p.id})" style="border-left:3px solid ${vencida?'var(--red)':p.estado==='pagado'?'var(--green)':'var(--gold)'}">
+      <div class="cob-hd" onclick="pagToggle(${p.id})" style="border-left:3px solid ${vencida?'var(--er)':p.estado==='pagado'?'var(--green)':'var(--gold)'}">
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600">${p.proveedor}</div>
           <div style="font-size:10px;color:var(--t2)">${p.concepto||''}${p.vence?' · Vence: '+fD(p.vence):''}${vencida?' ⚠️':''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:14px;font-weight:700;color:${p.estado==='pagado'?'var(--green)':'var(--red)'}">${fM(Number(p.monto||0)-saldo)}</div>
+          <div style="font-size:14px;font-weight:700;color:${p.estado==='pagado'?'var(--green)':'var(--er)'}">${fM(Number(p.monto||0)-saldo)}</div>
           <div style="font-size:10px;color:var(--t2)">${p.estado==='pagado'?'Pagado':'Pendiente'}</div>
         </div>
         <i class="ti ti-chevron-${isE?'up':'down'}" style="font-size:14px;color:var(--t2)"></i>
@@ -4194,7 +4184,7 @@ function misCom_tab(t){
         '<div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--red),var(--red2));display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:16px;font-weight:800">'+p.n.charAt(0)+'</div>'+
         '<div style="flex:1"><div style="font-size:14px;font-weight:700">'+p.n+'</div>'+
         '<div style="font-size:11px;color:var(--t2)">Créd: '+fM(p.vc)+' | Cont: '+fM(p.vo)+'</div></div>'+
-        '<div style="text-align:right"><div style="font-size:18px;font-weight:800;color:'+(p.pend>0?'var(--red)':'#2E7D32')+'">'+fM(p.pend>0?p.pend:p.pag)+'</div>'+
+        '<div style="text-align:right"><div style="font-size:18px;font-weight:800;color:'+(p.pend>0?'var(--er)':'#2E7D32')+'">'+fM(p.pend>0?p.pend:p.pag)+'</div>'+
         '<div style="font-size:10px;color:var(--t2)">'+(p.pend>0?'pendiente':'pagado')+'</div></div>'+
       '</div>';}).join('');
     } else {
@@ -4229,7 +4219,7 @@ function rRendimiento(){
       '<select id="rend_mes" style="padding:8px 12px;border:1.5px solid rgba(196,138,31,.2);border-radius:8px;font-size:13px;font-family:inherit" onchange="_rendMes=this.value;rend_tab(_rendTab)">'+
         '<option value="">Todos los meses</option>'+meses.map(function(m){return'<option value="'+m+'">'+m+'</option>';}).join('')+
       '</select>'+
-      '<div style="display:flex;gap:3px;background:var(--k-cream,#f0e8d8);border-radius:8px;padding:3px">'+
+      '<div style="display:flex;gap:3px;background:var(--k-cream,#EDEBE6);border-radius:8px;padding:3px">'+
         '<button id="rend_tab_vendedor" class="tab act" onclick=\"rend_tab(\'vendedor\')\">Vendedores</button>'+
         '<button id="rend_tab_supervisor" class="tab" onclick=\"rend_tab(\'supervisor\')\">Supervisor</button>'+
       '</div>'+
@@ -4353,7 +4343,7 @@ function abrirPermisos(uid){
     '<button onclick=\"resetPermisos('+uid+')\" style="margin-left:8px;padding:2px 8px;background:#fff;border:1px solid var(--br);border-radius:5px;cursor:pointer;font-size:11px">↩ Restaurar rol</button>'+
   '</div>';
   PERM_MODS.forEach(function(sec){
-    body+='<div style="margin-bottom:14px"><div style="font-size:9px;font-weight:800;letter-spacing:.1em;color:var(--red);text-transform:uppercase;margin-bottom:6px;border-bottom:1px solid rgba(122,20,34,.1);padding-bottom:4px">'+sec.sec+'</div>';
+    body+='<div style="margin-bottom:14px"><div style="font-size:9px;font-weight:800;letter-spacing:.1em;color:var(--red);text-transform:uppercase;margin-bottom:6px;border-bottom:1px solid rgba(28,27,31,.1);padding-bottom:4px">'+sec.sec+'</div>';
     sec.mods.forEach(function(mod){
       var cur=(actual||rolBase).includes(mod.id);
       var locked=mod.id==='delfac'&&u.rol!=='gerente';
@@ -4370,7 +4360,7 @@ function abrirPermisos(uid){
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto';
   ov.onclick=function(e){if(e.target===ov)cerrarPermModal();};
   ov.innerHTML='<div style="background:#fff;border-radius:20px;width:100%;max-width:680px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'+
-    '<div style="background:linear-gradient(135deg,rgba(122,20,34,.05),rgba(196,138,31,.05));padding:18px 22px;border-bottom:1px solid rgba(196,138,31,.12);display:flex;align-items:center;gap:12px">'+
+    '<div style="background:linear-gradient(135deg,rgba(28,27,31,.05),rgba(196,138,31,.05));padding:18px 22px;border-bottom:1px solid rgba(196,138,31,.12);display:flex;align-items:center;gap:12px">'+
       '<div style="font-size:15px;font-weight:800">🔑 Permisos — '+u.n+'</div>'+
       '<button onclick="cerrarPermModal()" style="margin-left:auto;width:30px;height:30px;border-radius:50%;border:1px solid var(--br);background:#fff;cursor:pointer">✕</button>'+
     '</div>'+
@@ -4550,8 +4540,8 @@ var _origRBuzon2=window.rBuzon;
 
 <script>
 
-var _MOD_ICONS={'dash':'🏠','contrato':'🧾','buzon':'📬','cobros':'💰','arqueo':'🧾','almp':'🏭','almm':'🚐','com':'📊','miscom':'💰','users':'👥','cfg':'⚙️','pedidos':'🛍️','cxp':'💳','nomina':'👔','contab':'📒','ccrm':'🤝','clientes':'🗂️','cxc':'📄','rendimiento':'📈','delfac':'🗑️','asistente':'🤖','productos':'🏷️','laboratorio':'🧪'};
-var _MOD_TITS={'dash':'Panel Principal','contrato':'Facturación','buzon':'Buzón de Aprobación','cobros':'Ruta de Cobro','arqueo':'Arqueo','almp':'Almacén Principal','almm':'Almacén Móvil','com':'Comisiones','miscom':'Cuadre Comisiones','users':'Usuarios','cfg':'Configuración','pedidos':'Portal Pedidos','cxp':'Cuentas por Pagar','nomina':'Nómina','contab':'Contabilidad','ccrm':'CRM','clientes':'Base de Clientes','cxc':'Cuentas por Cobrar','rendimiento':'Rendimiento','delfac':'Eliminar Factura','asistente':'Asistente IA','productos':'Gestión de Productos','laboratorio':'Laboratorio'};
+var _MOD_ICONS={'dash':'🏠','contrato':'🧾','buzon':'📬','cobros':'💰','arqueo':'🧾','almp':'🏭','almm':'🚐','com':'📊','miscom':'💰','users':'👥','cfg':'⚙️','pedidos':'🛍️','cxp':'💳','nomina':'👔','contab':'📒','ccrm':'🤝','clientes':'🗂️','cxc':'📄','rendimiento':'📈','delfac':'🗑️','asistente':'🤖','productos':'🏷️','laboratorio':'🧪','ruta':'🗺️','cobrador':'📲'};
+var _MOD_TITS={'dash':'Panel Principal','contrato':'Facturación','buzon':'Buzón de Aprobación','cobros':'Ruta de Cobro','arqueo':'Arqueo','almp':'Almacén Principal','almm':'Almacén Móvil','com':'Comisiones','miscom':'Cuadre Comisiones','users':'Usuarios','cfg':'Configuración','pedidos':'Portal Pedidos','cxp':'Cuentas por Pagar','nomina':'Nómina','contab':'Contabilidad','ccrm':'CRM','clientes':'Base de Clientes','cxc':'Cuentas por Cobrar','rendimiento':'Rendimiento','delfac':'Eliminar Factura','asistente':'Asistente IA','productos':'Gestión de Productos','laboratorio':'Laboratorio','ruta':'Ruta con Mapa','cobrador':'Cobrador Automático'};
 var _STAT_ICO=['💰','📊','👥','✅','⚠️','📦','📈','💳','🏆','🎯','📋','🔄','💎','🌟'];
 function applyModTheme(id){
   var m=document.getElementById('main');if(!m)return;
@@ -4560,10 +4550,12 @@ function applyModTheme(id){
   if(id&&id!=='dash'&&!m.querySelector('.mod-hero')){
     var h=document.createElement('div');h.className='mod-hero';
     h.innerHTML='<div style="display:flex;align-items:center;gap:16px;position:relative;z-index:1">'+
-      '<div style="font-size:40px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.3))">'+(_MOD_ICONS[id]||'📋')+'</div>'+
-      '<div><div style="font-size:22px;font-weight:900;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.3)">'+(_MOD_TITS[id]||id)+'</div>'+
-      '<div style="font-size:10px;color:rgba(255,255,255,.7);letter-spacing:.08em;text-transform:uppercase;margin-top:3px">KERAVEN Profesional</div></div>'+
-    '</div>';
+      '<div style="font-size:40px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.15))">'+(_MOD_ICONS[id]||'📋')+'</div>'+
+      '<div><div style="font-size:22px;font-weight:900;letter-spacing:.01em;'+
+        'background:linear-gradient(90deg,var(--gold),var(--tx));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">'+(_MOD_TITS[id]||id)+'</div>'+
+      '<div style="font-size:10px;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;margin-top:3px;font-weight:700">KERAVEN Profesional</div></div>'+
+    '</div>'+
+    '<img src="/img/logo-keraven.png" alt="KERAVEN" class="mod-hero-logo">';
     m.insertBefore(h,m.firstChild);
   }
   setTimeout(function(){m.querySelectorAll('.sg .st').forEach(function(c,i){if(!c.querySelector('.st-ic')){var ic=document.createElement('div');ic.className='st-ic';ic.textContent=_STAT_ICO[i%_STAT_ICO.length];c.insertBefore(ic,c.firstChild);}});},30);
@@ -4584,27 +4576,27 @@ function applyModTheme(id){
   <div id="kv_panel" style="
     position:absolute;bottom:68px;right:0;width:380px;height:580px;
     background:#fff;border-radius:22px;
-    box-shadow:0 24px 70px rgba(0,0,0,.22),0 4px 18px rgba(0,94,184,.12);
-    border:1px solid rgba(0,94,184,.1);display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 24px 70px rgba(0,0,0,.22),0 4px 18px rgba(196,138,31,.12);
+    border:1px solid rgba(196,138,31,.1);display:flex;flex-direction:column;overflow:hidden;
     visibility:hidden;pointer-events:none;
     transform:scale(.94) translateY(14px);
     transition:all .24s cubic-bezier(.34,1.3,.64,1)">
 
     <!-- Header -->
     <div id="kv_hdr" style="
-      background:linear-gradient(135deg,#0D1B2A,#1B2A3B,#0A1628);
+      background:linear-gradient(135deg,var(--red2),var(--red),var(--red2));
       padding:14px 16px;display:flex;align-items:center;gap:11px;flex-shrink:0;
       cursor:move;user-select:none;position:relative;overflow:hidden">
-      <div style="position:absolute;top:-30px;right:-30px;width:110px;height:110px;border-radius:50%;background:rgba(0,120,212,.15)"></div>
+      <div style="position:absolute;top:-30px;right:-30px;width:110px;height:110px;border-radius:50%;background:rgba(212,175,55,.15)"></div>
       <!-- Avatar humano -->
       <div id="kv_avatar" style="
         width:44px;height:44px;border-radius:50%;flex-shrink:0;
-        background:linear-gradient(145deg,#0078D4,#005EB8);
+        background:linear-gradient(145deg,var(--gold-m),var(--gold));
         border:2px solid rgba(255,255,255,.25);
         display:flex;align-items:center;justify-content:center;
         font-size:22px;position:relative;box-shadow:0 3px 10px rgba(0,0,0,.3)">
-        🤖
-        <div style="position:absolute;bottom:1px;right:1px;width:10px;height:10px;background:#00C853;border-radius:50%;border:2px solid #1B2A3B"></div>
+        👩‍💼
+        <div style="position:absolute;bottom:1px;right:1px;width:10px;height:10px;background:#00C853;border-radius:50%;border:2px solid var(--red)"></div>
       </div>
       <div style="flex:1;min-width:0;position:relative">
         <div id="kv_nm" style="font-size:15px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sarah</div>
@@ -4620,16 +4612,16 @@ function applyModTheme(id){
     </div>
 
     <!-- Provider strip -->
-    <div id="kv_pstrip" style="background:#F0F4FF;border-bottom:1px solid rgba(0,94,184,.08);padding:7px 13px;display:flex;gap:5px;align-items:center;flex-shrink:0">
-      <span style="font-size:9px;font-weight:700;color:#6B7AAD;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap">IA activa:</span>
+    <div id="kv_pstrip" style="background:var(--bg2);border-bottom:1px solid rgba(196,138,31,.08);padding:7px 13px;display:flex;gap:5px;align-items:center;flex-shrink:0">
+      <span style="font-size:9px;font-weight:700;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap">IA activa:</span>
     </div>
 
     <!-- Mensajes -->
-    <div id="kv_msgs" style="flex:1;overflow-y:auto;padding:12px 13px;background:linear-gradient(180deg,#F8F9FF 0%,#F4F6FC 100%);display:flex;flex-direction:column;gap:10px">
+    <div id="kv_msgs" style="flex:1;overflow-y:auto;padding:12px 13px;background:linear-gradient(180deg,var(--bg2) 0%,var(--bg2) 100%);display:flex;flex-direction:column;gap:10px">
       <div id="kv_welcome" style="text-align:center;padding:16px 8px">
-        <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(145deg,#0078D4,#005EB8);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 6px 20px rgba(0,120,212,.3)">🤖</div>
-        <div style="font-size:16px;font-weight:800;color:#0D1B2A;margin-bottom:5px" id="kv_wname">Hola, soy Sarah</div>
-        <div style="font-size:12px;color:#5C6B7A;line-height:1.7;max-width:280px;margin:0 auto">Tu asistente personal de KERAVEN. Estoy aquí para ayudarte con todo lo que necesites.</div>
+        <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(145deg,var(--gold-m),var(--gold));margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 6px 20px rgba(212,175,55,.3)">👩‍💼</div>
+        <div style="font-size:16px;font-weight:800;color:var(--tx);margin-bottom:5px" id="kv_wname">Hola, soy Sarah</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.7;max-width:280px;margin:0 auto">Tu asistente personal de KERAVEN. Estoy aquí para ayudarte con todo lo que necesites.</div>
         <div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center" id="kv_chips"></div>
       </div>
     </div>
@@ -4640,20 +4632,20 @@ function applyModTheme(id){
     </div>
 
     <!-- Input -->
-    <div style="padding:10px 12px;background:#fff;border-top:1px solid rgba(0,94,184,.08);flex-shrink:0">
+    <div style="padding:10px 12px;background:#fff;border-top:1px solid rgba(196,138,31,.08);flex-shrink:0">
       <div style="display:flex;gap:7px;align-items:flex-end">
         <textarea id="kv_inp" rows="2" placeholder="Escribe o usa el micrófono..."
-          style="flex:1;padding:9px 12px;border:1.5px solid rgba(0,94,184,.18);border-radius:12px;
-          font-family:inherit;font-size:13px;resize:none;outline:none;background:#F8F9FF;line-height:1.5;
-          transition:border-color .2s;color:#0D1B2A"
-          onfocus="this.style.borderColor='#0078D4';this.style.background='#fff'"
-          onblur="this.style.borderColor='rgba(0,94,184,.18)';this.style.background='#F8F9FF'"
+          style="flex:1;padding:9px 12px;border:1.5px solid rgba(196,138,31,.18);border-radius:12px;
+          font-family:inherit;font-size:13px;resize:none;outline:none;background:var(--bg2);line-height:1.5;
+          transition:border-color .2s;color:var(--tx)"
+          onfocus="this.style.borderColor='var(--gold-m)';this.style.background='#fff'"
+          onblur="this.style.borderColor='rgba(196,138,31,.18)';this.style.background='var(--bg2)'"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();kvSend();}"></textarea>
         <div style="display:flex;flex-direction:column;gap:5px">
           <button id="kv_mic" onclick="kvMic()" title="Hablar"
-            style="width:36px;height:36px;border-radius:50%;background:rgba(0,94,184,.08);border:1.5px solid rgba(0,94,184,.18);cursor:pointer;font-size:16px;transition:all .2s">🎤</button>
+            style="width:36px;height:36px;border-radius:50%;background:rgba(196,138,31,.08);border:1.5px solid rgba(196,138,31,.18);cursor:pointer;font-size:16px;transition:all .2s">🎤</button>
           <button onclick="kvSend()"
-            style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0078D4,#005EB8);border:none;color:#fff;cursor:pointer;font-size:16px;box-shadow:0 3px 12px rgba(0,120,212,.35);transition:all .2s">➤</button>
+            style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold-m),var(--gold));border:none;color:#fff;cursor:pointer;font-size:16px;box-shadow:0 3px 12px rgba(212,175,55,.35);transition:all .2s">➤</button>
         </div>
       </div>
     </div>
@@ -4662,13 +4654,13 @@ function applyModTheme(id){
   <!-- FAB button -->
   <button id="kv_fab_btn" onclick="kvToggle()"
     style="width:58px;height:58px;border-radius:50%;
-    background:linear-gradient(145deg,#0D1B2A,#0078D4,#005EB8);
-    border:none;box-shadow:0 8px 28px rgba(0,120,212,.45),0 2px 8px rgba(0,0,0,.2);
+    background:linear-gradient(145deg,var(--red2),var(--gold-m),var(--gold));
+    border:none;box-shadow:0 8px 28px rgba(212,175,55,.45),0 2px 8px rgba(0,0,0,.2);
     cursor:pointer;font-size:24px;transition:transform .2s,box-shadow .2s;position:relative"
     onmouseover="this.style.transform='scale(1.1)'"
     onmouseout="this.style.transform=''">
-    🤖
-    <div id="kv_unread" style="display:none;position:absolute;top:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:#FF3B30;border:2px solid #fff;animation:k-pulse 2s infinite"></div>
+    👩‍💼
+    <div id="kv_unread" style="display:none;position:absolute;top:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:var(--er);border:2px solid #fff;animation:k-pulse 2s infinite"></div>
   </button>
 </div>
 
@@ -4676,15 +4668,15 @@ function applyModTheme(id){
 <div id="kv_cfg_modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(5px);z-index:9600;align-items:center;justify-content:center;padding:16px">
   <div style="background:#fff;border-radius:22px;width:100%;max-width:560px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,.25)">
     <!-- Config header -->
-    <div style="background:linear-gradient(135deg,#0D1B2A,#0078D4);padding:18px 22px;display:flex;align-items:center;gap:12px;flex-shrink:0">
+    <div style="background:linear-gradient(135deg,var(--red2),var(--gold-m));padding:18px 22px;display:flex;align-items:center;gap:12px;flex-shrink:0">
       <div style="font-size:20px">⚙️</div>
       <div style="flex:1"><div style="font-size:16px;font-weight:800;color:#fff">Configurar Asistente</div>
       <div style="font-size:11px;color:rgba(255,255,255,.6)">Personalidad · APIs · Voz</div></div>
       <button onclick="kvCerrarConfig()" style="width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;font-size:15px">✕</button>
     </div>
     <!-- Config tabs -->
-    <div style="display:flex;border-bottom:1px solid #E8EAF6;flex-shrink:0;background:#F8F9FF">
-      <button class="kv-tab act" id="kvt_perfil" onclick="kvTab('perfil')" style="flex:1;padding:11px 6px;background:none;border:none;border-bottom:2px solid transparent;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#0078D4;border-color:#0078D4">👤 Perfil</button>
+    <div style="display:flex;border-bottom:1px solid var(--br2);flex-shrink:0;background:var(--bg2)">
+      <button class="kv-tab act" id="kvt_perfil" onclick="kvTab('perfil')" style="flex:1;padding:11px 6px;background:none;border:none;border-bottom:2px solid transparent;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--gold-m);border-color:var(--gold-m)">👤 Perfil</button>
       <button class="kv-tab" id="kvt_apis" onclick="kvTab('apis')" style="flex:1;padding:11px 6px;background:none;border:none;border-bottom:2px solid transparent;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#888">🔑 APIs</button>
       <button class="kv-tab" id="kvt_caract" onclick="kvTab('caract')" style="flex:1;padding:11px 6px;background:none;border:none;border-bottom:2px solid transparent;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#888">🧠 Habilidades</button>
       <button class="kv-tab" id="kvt_voz" onclick="kvTab('voz')" style="flex:1;padding:11px 6px;background:none;border:none;border-bottom:2px solid transparent;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#888">🔊 Voz</button>
@@ -4692,48 +4684,48 @@ function applyModTheme(id){
     <!-- Config body (scrollable) -->
     <div id="kv_cfg_body" style="padding:20px;overflow-y:auto;flex:1"></div>
     <!-- Config footer -->
-    <div style="padding:13px 20px;border-top:1px solid #E8EAF6;display:flex;gap:8px;justify-content:flex-end;background:#F8F9FF;flex-shrink:0">
+    <div style="padding:13px 20px;border-top:1px solid var(--br2);display:flex;gap:8px;justify-content:flex-end;background:var(--bg2);flex-shrink:0">
       <button onclick="kvCerrarConfig()" style="padding:9px 20px;background:#fff;border:1.5px solid #ddd;border-radius:9px;cursor:pointer;font-size:13px;font-family:inherit;color:#555">Cancelar</button>
-      <button onclick="kvGuardarConfig()" style="padding:9px 22px;background:linear-gradient(135deg,#0078D4,#005EB8);color:#fff;border:none;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;box-shadow:0 3px 12px rgba(0,120,212,.3)">✓ Guardar</button>
+      <button onclick="kvGuardarConfig()" style="padding:9px 22px;background:linear-gradient(135deg,var(--gold-m),var(--gold));color:#fff;border:none;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;box-shadow:0 3px 12px rgba(212,175,55,.3)">✓ Guardar</button>
     </div>
   </div>
 </div>
 
 <style>
-.kv-tab.act{color:#0078D4!important;border-color:#0078D4!important;border-bottom:2px solid #0078D4}
-.kv_bubble_u{align-self:flex-end;background:linear-gradient(135deg,#0078D4,#005EB8);color:#fff;border-radius:18px 18px 4px 18px;padding:10px 14px;max-width:80%;font-size:13px;line-height:1.65;word-break:break-word;box-shadow:0 2px 8px rgba(0,120,212,.25)}
-.kv_bubble_a{align-self:flex-start;background:#fff;border:1px solid rgba(0,94,184,.1);color:#0D1B2A;border-radius:4px 18px 18px 18px;padding:10px 14px;max-width:84%;font-size:13px;line-height:1.7;word-break:break-word;box-shadow:0 1px 6px rgba(0,0,0,.07)}
-.kv_bubble_a strong{color:#0078D4}
-.kv_bubble_a code{background:rgba(0,94,184,.08);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px}
+.kv-tab.act{color:var(--gold-m)!important;border-color:var(--gold-m)!important;border-bottom:2px solid var(--gold-m)}
+.kv_bubble_u{align-self:flex-end;background:linear-gradient(135deg,var(--gold-m),var(--gold));color:#fff;border-radius:18px 18px 4px 18px;padding:10px 14px;max-width:80%;font-size:13px;line-height:1.65;word-break:break-word;box-shadow:0 2px 8px rgba(212,175,55,.25)}
+.kv_bubble_a{align-self:flex-start;background:#fff;border:1px solid rgba(196,138,31,.1);color:var(--tx);border-radius:4px 18px 18px 18px;padding:10px 14px;max-width:84%;font-size:13px;line-height:1.7;word-break:break-word;box-shadow:0 1px 6px rgba(0,0,0,.07)}
+.kv_bubble_a strong{color:var(--gold-m)}
+.kv_bubble_a code{background:rgba(196,138,31,.08);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px}
 .kv_row{display:flex;align-items:flex-end;gap:8px;width:100%}
 .kv_row.u{justify-content:flex-end}
 .kv_row.a{justify-content:flex-start}
 .kv_av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px}
-.kv_time{font-size:9px;color:#9098A9;margin-top:4px;text-align:right}
+.kv_time{font-size:9px;color:var(--t3);margin-top:4px;text-align:right}
 .kv_row.a .kv_time{text-align:left}
 .kv_typing_row{display:flex;align-items:flex-end;gap:8px}
-.kv_typing_bub{background:#fff;border:1px solid rgba(0,94,184,.1);border-radius:4px 18px 18px 18px;padding:12px 16px;box-shadow:0 1px 6px rgba(0,0,0,.07);display:flex;gap:5px;align-items:center}
-.kv_dot2{width:8px;height:8px;border-radius:50%;background:#0078D4;opacity:.5;animation:kv_b2 .7s infinite}
+.kv_typing_bub{background:#fff;border:1px solid rgba(196,138,31,.1);border-radius:4px 18px 18px 18px;padding:12px 16px;box-shadow:0 1px 6px rgba(0,0,0,.07);display:flex;gap:5px;align-items:center}
+.kv_dot2{width:8px;height:8px;border-radius:50%;background:var(--gold-m);opacity:.5;animation:kv_b2 .7s infinite}
 .kv_dot2:nth-child(2){animation-delay:.15s}.kv_dot2:nth-child(3){animation-delay:.3s}
 @keyframes kv_b2{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-5px);opacity:1}}
 /* Config fields */
 .kv_field{margin-bottom:16px}
-.kv_field label{display:block;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#5C6B7A;margin-bottom:6px}
-.kv_field input,.kv_field select,.kv_field textarea{width:100%;padding:10px 13px;border:1.5px solid #E0E4F0;border-radius:10px;font-size:13px;font-family:inherit;outline:none;background:#F8F9FF;color:#0D1B2A;transition:all .18s}
-.kv_field input:focus,.kv_field select:focus,.kv_field textarea:focus{border-color:#0078D4;background:#fff;box-shadow:0 0 0 3px rgba(0,120,212,.1)}
+.kv_field label{display:block;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px}
+.kv_field input,.kv_field select,.kv_field textarea{width:100%;padding:10px 13px;border:1.5px solid var(--br2);border-radius:10px;font-size:13px;font-family:inherit;outline:none;background:var(--bg2);color:var(--tx);transition:all .18s}
+.kv_field input:focus,.kv_field select:focus,.kv_field textarea:focus{border-color:var(--gold-m);background:#fff;box-shadow:0 0 0 3px rgba(212,175,55,.1)}
 .kv_field textarea{min-height:90px;resize:vertical}
-.kv_provcard{background:#F8F9FF;border:1.5px solid #E0E4F0;border-radius:12px;padding:14px 16px;margin-bottom:12px;transition:border-color .2s}
+.kv_provcard{background:var(--bg2);border:1.5px solid var(--br2);border-radius:12px;padding:14px 16px;margin-bottom:12px;transition:border-color .2s}
 .kv_provcard.has-key{border-color:rgba(0,200,83,.4);background:rgba(0,200,83,.03)}
 .kv_prov_hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .kv_prov_ico{font-size:22px}
-.kv_prov_name{font-size:13px;font-weight:700;color:#0D1B2A}
-.kv_prov_desc{font-size:11px;color:#7A8898;margin-top:1px}
+.kv_prov_name{font-size:13px;font-weight:700;color:var(--tx)}
+.kv_prov_desc{font-size:11px;color:var(--t3);margin-top:1px}
 .kv_prov_status{margin-left:auto;font-size:10px;padding:3px 9px;border-radius:100px;font-weight:700}
 .kv_prov_status.ok{background:rgba(0,200,83,.12);color:#00A041;border:1px solid rgba(0,200,83,.3)}
 .kv_prov_status.no{background:rgba(120,120,120,.1);color:#888;border:1px solid #ddd}
-.kv_test_btn{padding:6px 14px;background:#0078D4;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;margin-top:8px;transition:all .2s}
-.kv_test_btn:hover{background:#005EB8}
-.kv_primary_badge{background:linear-gradient(135deg,#0078D4,#005EB8);color:#fff;font-size:9px;padding:2px 8px;border-radius:100px;font-weight:700;margin-left:6px}
+.kv_test_btn{padding:6px 14px;background:var(--gold-m);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;margin-top:8px;transition:all .2s}
+.kv_test_btn:hover{background:var(--gold)}
+.kv_primary_badge{background:linear-gradient(135deg,var(--gold-m),var(--gold));color:#fff;font-size:9px;padding:2px 8px;border-radius:100px;font-weight:700;margin-left:6px}
 
 /* ══ LAUNCHER GRID 3D ═════════════════════════════════════════ */
 .launcher-grid{
@@ -4745,83 +4737,77 @@ function applyModTheme(id){
 @media(min-width:900px){.launcher-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:20px}}
 
 .lc{
-  position:relative;border-radius:20px;padding:24px 16px 20px;
+  position:relative;border-radius:16px;padding:20px 16px 18px;
   cursor:pointer;user-select:none;overflow:hidden;
   transition:transform .22s cubic-bezier(.34,1.3,.64,1),box-shadow .22s ease;
-  border:1px solid rgba(255,255,255,.15);
+  background:#fff;border:1px solid var(--br);border-top:3px solid var(--gold);
+  box-shadow:0 2px 4px rgba(26,22,40,.04),0 8px 20px rgba(26,22,40,.06);
 }
-.lc::before{
-  content:'';position:absolute;inset:0;border-radius:20px;
-  background:linear-gradient(145deg,rgba(255,255,255,.18) 0%,transparent 60%);
-  pointer-events:none;z-index:0;
-}
-.lc::after{
-  content:'';position:absolute;bottom:0;right:0;
-  width:90px;height:90px;border-radius:50%;
-  background:rgba(255,255,255,.08);
-  transform:translate(25px,25px);pointer-events:none;z-index:0;
-}
-.lc:hover{transform:translateY(-8px) scale(1.03);}
+.lc:hover{transform:translateY(-6px) scale(1.02);box-shadow:0 4px 8px rgba(26,22,40,.06),0 14px 28px rgba(26,22,40,.1)}
 .lc:active{transform:translateY(-2px) scale(1.01)}
 .lc-badge{
   position:absolute;top:12px;right:12px;z-index:2;
-  background:#FF3B30;color:#fff;
+  background:var(--er);color:#fff;
   font-size:10px;font-weight:800;
   padding:2px 7px;border-radius:100px;
-  border:2px solid rgba(255,255,255,.3);
-  box-shadow:0 2px 6px rgba(0,0,0,.3);
+  border:2px solid #fff;
+  box-shadow:0 2px 6px rgba(0,0,0,.2);
   animation:k-pulse 2s infinite;
 }
 .lc-icon{
-  font-size:38px;margin-bottom:12px;display:block;
-  filter:drop-shadow(0 4px 8px rgba(0,0,0,.25));
-  line-height:1;position:relative;z-index:1;
+  width:44px;height:44px;border-radius:12px;margin-bottom:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;color:#fff;
+  box-shadow:0 4px 10px rgba(26,22,40,.18);
+  position:relative;z-index:1;
 }
 .lc-name{
-  font-size:14px;font-weight:800;color:#fff;
-  letter-spacing:.01em;line-height:1.2;margin-bottom:5px;
-  text-shadow:0 1px 4px rgba(0,0,0,.25);position:relative;z-index:1;
+  font-size:14px;font-weight:800;color:var(--tx);
+  letter-spacing:.01em;line-height:1.2;margin-bottom:4px;
+  position:relative;z-index:1;
 }
 .lc-stat{
-  font-size:11px;color:rgba(255,255,255,.75);font-weight:500;
-  text-shadow:0 1px 3px rgba(0,0,0,.2);position:relative;z-index:1;
+  font-size:11px;color:var(--t3);font-weight:500;
+  position:relative;z-index:1;
 }
 /* Modo organizar */
 .launcher-grid.edit-mode .lc{
   cursor:grab;
   animation:kv-wiggle .45s infinite alternate ease-in-out;
-  border:2px dashed rgba(255,255,255,.5)!important;
+  border:2px dashed var(--gold)!important;
 }
 .launcher-grid.edit-mode .lc:nth-child(odd){animation-delay:.12s}
 .launcher-grid.edit-mode .lc:nth-child(3n){animation-delay:.24s}
 @keyframes kv-wiggle{from{transform:rotate(-1.2deg) translateY(-1px)}to{transform:rotate(1.2deg) translateY(1px)}}
 .lc.dragging{opacity:.35;transform:scale(.95)!important;animation:none!important;cursor:grabbing}
-.lc.drag-over{transform:scale(1.06) translateY(-6px)!important;animation:none!important;box-shadow:0 0 0 3px #FFE066,0 12px 32px rgba(0,0,0,.4)!important}
+.lc.drag-over{transform:scale(1.06) translateY(-6px)!important;animation:none!important;box-shadow:0 0 0 3px #E2B959,0 12px 32px rgba(0,0,0,.4)!important}
 
 /* Dashboard header */
 .dash-header{
-  background:linear-gradient(135deg,var(--red2) 0%,var(--red) 45%,var(--red3) 100%);
-  border-radius:20px;padding:22px 24px;margin-bottom:20px;
+  background:linear-gradient(180deg,#F2BE22 0%,#D8DBE3 100%);
+  width:100%;
+  border:1px solid var(--br2);
+  border-radius:14px;padding:7px 20px;margin-bottom:16px;
   position:relative;overflow:hidden;
-  box-shadow:0 8px 32px rgba(122,20,34,.35),0 2px 8px rgba(0,0,0,.15);
+  box-shadow:0 2px 4px rgba(26,22,40,.06),0 8px 24px rgba(26,22,40,.1);
 }
-.dash-header::before{content:'';position:absolute;top:-40px;right:-40px;width:180px;height:180px;border-radius:50%;background:rgba(212,175,55,.12);pointer-events:none;}
-.dash-header::after{content:'';position:absolute;bottom:-60px;left:-30px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.04);pointer-events:none;}
-.dash-greeting{font-size:13px;color:rgba(255,255,255,.7);font-weight:500;margin-bottom:4px}
-.dash-name{font-size:22px;font-weight:900;color:#fff;letter-spacing:.02em;text-shadow:0 2px 10px rgba(0,0,0,.25);margin-bottom:14px}
-.dash-stats{display:flex;gap:16px;flex-wrap:wrap;position:relative;z-index:1}
-.dash-st{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:10px 16px;backdrop-filter:blur(4px)}
-.dash-sv{font-size:20px;font-weight:900;color:#fff;line-height:1}
-.dash-sl{font-size:9px;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.dash-header::before{content:'';position:absolute;top:-40px;right:-40px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.15);pointer-events:none;}
+.dash-header::after{content:'';position:absolute;bottom:-60px;left:-30px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.1);pointer-events:none;}
+.dash-greeting{font-size:10px;color:var(--t2);font-weight:500;margin-bottom:1px}
+.dash-name{font-size:16px;font-weight:900;color:var(--tx);letter-spacing:.02em;margin-bottom:5px}
+.dash-stats{display:flex;gap:8px;flex-wrap:wrap;position:relative;z-index:1}
+.dash-st{background:var(--bg2);border:1px solid var(--br2);border-radius:8px;padding:4px 10px}
+.dash-sv{font-size:14px;font-weight:900;color:var(--tx);line-height:1}
+.dash-sl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
 
 /* Organizar button */
 .organizar-btn{
   display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:12px;
   font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;border:none;
-  background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.25);
+  background:var(--bg2);color:var(--tx);border:1.5px solid var(--br2);
 }
-.organizar-btn.active{background:linear-gradient(135deg,#E8C84B,#D4AF37);color:#1a0a0f;border-color:transparent;box-shadow:0 4px 16px rgba(212,175,55,.4)}
-.organizar-btn:hover:not(.active){background:rgba(255,255,255,.25)}
+.organizar-btn.active{background:linear-gradient(135deg,var(--gold-l),var(--gold));color:#fff;border-color:transparent;box-shadow:0 4px 16px rgba(206,152,64,.4)}
+.organizar-btn:hover:not(.active){background:var(--gold-p);border-color:var(--gold)}
 
 </style>
 
@@ -4841,7 +4827,7 @@ var kv={
 
 var KV_CFG_DEFAULT={
   nombre:'Sarah',
-  emoji:'🤖',
+  emoji:'👩‍💼',
   provider:'auto',  // auto = intenta en orden: copilot, gemini, claude, anthropic-nokey
   keys:{ copilot:'', claude:'', gemini:'', chatgpt:'' },
   caracteristicas:'Eres Sarah, la asistente ejecutiva de KERAVEN Profesional (empresa de productos capilares y cosméticos en República Dominicana). Eres PROACTIVA: no te limitas a responder lo que te preguntan -- cuando ves un riesgo, una inconsistencia o una oportunidad en los datos, lo señalas aunque no te lo hayan pedido. '+
@@ -4874,7 +4860,7 @@ function kvInit(){
   if(fab&&typeof ses!=='undefined'&&ses)fab.style.display='block';
   var nm=document.getElementById('kv_nm');if(nm)nm.textContent=kv.cfg.nombre;
   var wn=document.getElementById('kv_wname');if(wn)wn.textContent='Hola, soy '+kv.cfg.nombre;
-  var av=document.getElementById('kv_avatar');if(av)av.innerHTML=kv.cfg.emoji+'<div style="position:absolute;bottom:1px;right:1px;width:10px;height:10px;background:#00C853;border-radius:50%;border:2px solid #1B2A3B"></div>';
+  var av=document.getElementById('kv_avatar');if(av)av.innerHTML=kv.cfg.emoji+'<div style="position:absolute;bottom:1px;right:1px;width:10px;height:10px;background:#00C853;border-radius:50%;border:2px solid var(--red)"></div>';
   kvBuildProvStrip();
   kvBuildChips();
   kvDrag();
@@ -4890,20 +4876,20 @@ function kvBuildChips(){
   var chips=document.getElementById('kv_chips');if(!chips)return;
   var sugs=['¿Cuántas ventas este mes?','¿Comisiones pendientes?','Dame un resumen ejecutivo','¿Cómo va el equipo?','Analiza la cartera','Ayúdame con el sistema'];
   chips.innerHTML=sugs.map(function(s){
-    return'<button onclick="kvSend(\''+s+'\')" style="padding:6px 13px;background:rgba(0,120,212,.08);border:1px solid rgba(0,120,212,.18);border-radius:20px;font-size:11px;color:#0078D4;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background=\'rgba(0,120,212,.15)\'" onmouseout="this.style.background=\'rgba(0,120,212,.08)\'">'+s+'</button>';
+    return'<button onclick="kvSend(\''+s+'\')" style="padding:6px 13px;background:rgba(212,175,55,.08);border:1px solid rgba(212,175,55,.18);border-radius:20px;font-size:11px;color:var(--gold-m);cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background=\'rgba(212,175,55,.15)\'" onmouseout="this.style.background=\'rgba(212,175,55,.08)\'">'+s+'</button>';
   }).join('');
 }
 
 function kvBuildProvStrip(){
   var strip=document.getElementById('kv_pstrip');if(!strip)return;
   var provs=[
-    {id:'copilot',label:'Copilot',icon:'🪟',color:'#0078D4',hasKey:!!kv.cfg.keys.copilot},
+    {id:'copilot',label:'Copilot',icon:'🪟',color:'var(--gold-m)',hasKey:!!kv.cfg.keys.copilot},
     {id:'gemini', label:'Gemini', icon:'✦',  color:'#0F9D58',hasKey:!!kv.cfg.keys.gemini},
     {id:'claude', label:'Claude', icon:'⚡',  color:'#D97706',hasKey:!!kv.cfg.keys.claude},
     {id:'chatgpt',label:'ChatGPT',icon:'🧠', color:'#10A37F',hasKey:!!kv.cfg.keys.chatgpt},
   ];
   var cur=kv.cfg.provider;
-  strip.innerHTML='<span style="font-size:9px;font-weight:700;color:#6B7AAD;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;margin-right:4px">IA:</span>'+
+  strip.innerHTML='<span style="font-size:9px;font-weight:700;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;margin-right:4px">IA:</span>'+
     provs.map(function(p){
       var act=(cur===p.id)||(cur==='auto'&&p.hasKey);
       return'<button onclick="kv.cfg.provider=\''+p.id+'\';kvSaveCfg();kvBuildProvStrip()" style="padding:4px 10px;border-radius:100px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;border:1.5px solid;transition:all .2s;background:'+(p.hasKey?(act?p.color:'transparent'):'transparent')+';color:'+(p.hasKey?(act?'#fff':p.color):'#ccc')+';border-color:'+(p.hasKey?p.color+'44':'#eee')+';opacity:'+(p.hasKey?'1':'.5')+'">'+p.icon+' '+p.label+(p.hasKey&&act?'<span class="kv_primary_badge">✓</span>':'')+'</button>';
@@ -5056,9 +5042,9 @@ function kvAddBubble(role,text,time){
   var avHtml=isU?
     '<div class="kv_av" style="background:linear-gradient(135deg,var(--red),var(--red3));color:var(--gold-l)">'+
       (typeof ses!=='undefined'&&ses?ses.n.charAt(0):'U')+'</div>':
-    '<div class="kv_av" style="background:linear-gradient(145deg,#0078D4,#005EB8)">'+kv.cfg.emoji+'</div>';
+    '<div class="kv_av" style="background:linear-gradient(145deg,var(--gold-m),var(--gold))">'+kv.cfg.emoji+'</div>';
 
-  var replayBtn=isU?'':'<button onclick="kvReplay(this)" data-text="'+text.replace(/"/g,'&quot;')+'" style="background:none;border:none;cursor:pointer;font-size:11px;color:#9098A9;padding:2px 6px;border-radius:4px;margin-top:5px;display:block" title="Escuchar">🔊</button>';
+  var replayBtn=isU?'':'<button onclick="kvReplay(this)" data-text="'+text.replace(/"/g,'&quot;')+'" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--t3);padding:2px 6px;border-radius:4px;margin-top:5px;display:block" title="Escuchar">🔊</button>';
 
   row.innerHTML=(isU?'':avHtml)+
     '<div style="flex:1;display:flex;flex-direction:column;align-items:'+(isU?'flex-end':'flex-start')+'">'+
@@ -5076,7 +5062,7 @@ function kvShowTyping(){
   var msgs=document.getElementById('kv_msgs');if(!msgs)return;
   var d=document.createElement('div');d.id='kv_typing_div';d.className='kv_typing_row';
   d.style.cssText='display:flex;align-items:flex-end;gap:8px';
-  d.innerHTML='<div class="kv_av" style="background:linear-gradient(145deg,#0078D4,#005EB8)">'+kv.cfg.emoji+'</div>'+
+  d.innerHTML='<div class="kv_av" style="background:linear-gradient(145deg,var(--gold-m),var(--gold))">'+kv.cfg.emoji+'</div>'+
     '<div class="kv_typing_bub"><div class="kv_dot2"></div><div class="kv_dot2"></div><div class="kv_dot2"></div></div>';
   msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
 }
@@ -5109,7 +5095,7 @@ async function kvSend(txt){
       '🔑 Todavía no tengo una clave de API activa. Pídele a Gerencia que la active en Configuración, o toca ⚙️ → APIs para agregar tu propia clave (Gemini gratis, Copilot, ChatGPT o Claude).':
       '⚠️ No pude responder ahora. Intenta de nuevo.';
     kvAddBubble('a',emsg);
-    if(st)st.innerHTML='<span style="width:6px;height:6px;background:#FF3B30;border-radius:50%;display:inline-block"></span> Error';
+    if(st)st.innerHTML='<span style="width:6px;height:6px;background:var(--er);border-radius:50%;display:inline-block"></span> Error';
   }
 }
 
@@ -5145,7 +5131,7 @@ function kvGetVoice(){
 }
 function kvStopVoz(){if(window.speechSynthesis)speechSynthesis.cancel();kv.speaking=false;var s=document.getElementById('kv_stopbar');if(s)s.style.display='none';kvSetVozBtn();}
 function kvToggleVoz(){kv.voz=!kv.voz;try{localStorage.setItem('sarah_voz',kv.voz?'1':'0');}catch(e){}if(!kv.voz)kvStopVoz();kvSetVozBtn();}
-function kvSetVozBtn(){var b=document.getElementById('kv_vbtn');if(!b)return;b.textContent=kv.voz?'🔊':'🔇';b.style.background=kv.voz?'rgba(255,255,255,.85)':'rgba(255,255,255,.1)';b.style.color=kv.voz?'#0078D4':'#fff';}
+function kvSetVozBtn(){var b=document.getElementById('kv_vbtn');if(!b)return;b.textContent=kv.voz?'🔊':'🔇';b.style.background=kv.voz?'rgba(255,255,255,.85)':'rgba(255,255,255,.1)';b.style.color=kv.voz?'var(--gold-m)':'#fff';}
 function kvReplay(btn){var text=btn.getAttribute('data-text');if(text)kvSpeak(text);}
 
 // ── Micrófono ─────────────────────────────────────────────────────
@@ -5155,7 +5141,7 @@ function kvMic(){
   if(!SR){kvAddBubble('a','⚠️ Tu navegador no soporta micrófono. Usa Chrome o Edge.');return;}
   kv.recog=new SR();kv.recog.lang='es-DO';kv.recog.continuous=false;kv.recog.interimResults=true;
   kv.listening=true;
-  var btn=document.getElementById('kv_mic');if(btn){btn.style.background='#FF3B30';btn.style.color='#fff';btn.textContent='🔴';}
+  var btn=document.getElementById('kv_mic');if(btn){btn.style.background='var(--er)';btn.style.color='#fff';btn.textContent='🔴';}
   var inp=document.getElementById('kv_inp');if(inp)inp.placeholder='Escuchando... habla ahora';
   kv.recog.onresult=function(e){var t=Array.from(e.results).map(function(r){return r[0].transcript;}).join('');if(inp)inp.value=t;if(e.results[0].isFinal){kvStopMic();setTimeout(kvSend,100);}};
   kv.recog.onerror=kv.recog.onend=function(){kvStopMic();};
@@ -5163,7 +5149,7 @@ function kvMic(){
 }
 function kvStopMic(){
   kv.listening=false;if(kv.recog){try{kv.recog.stop();}catch(e){}}
-  var btn=document.getElementById('kv_mic');if(btn){btn.style.background='rgba(0,94,184,.08)';btn.style.color='';btn.textContent='🎤';}
+  var btn=document.getElementById('kv_mic');if(btn){btn.style.background='rgba(196,138,31,.08)';btn.style.color='';btn.textContent='🎤';}
   var inp=document.getElementById('kv_inp');if(inp)inp.placeholder='Escribe o usa el micrófono...';
 }
 
@@ -5179,7 +5165,7 @@ function kvCerrarConfig(){var m=document.getElementById('kv_cfg_modal');if(m)m.s
 function kvTab(t){
   ['perfil','apis','caract','voz'].forEach(function(x){
     var b=document.getElementById('kvt_'+x);
-    if(b){b.style.color=x===t?'#0078D4':'#888';b.style.borderColor=x===t?'#0078D4':'transparent';}
+    if(b){b.style.color=x===t?'var(--gold-m)':'#888';b.style.borderColor=x===t?'var(--gold-m)':'transparent';}
   });
   var body=document.getElementById('kv_cfg_body');if(!body)return;
   if(t==='perfil')     kvRenderPerfil(body);
@@ -5194,11 +5180,11 @@ function kvRenderPerfil(body){
     '<div class="kv_field"><label>Emoji / Avatar</label>'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">'+
     ['🤖','👩‍💼','👨‍💼','🧑‍💻','👩‍🔬','🎯','💡','🦾','🌟','🧠'].map(function(e){
-      return'<button onclick="document.querySelectorAll(\'.kv_emo_btn\').forEach(b=>b.style.background=\'transparent\');this.style.background=\'rgba(0,120,212,.15)\';document.getElementById(\'kvc_emoji\').value=\''+e+'\'" class="kv_emo_btn" style="width:44px;height:44px;font-size:22px;border:2px solid '+(kv.cfg.emoji===e?'#0078D4':'#ddd')+';border-radius:10px;cursor:pointer;background:'+(kv.cfg.emoji===e?'rgba(0,120,212,.1)':'transparent')+'">'+e+'</button>';
+      return'<button onclick="document.querySelectorAll(\'.kv_emo_btn\').forEach(b=>b.style.background=\'transparent\');this.style.background=\'rgba(212,175,55,.15)\';document.getElementById(\'kvc_emoji\').value=\''+e+'\'" class="kv_emo_btn" style="width:44px;height:44px;font-size:22px;border:2px solid '+(kv.cfg.emoji===e?'var(--gold-m)':'#ddd')+';border-radius:10px;cursor:pointer;background:'+(kv.cfg.emoji===e?'rgba(212,175,55,.1)':'transparent')+'">'+e+'</button>';
     }).join('')+
     '</div><input type="hidden" id="kvc_emoji" value="'+kv.cfg.emoji+'"></div>'+
     '<div class="kv_field"><label>Proveedor preferido</label>'+
-    '<select id="kvc_provider" style="width:100%;padding:10px 13px;border:1.5px solid #E0E4F0;border-radius:10px;font-size:13px;font-family:inherit;outline:none;background:#F8F9FF">'+
+    '<select id="kvc_provider" style="width:100%;padding:10px 13px;border:1.5px solid var(--br2);border-radius:10px;font-size:13px;font-family:inherit;outline:none;background:var(--bg2)">'+
     '<option value="auto" '+(kv.cfg.provider==='auto'?'selected':'')+'>🔄 Automático (usa el primero disponible)</option>'+
     '<option value="copilot" '+(kv.cfg.provider==='copilot'?'selected':'')+'>🪟 Copilot / GPT-4o (OpenAI)</option>'+
     '<option value="chatgpt" '+(kv.cfg.provider==='chatgpt'?'selected':'')+'>🧠 ChatGPT / GPT-4o (OpenAI full)</option>'+
@@ -5231,9 +5217,9 @@ function kvRenderAPIs(body){
         '<div class="kv_prov_desc">'+p.desc+'</div></div>'+
         '<div class="kv_prov_status '+(hasKey?'ok':'no')+'">'+(hasKey?'✅ Activa':'Sin clave')+'</div>'+
       '</div>'+
-      '<input id="kvc_key_'+p.id+'" type="password" placeholder="'+p.hint+'" value="'+(kv.cfg.keys[p.id]||'')+'" style="width:100%;padding:9px 12px;border:1.5px solid '+(hasKey?'rgba(0,200,83,.4)':'#E0E4F0')+';border-radius:9px;font-size:13px;font-family:monospace;outline:none;background:'+(hasKey?'rgba(0,200,83,.03)':'#F8F9FF')+';color:#0D1B2A">'+
+      '<input id="kvc_key_'+p.id+'" type="password" placeholder="'+p.hint+'" value="'+(kv.cfg.keys[p.id]||'')+'" style="width:100%;padding:9px 12px;border:1.5px solid '+(hasKey?'rgba(0,200,83,.4)':'var(--br2)')+';border-radius:9px;font-size:13px;font-family:monospace;outline:none;background:'+(hasKey?'rgba(0,200,83,.03)':'var(--bg2)')+';color:var(--tx)">'+
       '<div style="display:flex;align-items:center;gap:10px;margin-top:8px">'+
-        '<a href="'+p.link+'" target="_blank" style="font-size:11px;color:#0078D4;text-decoration:none">→ Obtener clave en '+p.maker+'</a>'+
+        '<a href="'+p.link+'" target="_blank" style="font-size:11px;color:var(--gold-m);text-decoration:none">→ Obtener clave en '+p.maker+'</a>'+
         '<button class="kv_test_btn" onclick="kvTestKey(\''+p.id+'\')">▶ Probar</button>'+
         '<span id="kvc_test_'+p.id+'" style="font-size:11px"></span>'+
       '</div>'+
@@ -5263,7 +5249,7 @@ async function kvTestKey(provId){
 
 function kvRenderCaract(body){
   body.innerHTML=
-    '<div style="background:rgba(0,120,212,.06);border:1px solid rgba(0,94,184,.15);border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:#0D4B7A;line-height:1.7">'+
+    '<div style="background:rgba(212,175,55,.06);border:1px solid rgba(196,138,31,.15);border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:#0D4B7A;line-height:1.7">'+
     '<b>💡 ¿Qué puedes escribir aquí?</b><br>'+
     'Describe la personalidad de tu asistente, sus habilidades especiales, el tono con el que debe hablar, '+
     'áreas de expertise, información específica de tu empresa, instrucciones especiales, etc. '+
@@ -5273,7 +5259,7 @@ function kvRenderCaract(body){
     '</div>'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
     '<button onclick="kvResetCaract()" style="padding:7px 14px;background:#fff;border:1.5px solid #ddd;border-radius:8px;cursor:pointer;font-size:12px;font-family:inherit;color:#555">↩ Restaurar por defecto</button>'+
-    '<button onclick="kvCaractTemplate()" style="padding:7px 14px;background:rgba(0,120,212,.08);border:1.5px solid rgba(0,94,184,.2);border-radius:8px;cursor:pointer;font-size:12px;font-family:inherit;color:#0078D4">📋 Plantilla KERAVEN completa</button>'+
+    '<button onclick="kvCaractTemplate()" style="padding:7px 14px;background:rgba(212,175,55,.08);border:1.5px solid rgba(196,138,31,.2);border-radius:8px;cursor:pointer;font-size:12px;font-family:inherit;color:var(--gold-m)">📋 Plantilla KERAVEN completa</button>'+
     '</div>';
 }
 
@@ -5324,17 +5310,17 @@ function kvRenderVoz(body){
   
   body.innerHTML=
     '<div class="kv_field"><label>Voz ('+voices.length+' disponibles)</label>'+
-    '<select id="kvc_voz" style="width:100%;padding:10px 13px;border:1.5px solid #E0E4F0;border-radius:10px;font-size:13px;font-family:inherit;outline:none;background:#F8F9FF">'+voiceOpts+'</select>'+
+    '<select id="kvc_voz" style="width:100%;padding:10px 13px;border:1.5px solid var(--br2);border-radius:10px;font-size:13px;font-family:inherit;outline:none;background:var(--bg2)">'+voiceOpts+'</select>'+
     '<div style="margin-top:8px;display:flex;gap:8px">'+
-    '<button onclick="kvTestVoz()" style="padding:7px 16px;background:#0078D4;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">▶ Probar voz</button>'+
+    '<button onclick="kvTestVoz()" style="padding:7px 16px;background:var(--gold-m);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">▶ Probar voz</button>'+
     '<span style="font-size:11px;color:#888;align-self:center">Elige la voz que más te guste</span></div></div>'+
     
     '<div class="kv_field"><label>Velocidad de reproducción</label>'+
     '<div style="display:flex;align-items:center;gap:12px;margin-top:6px">'+
     '<span style="font-size:11px;color:#888;white-space:nowrap">🐢 Lento</span>'+
-    '<input type="range" id="kvc_rate" min="0.5" max="1.5" step="0.05" value="'+(kv.cfg.rate||0.9)+'" style="flex:1;accent-color:#0078D4" oninput="document.getElementById(\'kvc_rate_val\').textContent=Number(this.value).toFixed(2)+\'x\'">'+
+    '<input type="range" id="kvc_rate" min="0.5" max="1.5" step="0.05" value="'+(kv.cfg.rate||0.9)+'" style="flex:1;accent-color:var(--gold-m)" oninput="document.getElementById(\'kvc_rate_val\').textContent=Number(this.value).toFixed(2)+\'x\'">'+
     '<span style="font-size:11px;color:#888;white-space:nowrap">🐇 Rápido</span></div>'+
-    '<div style="text-align:center;margin-top:6px"><span id="kvc_rate_val" style="font-size:14px;font-weight:700;color:#0078D4">'+(kv.cfg.rate||0.9).toFixed(2)+'x</span>'+
+    '<div style="text-align:center;margin-top:6px"><span id="kvc_rate_val" style="font-size:14px;font-weight:700;color:var(--gold-m)">'+(kv.cfg.rate||0.9).toFixed(2)+'x</span>'+
     ' <span style="font-size:11px;color:#888">(0.90x recomendado)</span></div></div>'+
     
     '<div style="background:#E8F5E9;border:1px solid rgba(0,200,83,.3);border-radius:10px;padding:11px 14px;font-size:12px;color:#2E7D32;line-height:1.6">'+
@@ -5374,7 +5360,7 @@ function kvGuardarConfig(){
   
   // Actualizar UI
   var nm=document.getElementById('kv_nm');if(nm)nm.textContent=kv.cfg.nombre;
-  var av=document.getElementById('kv_avatar');if(av)av.innerHTML=kv.cfg.emoji+'<div style="position:absolute;bottom:1px;right:1px;width:10px;height:10px;background:#00C853;border-radius:50%;border:2px solid #1B2A3B"></div>';
+  var av=document.getElementById('kv_avatar');if(av)av.innerHTML=kv.cfg.emoji+'<div style="position:absolute;bottom:1px;right:1px;width:10px;height:10px;background:#00C853;border-radius:50%;border:2px solid var(--red)"></div>';
   var st=document.getElementById('kv_st');if(st)st.innerHTML='<span style="width:6px;height:6px;background:#00C853;border-radius:50%;display:inline-block"></span> En línea · '+kv.cfg.nombre;
   var wn=document.getElementById('kv_wname');if(wn)wn.textContent='Hola, soy '+kv.cfg.nombre;
   kvBuildProvStrip();
@@ -5387,18 +5373,18 @@ function rAsistente(){
   setTimeout(function(){kvInit();if(!kv.open)kvToggle();},100);
   var hasKey=kv.cfg.keys.copilot||kv.cfg.keys.chatgpt||kv.cfg.keys.gemini||kv.cfg.keys.claude;
   return'<div class="card" style="text-align:center;padding:40px 24px">'+
-    '<div style="width:70px;height:70px;border-radius:50%;background:linear-gradient(145deg,#0078D4,#005EB8);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:32px;box-shadow:0 8px 28px rgba(0,120,212,.35)">'+kv.cfg.emoji+'</div>'+
-    '<div style="font-size:20px;font-weight:900;color:#0D1B2A;margin-bottom:6px">'+kv.cfg.nombre+'</div>'+
-    '<div style="font-size:13px;color:#5C6B7A;line-height:1.8;max-width:380px;margin:0 auto 22px">'+
+    '<div style="width:70px;height:70px;border-radius:50%;background:linear-gradient(145deg,var(--gold-m),var(--gold));margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:32px;box-shadow:0 8px 28px rgba(212,175,55,.35)">'+kv.cfg.emoji+'</div>'+
+    '<div style="font-size:20px;font-weight:900;color:var(--tx);margin-bottom:6px">'+kv.cfg.nombre+'</div>'+
+    '<div style="font-size:13px;color:var(--t2);line-height:1.8;max-width:380px;margin:0 auto 22px">'+
     'Tu asistente IA personal está disponible en todas las ventanas del sistema como ventana flotante 🤖 (esquina inferior derecha).</div>'+
     '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">'+
-    '<button onclick="if(!kv.open)kvToggle()" style="padding:11px 24px;background:linear-gradient(135deg,#0078D4,#005EB8);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;box-shadow:0 4px 14px rgba(0,120,212,.3)">🤖 Abrir asistente</button>'+
-    '<button onclick="kvMostrarConfig()" style="padding:11px 20px;background:#fff;border:1.5px solid #0078D4;color:#0078D4;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit">⚙️ Configurar</button>'+
+    '<button onclick="if(!kv.open)kvToggle()" style="padding:11px 24px;background:linear-gradient(135deg,var(--gold-m),var(--gold));color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;box-shadow:0 4px 14px rgba(212,175,55,.3)">🤖 Abrir asistente</button>'+
+    '<button onclick="kvMostrarConfig()" style="padding:11px 20px;background:#fff;border:1.5px solid var(--gold-m);color:var(--gold-m);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit">⚙️ Configurar</button>'+
     '</div>'+
     (!hasKey?'<div style="margin-top:20px;padding:14px 18px;background:#FFF8E1;border:1px solid #FFC107;border-radius:12px;font-size:12px;color:#795548;text-align:left;max-width:420px;margin-left:auto;margin-right:auto">'+
     '⚠️ <b>Configura una API Key para usar el asistente en Netlify.</b><br>'+
     'Gemini es gratis → <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#0F9D58">aistudio.google.com/apikey</a><br>'+
-    'Copilot/ChatGPT → <a href="https://platform.openai.com/api-keys" target="_blank" style="color:#0078D4">platform.openai.com</a></div>':''+
+    'Copilot/ChatGPT → <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--gold-m)">platform.openai.com</a></div>':''+
     '<div style="margin-top:14px;padding:10px 16px;background:#E8F5E9;border-radius:10px;font-size:12px;color:#2E7D32;max-width:300px;margin-left:auto;margin-right:auto">'+
     '✅ '+kv.cfg.nombre+' está lista · '+(kv.cfg.keys.copilot?'🪟 Copilot':kv.cfg.keys.chatgpt?'🧠 ChatGPT':kv.cfg.keys.gemini?'✦ Gemini':'⚡ Claude')+' activo</div>')+
   '</div>';
@@ -5644,46 +5630,46 @@ async function delPinConfirm(){
      COBRADOR KERAVEN — módulo íntegro
 ════════════════════════════════════════════════════════════════ -->
 <style>
-#cbroot{font-family:"Segoe UI",Arial,sans-serif;background:#eef1f5;color:#1c2733;
+#cbroot{font-family:"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--tx);
   margin:-14px;min-height:calc(100vh - 54px)}
 
   #cbroot *{ box-sizing: border-box; }
-  #cbroot{ font-family: "Segoe UI", Arial, sans-serif; margin: 0; background: #eef1f5; color: #1c2733; }
-  #cbroot header{ background: #1f3b63; color: #fff; padding: 12px 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;}
+  #cbroot{ font-family: "Segoe UI", Arial, sans-serif; margin: 0; background: var(--bg); color: var(--tx); }
+  #cbroot header{ background: var(--red); color: #fff; padding: 12px 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;}
   #cbroot header h1{ font-size: 20px; margin: 0; }
-  #cbroot nav{ background:#16294a; padding:0 12px; display:flex; gap:4px;}
-  #cbroot nav button{ background:transparent; color:#bcd; border:0; padding:12px 18px; font-size:15px; cursor:pointer; border-bottom:3px solid transparent;}
-  #cbroot nav button.activa{ color:#fff; font-weight:bold; border-bottom:3px solid #25d366;}
+  #cbroot nav{ background:var(--red2); padding:0 12px; display:flex; gap:4px;}
+  #cbroot nav button{ background:transparent; color:var(--silver); border:0; padding:12px 18px; font-size:15px; cursor:pointer; border-bottom:3px solid transparent;}
+  #cbroot nav button.activa{ color:#fff; font-weight:bold; border-bottom:3px solid var(--gold);}
   #cbroot .contenido{ padding: 16px 20px; }
   #cbroot .tarjetas{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
   #cbroot .tarjeta{ background:#fff; border-radius:10px; padding:12px 18px; box-shadow:0 1px 3px rgba(0,0,0,.12); min-width:150px;}
   #cbroot .tarjeta .valor{ font-size:22px; font-weight:bold; }
-  #cbroot .rojo{color:#c62828}.verde{color:#2e7d32}.naranja{color:#e65100}
+  #cbroot .rojo{color:var(--er)} #cbroot .verde{color:var(--green)} #cbroot .naranja{color:#e65100}
   #cbroot .acciones{ margin-bottom:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
-  #cbroot button{ border:0; border-radius:8px; padding:9px 14px; font-size:14px; cursor:pointer; background:#dfe5ec; }
-  #cbroot button.principal{ background:#25d366; color:#fff; font-weight:bold; }
-  #cbroot button.azul{ background:#1f3b63; color:#fff; }
-  #cbroot button.peligro{ background:#c62828; color:#fff; }
+  #cbroot button{ border:0; border-radius:8px; padding:9px 14px; font-size:14px; cursor:pointer; background:var(--silver-l); }
+  #cbroot button.principal{ background:var(--gold); color:var(--red2); font-weight:bold; }
+  #cbroot button.azul{ background:var(--blue); color:#fff; }
+  #cbroot button.peligro{ background:var(--er); color:#fff; }
   #cbroot input, #cbroot select, #cbroot textarea{ padding:8px; border:1px solid #bbb; border-radius:6px; font-size:14px; }
   #cbroot table{ border-collapse: collapse; width:100%; background:#fff; font-size:13px; border-radius:10px; overflow:hidden;}
   #cbroot th, #cbroot td{ border-bottom:1px solid #e2e6ea; padding:8px 9px; text-align:left; vertical-align:top;}
-  #cbroot th{ background:#1f3b63; color:#fff; }
-  #cbroot tr.vencido td:first-child{ border-left:4px solid #c62828; }
+  #cbroot th{ background:var(--red); color:#fff; }
+  #cbroot tr.vencido td:first-child{ border-left:4px solid var(--er); }
   #cbroot tr.pagado{ opacity:.6; }
-  #cbroot tr.pagado td:first-child{ border-left:4px solid #2e7d32; }
-  #cbroot .estado-vencido{ color:#c62828; font-weight:bold;} .estado-pagado{color:#2e7d32;font-weight:bold;} .estado-aldia{color:#666;}
-  #cbroot .chip{ background:#fff3cd; border-radius:5px; padding:1px 6px; font-size:12px;}
+  #cbroot tr.pagado td:first-child{ border-left:4px solid var(--green); }
+  #cbroot .estado-vencido{ color:var(--er); font-weight:bold;} #cbroot .estado-pagado{color:var(--green);font-weight:bold;} #cbroot .estado-aldia{color:var(--t2);}
+  #cbroot .chip{ background:var(--gold-p); border-radius:5px; padding:1px 6px; font-size:12px;}
   #cbroot dialog{ border:0; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,.3); padding:20px; width:min(480px, 92vw);}
   #cbroot dialog label{ display:block; margin:8px 0 3px; font-size:13px; font-weight:600;}
   #cbroot dialog input, #cbroot dialog textarea{ width:100%; }
   #cbroot .fila-form{ display:flex; gap:10px;} .fila-form > div{flex:1;}
   #cbroot #plantilla{ width:100%; height:110px; }
-  #cbroot .pie{ color:#667; font-size:12px; margin-top:14px;}
+  #cbroot .pie{ color:var(--t2); font-size:12px; margin-top:14px;}
   #cbroot .btn-mini{ padding:5px 9px; font-size:12px; margin:1px;}
   #cbroot .panel{ background:#fff; border-radius:10px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,.12); margin-bottom:16px;}
   #cbroot .panel h3{ margin-top:0; }
   #cbroot #log-carga{ background:#0f1c33; color:#9fe0b3; font-family:Consolas,monospace; font-size:12px; padding:10px; border-radius:8px; min-height:60px; max-height:220px; overflow:auto; white-space:pre-wrap; margin-top:10px;}
-  #cbroot .btn-reporte{ padding:10px 16px; } .btn-reporte.activa{ background:#1f3b63; color:#fff; }
+  #cbroot .btn-reporte{ padding:10px 16px; } .btn-reporte.activa{ background:var(--red); color:#fff; }
   #cbroot .oculto{ display:none; }
 
 #cbroot header{border-radius:0}
@@ -6261,7 +6247,7 @@ function verFoto(src,titulo){
     +'flex-direction:column;align-items:center;justify-content:center;padding:16px;cursor:zoom-out';
   ov.onclick=function(){ ov.remove(); };
   var t=document.createElement('div');
-  t.style.cssText='color:#D4AF37;font-size:13px;font-weight:700;margin-bottom:12px;letter-spacing:.06em';
+  t.style.cssText='color:#CE9840;font-size:13px;font-weight:700;margin-bottom:12px;letter-spacing:.06em';
   t.textContent=titulo||'Foto';
   var im=document.createElement('img');
   im.src=src;
@@ -6273,7 +6259,7 @@ function verFoto(src,titulo){
   var a=document.createElement('a');
   a.href=src; a.download='keraven_'+String(titulo||'foto').replace(/\s+/g,'_')+'.jpg';
   a.textContent='⬇️ Descargar';
-  a.style.cssText='padding:9px 22px;background:#D4AF37;color:#1a0a0f;border-radius:8px;'
+  a.style.cssText='padding:9px 22px;background:#CE9840;color:#080910;border-radius:8px;'
     +'text-decoration:none;font-weight:700;font-size:13px;font-family:inherit';
   a.onclick=function(e){ e.stopPropagation(); };
   var b=document.createElement('button');
@@ -7104,6 +7090,7 @@ async function prodImportarExcel(ev){
 ══════════════════════════════════════════════════════════════════ */
 var LAB_MATERIAS=[], LAB_RECETAS=[], LAB_PRODUCCIONES=[];
 var _labTab='almacen', _labMpEditando=null, _labEntradaMpId=null, _labRecetaEditando=null;
+var _labAlmCat='quimico', _labAlmQ='';
 var LAB_UNIDADES={gramos:'g',kilogramos:'kg',onzas:'oz',galon:'gal',unidad:'u'};
 function labUnidadLbl(u){ return LAB_UNIDADES[u]||u; }
 
@@ -7144,6 +7131,38 @@ function _labDiasPara(fechaISO){
   if(!fechaISO) return null;
   return Math.round((new Date(fechaISO) - new Date(hoy())) / 86400000);
 }
+var LAB_CATS=[['quimico','⚗️ Químicos'],['natural','🌿 Naturales'],['empaque','📦 Empaque']];
+function labAlmCat(cat){
+  _labAlmCat=cat; _labAlmQ='';
+  var cont=document.getElementById('lab_cont'); if(cont) cont.innerHTML=labAlmacenHTML();
+}
+function labAlmBuscar(v){
+  _labAlmQ=v;
+  var tb=document.getElementById('lab_alm_tbody'); if(!tb) return;
+  tb.innerHTML = _labAlmFilasHTML(_labAlmFiltradas());
+}
+function _labAlmFiltradas(){
+  var activos = LAB_MATERIAS.filter(function(m){return m.activo && m.tipo===_labAlmCat;});
+  var q=(_labAlmQ||'').trim().toLowerCase();
+  if(q) activos = activos.filter(function(m){return m.nombre.toLowerCase().indexOf(q)>=0;});
+  return activos;
+}
+function _labAlmFilasHTML(lista){
+  if(!lista.length) return '<tr><td colspan="4" style="text-align:center;color:var(--t3);padding:20px">Sin resultados</td></tr>';
+  return lista.map(function(m){
+    var dias=_labDiasPara(m.proximo_vencimiento);
+    return '<tr><td style="font-weight:600">'+m.nombre
+      + (m.bajo_minimo?' <span class="pill" style="background:#FFF3E0;border-color:#E65100;color:#E65100;font-size:9px">bajo mínimo</span>':'')
+      + (dias!=null&&dias<=60?' <span class="pill" style="background:'+(dias<0?'#FFEBEE':'#FFF3E0')+';border-color:'+(dias<0?'#C62828':'#E65100')+';color:'+(dias<0?'#C62828':'#E65100')+';font-size:9px">'+(dias<0?'vencido':dias+'d para vencer')+'</span>':'')
+      + '</td>'
+      + '<td class="tr" style="'+(Number(m.stock)<=0?'color:var(--er);font-weight:700':'')+'">'+Number(m.stock).toLocaleString('es-DO',{maximumFractionDigits:3})+' '+labUnidadLbl(m.unidad)+'</td>'
+      + '<td class="tr">'+fM(Number(m.costo_unitario)||0)+' / '+labUnidadLbl(m.unidad)+'</td>'
+      + '<td style="white-space:nowrap"><button class="bsm" onclick="labMpAbrirEntrada('+m.id+')"><i class="ti ti-plus"></i> Entrada</button> '
+      + '<button class="bsm" onclick="labMpVerHistorial('+m.id+')"><i class="ti ti-history"></i></button> '
+      + '<button class="bsm" onclick="labMpAbrirEdicion('+m.id+')"><i class="ti ti-edit"></i></button> '
+      + '<button class="bsm" style="color:var(--er)" onclick="labMpDesactivar('+m.id+')"><i class="ti ti-trash"></i></button></td></tr>';
+  }).join('');
+}
 function labAlmacenHTML(){
   var activos = LAB_MATERIAS.filter(function(m){return m.activo;});
   var inactivos = LAB_MATERIAS.filter(function(m){return !m.activo;});
@@ -7151,31 +7170,28 @@ function labAlmacenHTML(){
   var porVencer = activos.filter(function(m){var d=_labDiasPara(m.proximo_vencimiento); return d!=null && d<=60;});
   var cats={};
   activos.forEach(function(m){ (cats[m.tipo]=cats[m.tipo]||[]).push(m); });
+  if(!cats[_labAlmCat] || !cats[_labAlmCat].length){
+    var primeraConDatos = LAB_CATS.find(function(par){return cats[par[0]] && cats[par[0]].length;});
+    if(primeraConDatos) _labAlmCat = primeraConDatos[0];
+  }
   var h = '<div style="display:flex;gap:8px;margin-bottom:14px"><button class="bg" onclick="labMpAbrirNuevo()"><i class="ti ti-plus"></i> Nueva materia prima</button></div>';
   if(bajoMinimo.length || porVencer.length){
-    h += '<div style="background:#FFF3E0;border:1.5px solid #E65100;border-radius:10px;padding:12px 15px;margin-bottom:14px;font-size:12px;color:#7F3D00">';
-    if(bajoMinimo.length) h += '<div>⚠️ <b>Bajo el mínimo:</b> '+bajoMinimo.map(function(m){return m.nombre+' ('+Number(m.stock).toLocaleString('es-DO',{maximumFractionDigits:2})+' '+labUnidadLbl(m.unidad)+')';}).join(', ')+'</div>';
-    if(porVencer.length) h += '<div style="margin-top:'+(bajoMinimo.length?'6px':'0')+'">⏳ <b>Por vencer (60 días):</b> '+porVencer.map(function(m){var d=_labDiasPara(m.proximo_vencimiento);return m.nombre+' ('+(d<0?'vencido':d+'d')+')';}).join(', ')+'</div>';
-    h += '</div>';
+    h += '<details style="background:#FFF3E0;border:1.5px solid #E65100;border-radius:10px;padding:10px 15px;margin-bottom:14px;font-size:12px;color:#7F3D00">';
+    h += '<summary style="cursor:pointer;font-weight:700">⚠️ '+bajoMinimo.length+' bajo el mínimo · ⏳ '+porVencer.length+' por vencer (60 días)</summary>';
+    if(bajoMinimo.length) h += '<div style="margin-top:8px">⚠️ <b>Bajo el mínimo:</b> '+bajoMinimo.map(function(m){return m.nombre+' ('+Number(m.stock).toLocaleString('es-DO',{maximumFractionDigits:2})+' '+labUnidadLbl(m.unidad)+')';}).join(', ')+'</div>';
+    if(porVencer.length) h += '<div style="margin-top:6px">⏳ <b>Por vencer:</b> '+porVencer.map(function(m){var d=_labDiasPara(m.proximo_vencimiento);return m.nombre+' ('+(d<0?'vencido':d+'d')+')';}).join(', ')+'</div>';
+    h += '</details>';
   }
-  [['quimico','⚗️ Químicos'],['natural','🌿 Naturales'],['empaque','📦 Empaque']].forEach(function(par){
-    var lista=cats[par[0]]||[]; if(!lista.length) return;
-    h += '<div class="sl">'+par[1]+' ('+lista.length+')</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Materia prima</th><th class="tr">Stock</th><th class="tr">Costo/unidad</th><th>Acciones</th></tr></thead><tbody>'
-      + lista.map(function(m){
-          var dias=_labDiasPara(m.proximo_vencimiento);
-          return '<tr><td style="font-weight:600">'+m.nombre
-            + (m.bajo_minimo?' <span class="pill" style="background:#FFF3E0;border-color:#E65100;color:#E65100;font-size:9px">bajo mínimo</span>':'')
-            + (dias!=null&&dias<=60?' <span class="pill" style="background:'+(dias<0?'#FFEBEE':'#FFF3E0')+';border-color:'+(dias<0?'#C62828':'#E65100')+';color:'+(dias<0?'#C62828':'#E65100')+';font-size:9px">'+(dias<0?'vencido':dias+'d para vencer')+'</span>':'')
-            + '</td>'
-            + '<td class="tr" style="'+(Number(m.stock)<=0?'color:var(--er);font-weight:700':'')+'">'+Number(m.stock).toLocaleString('es-DO',{maximumFractionDigits:3})+' '+labUnidadLbl(m.unidad)+'</td>'
-            + '<td class="tr">'+fM(Number(m.costo_unitario)||0)+' / '+labUnidadLbl(m.unidad)+'</td>'
-            + '<td style="white-space:nowrap"><button class="bsm" onclick="labMpAbrirEntrada('+m.id+')"><i class="ti ti-plus"></i> Entrada</button> '
-            + '<button class="bsm" onclick="labMpVerHistorial('+m.id+')"><i class="ti ti-history"></i></button> '
-            + '<button class="bsm" onclick="labMpAbrirEdicion('+m.id+')"><i class="ti ti-edit"></i></button> '
-            + '<button class="bsm" style="color:var(--er)" onclick="labMpDesactivar('+m.id+')"><i class="ti ti-trash"></i></button></td></tr>';
-        }).join('')
-      + '</tbody></table></div>';
-  });
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">';
+  h += '<div class="tab-bar" style="margin:0">'+LAB_CATS.map(function(par){
+    var n=(cats[par[0]]||[]).length;
+    return '<button class="tab-btn'+(par[0]===_labAlmCat?' act':'')+'" onclick="labAlmCat(\''+par[0]+'\')">'+par[1]+' ('+n+')</button>';
+  }).join('')+'</div>';
+  h += '<input type="search" placeholder="🔍 Buscar en '+(LAB_CATS.find(function(p){return p[0]===_labAlmCat;})||['',''])[1]+'..." value="'+(_labAlmQ||'').replace(/"/g,'&quot;')+'" oninput="labAlmBuscar(this.value)" style="flex:1;min-width:180px;padding:8px 12px;border:1.5px solid var(--br2);border-radius:8px;font-size:13px">';
+  h += '</div>';
+  h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Materia prima</th><th class="tr">Stock</th><th class="tr">Costo/unidad</th><th>Acciones</th></tr></thead><tbody id="lab_alm_tbody">'
+    + _labAlmFilasHTML(_labAlmFiltradas())
+    + '</tbody></table></div>';
   if(!activos.length) h += '<div class="empty"><i class="ti ti-flask"></i><p>Sin materias primas activas</p></div>';
   if(inactivos.length){
     h += '<details style="margin-top:14px"><summary style="cursor:pointer">🗄️ Desactivadas ('+inactivos.length+')</summary>'
@@ -7590,6 +7606,20 @@ async function labImportarExcel(ev){
 .mod-hero::before, .mod-hero::after,
 .card::before{ pointer-events:none !important; }
 
+.mod-hero{
+  background:linear-gradient(135deg,var(--silver-l),var(--silver));
+  border:1px solid var(--silver-d);border-radius:var(--rll);
+  padding:16px 20px;margin-bottom:14px;
+  position:relative;overflow:hidden;
+}
+.mod-hero-logo{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  height:38px;width:auto;z-index:0;opacity:.9;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.1));
+  pointer-events:none;
+}
+@media(max-width:640px){.mod-hero-logo{display:none}}
+
 /* El contenido del encabezado y sus botones, siempre por encima */
 .dash-header > *{ position:relative; z-index:2; }
 .organizar-btn{ position:relative; z-index:5; }
@@ -7632,8 +7662,8 @@ async function labImportarExcel(ev){
 .next-num{width:34px;height:34px;border-radius:50%;background:#fff;color:#01579B;font-weight:900;
   font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .next-body{padding:14px 16px}
-.next-nom{font-size:17px;font-weight:800;color:#1A1628;line-height:1.25}
-.next-dat{font-size:12px;color:#5C5470;margin-top:3px;line-height:1.6}
+.next-nom{font-size:17px;font-weight:800;color:#1A1A1E;line-height:1.25}
+.next-dat{font-size:12px;color:#5A5862;margin-top:3px;line-height:1.6}
 .next-deuda{font-size:24px;font-weight:900;color:#C62828;margin:8px 0 2px}
 .next-dist{display:inline-flex;align-items:center;gap:5px;background:#E3F2FD;color:#01579B;
   border:1px solid rgba(2,119,189,.25);border-radius:100px;padding:4px 11px;font-size:12px;font-weight:700}
@@ -7660,8 +7690,8 @@ async function labImportarExcel(ev){
 .stop-n{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#0277BD,#01579B);
   color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .stop.done .stop-n{background:#2E7D32}
-.stop-nom{font-size:13px;font-weight:700;color:#1A1628}
-.stop-sub{font-size:11px;color:#5C5470;margin-top:1px}
+.stop-nom{font-size:13px;font-weight:700;color:#1A1A1E}
+.stop-sub{font-size:11px;color:#5A5862;margin-top:1px}
 .stop-km{font-size:12px;font-weight:800;color:#0277BD;white-space:nowrap}
 .leaflet-container{font-family:inherit}
 .pin{background:linear-gradient(135deg,#0277BD,#01579B);color:#fff;border:2.5px solid #fff;
@@ -7682,10 +7712,10 @@ async function labImportarExcel(ev){
 ════════════════════════════════════════════════════════════════ */
 var RT = {
   yo:null,          // {lat,lng,acc}
-  paradas:[],       // contratos con coordenadas
-  hechas:[],        // ids ya visitados
+  paradas:[],       // seleccion de hoy pendiente, con coordenadas
+  hechasInfo:[],    // filas de ruta_seleccion ya resueltas hoy (pagado/abonado/no_pago/saltado)
   mapa:null, capaMarcas:null, capaLinea:null, marcaYo:null,
-  watch:null, recaudado:0, iniciada:false
+  watch:null, recaudado:0
 };
 
 /* Saca lat/lng del texto guardado: "7F3F+H59  (18.48123, -69.93456)" */
@@ -7732,24 +7762,150 @@ function rtOrdenar(desde, pend){
   return ruta;
 }
 
-/* Reconstruye la lista de paradas pendientes desde los contratos */
-function rtCargar(){
+/* Reconstruye la lista de paradas pendientes desde la selección de HOY
+   (armada a mano en "Preparar ruta" -- ya no se arma sola con todo
+   contrato que tenga GPS). */
+async function rtCargar(){
+  var datos=[];
+  try{ datos = await apiFetch('/api/ruta/seleccion'); }catch(e){ datos=[]; }
+  RT.hechasInfo = datos.filter(function(r){ return r.estado!=='pendiente'; });
+  RT.recaudado = RT.hechasInfo.reduce(function(s,r){
+    return s + ((r.estado==='pagado'||r.estado==='abonado') ? (Number(r.monto_resultado)||0) : 0);
+  }, 0);
   var lista=[];
-  contratos.forEach(function(c){
-    if(c.status!=='aprobado') return;
-    if((c.saldo||0)<=0) return;                 // ya está saldado
-    if(RT.hechas.indexOf(c.id)>=0) return;      // ya la visité hoy
-    var co=rtCoords(c);
-    if(!co) return;                             // sin GPS → no entra al mapa
-    lista.push({ id:c.id, c:c, co:co });
+  datos.forEach(function(r){
+    if(r.estado!=='pendiente') return;
+    if(r.gps_lat==null || r.gps_lng==null) return;
+    lista.push({
+      id:r.contrato_id, seleccionId:r.seleccion_id,
+      c:{ id:r.contrato_id, fac:r.numero_factura, cliente:r.cliente_nombre, saldo:Number(r.saldo)||0,
+          tel1:r.cliente_tel1, dir:r.cliente_direccion, ref:r.cliente_referencia,
+          inst:r.cliente_institucion, lim:r.fecha_limite },
+      co:{ lat:Number(r.gps_lat), lng:Number(r.gps_lng) }
+    });
   });
   RT.paradas = rtOrdenar(RT.yo, lista);
 }
 
 /* ══ Pantalla ══ */
+var _rutaVista='preparar';
 function rRuta(){
   return '<div id="ruta_root">'
-    + '<div class="ruta-hero">'
+    + '<div class="tab-bar" style="margin-bottom:14px">'
+    +   '<button id="rt_tab_preparar" class="tab-btn'+(_rutaVista==='preparar'?' act':'')+'" onclick="rtVista(\'preparar\')"><i class="ti ti-search"></i> Preparar ruta</button>'
+    +   '<button id="rt_tab_mapa" class="tab-btn'+(_rutaVista==='mapa'?' act':'')+'" onclick="rtVista(\'mapa\')"><i class="ti ti-map-2"></i> Mapa</button>'
+    + '</div>'
+    + '<div id="rt_cont">'+(_rutaVista==='preparar'?rtPrepararHTML():rtMapaHTML())+'</div>'
+    + '</div>';
+}
+function rtVista(v){
+  _rutaVista=v;
+  ['preparar','mapa'].forEach(function(x){var b=document.getElementById('rt_tab_'+x);if(b)b.className='tab-btn'+(x===v?' act':'');});
+  var c=document.getElementById('rt_cont'); if(!c) return;
+  c.innerHTML = v==='preparar' ? rtPrepararHTML() : rtMapaHTML();
+  rutaInit();
+}
+
+/* ── Pestaña: Preparar ruta (buscar y elegir a mano a quién visitar hoy) ── */
+var RT_BUSQUEDA=[], _rtBuscarTimer=null;
+function rtPrepararHTML(){
+  return '<div class="card">'
+    + '<div class="ct"><i class="ti ti-search" style="color:var(--gold)"></i>Buscar cliente a visitar</div>'
+    + '<div class="cs">Por número de factura, cédula, teléfono o nombre.</div>'
+    + '<input type="search" id="rt_buscar_inp" placeholder="Ej: KRV-0045, cédula, teléfono o nombre..." oninput="rtBuscarDebounced()" '
+    +   'style="width:100%;padding:10px 14px;border:1.5px solid var(--br2);border-radius:10px;font-size:14px;margin-bottom:12px">'
+    + '<div id="rt_buscar_res"></div>'
+    + '</div>'
+    + '<div class="card" style="margin-top:14px">'
+    + '<div class="ct"><i class="ti ti-list-check" style="color:var(--gold)"></i>Ruta de hoy<span class="pill" style="margin-left:auto" id="rt_hoy_count">0</span></div>'
+    + '<div id="rt_hoy_lista"></div>'
+    + '</div>';
+}
+function rtBuscarDebounced(){ clearTimeout(_rtBuscarTimer); _rtBuscarTimer=setTimeout(rtBuscar,350); }
+async function rtBuscar(){
+  var inp=document.getElementById('rt_buscar_inp'); var q=inp?inp.value:'';
+  var box=document.getElementById('rt_buscar_res'); if(!box) return;
+  if(q.trim().length<2){ box.innerHTML=''; return; }
+  box.innerHTML='<div style="padding:10px;color:var(--t3);font-size:12px">Buscando…</div>';
+  var res=[];
+  try{ res=await apiFetch('/api/ruta/buscar?q='+encodeURIComponent(q)); }catch(e){ box.innerHTML='<div class="empty"><p>Error al buscar</p></div>'; return; }
+  RT_BUSQUEDA=res;
+  if(!res.length){ box.innerHTML='<div class="empty"><i class="ti ti-search-off"></i><p>Sin resultados</p></div>'; return; }
+  box.innerHTML=res.map(function(c,i){
+    var tieneGps = c.gps_lat!=null && c.gps_lng!=null;
+    return '<div class="stop" style="align-items:flex-start">'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div class="stop-nom">'+c.cliente_nombre+'</div>'
+      +   '<div class="stop-sub">'+c.numero_factura+' · debe '+fM(c.saldo)+(c.cliente_direccion?' · '+c.cliente_direccion:'')+'</div>'
+      +   (tieneGps ? '' :
+            '<div style="margin-top:8px;padding:10px;background:var(--bg2);border-radius:8px">'
+            + '<div style="font-size:11px;color:var(--t2);margin-bottom:6px">⚠️ Sin ubicación guardada — cargala para poder agregarlo:</div>'
+            + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+            +   '<button type="button" class="bsm" onclick="rtUsarMiUbicacion('+i+')">📍 Usar mi ubicación actual</button>'
+            +   '<input type="text" id="rt_gps_manual_'+i+'" placeholder="o pegá: 18.4801, -69.9317" style="flex:1;min-width:160px;padding:6px 10px;border:1px solid var(--br2);border-radius:8px;font-size:12px">'
+            + '</div></div>')
+      + '</div>'
+      + '<div style="flex-shrink:0">'
+      +   (c.ya_en_ruta_hoy
+            ? '<span class="pill" style="background:var(--gbg);color:var(--green);border-color:var(--green)">✓ En la ruta</span>'
+            : '<button type="button" class="bsm" style="background:var(--gold);color:#fff;border:none" onclick="rtAgregarSeleccion('+i+')">+ Agregar</button>')
+      + '</div></div>';
+  }).join('');
+}
+function rtUsarMiUbicacion(i){
+  if(!navigator.geolocation){ showToast('Este navegador no tiene GPS','error'); return; }
+  showToast('Buscando tu ubicación…','info');
+  navigator.geolocation.getCurrentPosition(function(pos){
+    var inp=document.getElementById('rt_gps_manual_'+i);
+    if(inp) inp.value=pos.coords.latitude.toFixed(6)+', '+pos.coords.longitude.toFixed(6);
+    showToast('📍 Ubicación cargada, ahora tocá Agregar');
+  }, function(){ showToast('No se pudo obtener tu ubicación','error'); }, {enableHighAccuracy:true,timeout:15000});
+}
+function _rtParsearGps(txt){
+  var m=String(txt||'').match(/(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
+  if(!m) return null;
+  var la=parseFloat(m[1]), ln=parseFloat(m[2]);
+  if(isNaN(la)||isNaN(ln)||Math.abs(la)>90||Math.abs(ln)>180) return null;
+  return {lat:la,lng:ln};
+}
+async function rtAgregarSeleccion(i){
+  var c=RT_BUSQUEDA[i]; if(!c) return;
+  var body={contratoId:c.id};
+  if(c.gps_lat==null||c.gps_lng==null){
+    var inp=document.getElementById('rt_gps_manual_'+i);
+    var g=_rtParsearGps(inp?inp.value:'');
+    if(!g){ alert('Cargá la ubicación (botón de GPS o pegando coordenadas) antes de agregar.'); return; }
+    body.gpsLat=g.lat; body.gpsLng=g.lng;
+  }
+  try{ await apiFetch('/api/ruta/seleccion',{method:'POST',body:body}); }
+  catch(e){ showToast('No se pudo agregar','error'); return; }
+  showToast('✅ '+c.cliente_nombre+' agregado a la ruta de hoy');
+  rtBuscar(); rtCargarSeleccionHoy();
+}
+async function rtCargarSeleccionHoy(){
+  var box=document.getElementById('rt_hoy_lista'); if(!box) return;
+  var datos=[];
+  try{ datos=await apiFetch('/api/ruta/seleccion'); }catch(e){ datos=[]; }
+  var cnt=document.getElementById('rt_hoy_count'); if(cnt) cnt.textContent=datos.length;
+  if(!datos.length){ box.innerHTML='<div class="empty"><i class="ti ti-map-pin-off"></i><p>Todavía no agregaste a nadie a la ruta de hoy</p></div>'; return; }
+  box.innerHTML=datos.map(function(r){
+    var etq = r.estado==='pendiente'?'pendiente':r.estado==='pagado'?'✅ pagó todo':r.estado==='abonado'?'💵 abonó '+fM(r.monto_resultado):r.estado==='no_pago'?'❌ no pagó':'⏭ saltado';
+    return '<div class="stop">'
+      + '<div style="flex:1;min-width:0"><div class="stop-nom">'+r.cliente_nombre+'</div>'
+      + '<div class="stop-sub">'+r.numero_factura+' · debe '+fM(r.saldo)+' · '+etq+'</div></div>'
+      + (r.estado==='pendiente' ? '<button type="button" class="bsm" style="color:var(--er)" onclick="rtQuitarSeleccion('+r.seleccion_id+')"><i class="ti ti-x"></i></button>' : '')
+      + '</div>';
+  }).join('');
+}
+async function rtQuitarSeleccion(id){
+  if(!confirm('¿Quitar de la ruta de hoy?')) return;
+  try{ await apiFetch('/api/ruta/seleccion/'+id,{method:'DELETE'}); }catch(e){ showToast('No se pudo quitar','error'); return; }
+  rtCargarSeleccionHoy();
+}
+
+/* ── Pestaña: Mapa (ejecutar la ruta ya armada) ── */
+function rtMapaHTML(){
+  return '<div class="ruta-hero">'
     +   '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     +     '<div style="flex:1;min-width:180px">'
     +       '<div style="font-size:19px;font-weight:900">🗺️ Ruta con Mapa</div>'
@@ -7767,17 +7923,13 @@ function rRuta(){
     +     '<button class="bsm" style="margin-left:auto" onclick="rtAbrirTodo()">📍 Abrir ruta completa en Google Maps</button>'
     +   '</div>'
     +   '<div id="rt_lista"></div>'
-    + '</div>'
-    + '<div id="rt_singps"></div>'
     + '</div>';
 }
 
 function rutaInit(){
+  if(_rutaVista!=='mapa'){ rtCargarSeleccionHoy(); return; }
   RT.mapa=null; RT.marcaYo=null;
-  if(!RT.iniciada){ RT.hechas=[]; RT.recaudado=0; RT.iniciada=true; }
-  rtCargar();
-  rtPintar();
-  setTimeout(rtMapaInit, 60);
+  rtCargar().then(function(){ rtPintar(); setTimeout(rtMapaInit,60); });
   rtSeguirGPS();
 }
 
@@ -7797,8 +7949,8 @@ function rtSeguirGPS(){
     RT.yo = nuevo;
     if(est) est.textContent = 'Estás aquí · precisión ±'+nuevo.acc+' m';
     rtMarcarYo();
-    if(primeraVez || movido){ rtCargar(); rtPintar(); rtMapaPintar(); }
-    rtCheckLlegada();
+    if(primeraVez || movido){ rtCargar().then(function(){ rtPintar(); rtMapaPintar(); rtCheckLlegada(); }); }
+    else rtCheckLlegada();
   }, function(e){
     if(est) est.textContent = (e.code===1)
       ? '🔒 Permiso de ubicación denegado — toca el candado 🔒 de la barra del navegador → Ubicación → Permitir'
@@ -7832,14 +7984,13 @@ function rtPintar(){
   var chips=document.getElementById('rt_chips');
   if(chips) chips.innerHTML =
       '<div class="ruta-chip"><b>'+pend+'</b><span>Por visitar</span></div>'
-    + '<div class="ruta-chip"><b>'+RT.hechas.length+'</b><span>Visitadas</span></div>'
+    + '<div class="ruta-chip"><b>'+RT.hechasInfo.length+'</b><span>Visitadas</span></div>'
     + '<div class="ruta-chip"><b style="font-size:14px">'+fM(deuda)+'</b><span>Por cobrar</span></div>'
     + '<div class="ruta-chip"><b style="font-size:14px;color:#B9F6CA">'+fM(RT.recaudado)+'</b><span>Recaudado hoy</span></div>'
     + '<div class="ruta-chip"><b style="font-size:14px">'+rtKm(total)+'</b><span>Recorrido</span></div>';
 
   rtNext();
   rtLista();
-  rtSinGPS();
 }
 
 /* Tarjeta grande de la PRÓXIMA parada */
@@ -7848,14 +7999,14 @@ function rtNext(){
   if(!box) return;
   var p=RT.paradas[0];
   if(!p){
-    box.innerHTML = RT.hechas.length
+    box.innerHTML = RT.hechasInfo.length
       ? '<div class="card" style="text-align:center;padding:32px;border:2px solid #2E7D32">'
         + '<div style="font-size:46px">🎉</div>'
         + '<div style="font-size:19px;font-weight:900;color:#2E7D32;margin-top:8px">¡Ruta terminada!</div>'
-        + '<div style="font-size:13px;color:var(--t2);margin-top:5px">Visitaste '+RT.hechas.length
+        + '<div style="font-size:13px;color:var(--t2);margin-top:5px">Visitaste '+RT.hechasInfo.length
         + ' cliente(s) y recaudaste <b>'+fM(RT.recaudado)+'</b>.</div>'
-        + '<button class="bg" style="margin-top:14px" onclick="rtNuevaRuta()">🔄 Empezar una ruta nueva</button></div>'
-      : '<div class="empty"><i class="ti ti-map-off"></i><p>No hay clientes por cobrar con ubicación GPS guardada.</p></div>';
+        + '<button class="bg" style="margin-top:14px" onclick="rtNuevaRuta()">🔍 Agregar más paradas</button></div>'
+      : '<div class="empty"><i class="ti ti-map-off"></i><p>No armaste la ruta de hoy todavía.</p><button class="bg" style="margin-top:10px" onclick="rtNuevaRuta()">🔍 Ir a Preparar ruta</button></div>';
     return;
   }
   var c=p.c;
@@ -7900,12 +8051,11 @@ function rtLista(){
   var box=document.getElementById('rt_lista');
   if(!box) return;
   var html='';
-  RT.hechas.forEach(function(id,i){
-    var c=contratos.find(function(x){ return x.id===id; });
-    if(!c) return;
+  RT.hechasInfo.forEach(function(r){
+    var etq = r.estado==='pagado'?'pagó todo':r.estado==='abonado'?'abonó '+fM(r.monto_resultado):r.estado==='no_pago'?'no pagó':'saltado';
     html += '<div class="stop done"><div class="stop-n">✓</div>'
-         +  '<div style="flex:1"><div class="stop-nom">'+c.cliente+'</div>'
-         +  '<div class="stop-sub">'+c.fac+' · visitada</div></div></div>';
+         +  '<div style="flex:1"><div class="stop-nom">'+r.cliente_nombre+'</div>'
+         +  '<div class="stop-sub">'+r.numero_factura+' · '+etq+'</div></div></div>';
   });
   if(!RT.paradas.length && !html){
     box.innerHTML='<div class="empty"><i class="ti ti-map-pin-off"></i><p>Sin paradas pendientes</p></div>';
@@ -7925,34 +8075,12 @@ function rtLista(){
   box.innerHTML=html;
 }
 
-/* Clientes por cobrar que NO tienen GPS */
-function rtSinGPS(){
-  var box=document.getElementById('rt_singps');
-  if(!box) return;
-  var sin=contratos.filter(function(c){
-    return c.status==='aprobado' && (c.saldo||0)>0 && !rtCoords(c);
-  });
-  box.innerHTML = sin.length
-    ? '<div class="card" style="border-left:4px solid #E65100">'
-      + '<div class="ct" style="color:#E65100"><i class="ti ti-map-pin-off"></i>'
-      + sin.length+' cliente(s) sin ubicación — no salen en el mapa</div>'
-      + '<div class="cs">Cuando le tomes el GPS al contrato, entrarán solos en la ruta.</div>'
-      + sin.map(function(c){
-          return '<div class="stop" style="opacity:.8">'
-               + '<div class="stop-n" style="background:#E65100">?</div>'
-               + '<div style="flex:1"><div class="stop-nom">'+c.cliente+'</div>'
-               + '<div class="stop-sub">'+c.fac+' · debe '+fM(c.saldo)+'</div></div></div>';
-        }).join('')
-      + '</div>'
-    : '';
-}
-
 /* ══ Mapa ══ */
 function rtMapaInit(){
   var el=document.getElementById('ruta_map');
   if(!el) return;
   if(typeof L==='undefined'){
-    el.innerHTML='<div style="padding:26px;text-align:center;color:#5C5470;font-size:13px">'
+    el.innerHTML='<div style="padding:26px;text-align:center;color:#5A5862;font-size:13px">'
       +'🗺️ El mapa necesita internet para cargar.<br>La ruta y las distancias funcionan igual, y '
       +'<b>Cómo llegar</b> te abre Google Maps.</div>';
     el.style.height='auto';
@@ -7993,12 +8121,10 @@ function rtMapaPintar(){
   });
 
   // Ya visitadas, en verde
-  RT.hechas.forEach(function(id){
-    var c=contratos.find(function(x){ return x.id===id; });
-    var co=rtCoords(c);
-    if(!co) return;
+  RT.hechasInfo.forEach(function(r){
+    if(r.gps_lat==null || r.gps_lng==null) return;
     var ic=L.divIcon({className:'',html:'<div class="pin done">✓</div>',iconSize:[30,30],iconAnchor:[15,15]});
-    L.marker([co.lat,co.lng],{icon:ic}).bindPopup('<b>'+c.cliente+'</b><br>Visitada ✓').addTo(RT.capaMarcas);
+    L.marker([Number(r.gps_lat),Number(r.gps_lng)],{icon:ic}).bindPopup('<b>'+r.cliente_nombre+'</b><br>Visitada ✓').addTo(RT.capaMarcas);
   });
 
   if(pts.length>1){
@@ -8030,21 +8156,26 @@ function rtAbrirTodo(){
         + (pts.length? '&waypoints='+pts.slice(0,9).join('|') : '');   // Google admite 9 escalas
   window.open(url,'_blank');
 }
-function rtCerrarParada(id){
-  RT.hechas.push(id);
-  rtCargar(); rtPintar(); rtMapaPintar();
+/* Marca el resultado de la parada en el servidor (tabla ruta_seleccion)
+   y refresca. El dinero (abono/saldo) se registra aparte, en el
+   contrato real, ANTES de llamar a esto -- ver rtCobrado/rtAbono. */
+async function rtRegistrarResultado(estado, montoResultado, nota){
+  var p=RT.paradas[0]; if(!p) return;
+  try{
+    await apiFetch('/api/ruta/seleccion/'+p.seleccionId, {method:'PATCH', body:{estado:estado, montoResultado:montoResultado, nota:nota}});
+  }catch(e){ showToast('No se pudo guardar el resultado de la visita','error'); throw e; }
+  await rtCargar();
+  rtPintar(); rtMapaPintar(); rtCheckLlegada();
 }
 async function rtCobrado(){
   var p=RT.paradas[0]; if(!p) return;
   var c=p.c;
   if(!confirm('¿'+c.cliente+' pagó los '+fM(c.saldo)+' completos?')) return;
-  RT.recaudado += (c.saldo||0);
-  if(!c.abonos) c.abonos=[];
-  c.abonos.push({ f:hoy(), m:c.saldo, q:ses.n, nota:'Cobrado en ruta' });
-  c.saldo=0;
-  await guardar();
+  try{
+    await apiFetch('/api/contratos/'+c.id+'/abonar', {method:'POST', body:{monto:c.saldo, via:'ruta', nota:'Cobrado en ruta'}});
+  }catch(e){ showToast('No se pudo registrar el pago en el sistema','error'); return; }
+  await rtRegistrarResultado('pagado', c.saldo, 'Cobrado en ruta');
   showToast('✅ '+c.cliente+' saldado');
-  rtCerrarParada(c.id);
 }
 async function rtAbono(){
   var p=RT.paradas[0]; if(!p) return;
@@ -8053,28 +8184,23 @@ async function rtAbono(){
   var m=parseFloat(String(t||'').replace(/[^0-9.]/g,''));
   if(!m || m<=0) return;
   if(m > (c.saldo||0)){ alert('El abono no puede ser mayor que la deuda ('+fM(c.saldo)+').'); return; }
-  RT.recaudado += m;
-  if(!c.abonos) c.abonos=[];
-  c.abonos.push({ f:hoy(), m:m, q:ses.n, nota:'Abono en ruta' });
-  c.saldo = Math.max(0,(c.saldo||0)-m);
-  await guardar();
-  showToast('💵 Abonó '+fM(m)+' · le queda '+fM(c.saldo));
-  rtCerrarParada(c.id);       // se visita hoy; si queda saldo, entra en la ruta de mañana
+  try{
+    await apiFetch('/api/contratos/'+c.id+'/abonar', {method:'POST', body:{monto:m, via:'ruta', nota:'Abono en ruta'}});
+  }catch(e){ showToast('No se pudo registrar el abono en el sistema','error'); return; }
+  await rtRegistrarResultado('abonado', m, 'Abono en ruta');
+  showToast('💵 Abonó '+fM(m));
 }
 async function rtNoPago(){
   var p=RT.paradas[0]; if(!p) return;
   var c=p.c;
   var motivo=prompt('¿Por qué no pagó '+c.cliente+'?','No estaba / pidió más plazo');
   if(motivo===null) return;
-  if(!c.visitas) c.visitas=[];
-  c.visitas.push({ f:hoy(), q:ses.n, r:'No pagó', nota:motivo });
-  await guardar();
+  await rtRegistrarResultado('no_pago', null, motivo);
   showToast('Anotado: '+c.cliente+' no pagó','info');
-  rtCerrarParada(c.id);
 }
 function rtSaltar(){
   var p=RT.paradas[0]; if(!p) return;
-  // Se va al final de la cola, sin marcarla como visitada
+  // Se va al final de la cola, sin marcarla como visitada (solo mientras dure la sesión)
   RT.paradas.push(RT.paradas.shift());
   RT.paradas.forEach(function(x,i){
     var prev = i===0 ? RT.yo : RT.paradas[i-1].co;
@@ -8084,12 +8210,11 @@ function rtSaltar(){
   showToast('Parada saltada — queda para el final','info');
 }
 function rtRecalcular(){
-  rtCargar(); rtPintar(); rtMapaPintar(); rtCheckLlegada();
+  rtCargar().then(function(){ rtPintar(); rtMapaPintar(); rtCheckLlegada(); });
   showToast('🔄 Ruta recalculada desde donde estás');
 }
 function rtNuevaRuta(){
-  RT.hechas=[]; RT.recaudado=0;
-  rtCargar(); rtPintar(); rtMapaInit();
+  rtVista('preparar');
 }
 </script>
 
@@ -8325,16 +8450,17 @@ CB_registrarAbono = async function(i){
   if(typeof showToast==='function') showToast('💵 '+v.nombre+' abonó '+CB_fmt(m)+' · le queda '+CB_fmt(c.saldo));
 };
 
-/* La Ruta con Mapa también usa registrarPago() */
+/* La Ruta con Mapa también usa registrarPago() -- y avisa a ruta_seleccion
+   (rtRegistrarResultado) para que la parada salga de "pendiente" hoy. */
 rtCobrado = async function(){
   var p=RT.paradas[0]; if(!p) return;
   var c=p.c;
   if(!confirm('¿'+c.cliente+' pagó los '+fM(c.saldo)+' completos?')) return;
   var m=c.saldo;
-  await registrarPago(c.id, m, {via:'ruta', nota:'Cobrado en ruta'});
-  RT.recaudado += m;
+  var actualizado = await registrarPago(c.id, m, {via:'ruta', nota:'Cobrado en ruta'});
+  if(!actualizado){ showToast('No se pudo registrar el pago','error'); return; }
+  await rtRegistrarResultado('pagado', m, 'Cobrado en ruta');
   showToast('✅ '+c.cliente+' saldado');
-  rtCerrarParada(c.id);
 };
 rtAbono = async function(){
   var p=RT.paradas[0]; if(!p) return;
@@ -8343,10 +8469,10 @@ rtAbono = async function(){
   var m=parseFloat(String(t||'').replace(/[^0-9.]/g,''));
   if(!m || m<=0) return;
   if(m > (c.saldo||0)){ alert('El abono no puede ser mayor que la deuda ('+fM(c.saldo)+').'); return; }
-  await registrarPago(c.id, m, {via:'ruta', nota:'Abono en ruta'});
-  RT.recaudado += m;
-  showToast('💵 Abonó '+fM(m)+' · le queda '+fM(c.saldo));
-  rtCerrarParada(c.id);
+  var actualizado = await registrarPago(c.id, m, {via:'ruta', nota:'Abono en ruta'});
+  if(!actualizado){ showToast('No se pudo registrar el abono','error'); return; }
+  await rtRegistrarResultado('abonado', m, 'Abono en ruta');
+  showToast('💵 Abonó '+fM(m));
 };
 
 /* El módulo Cobros también */
@@ -8551,7 +8677,7 @@ cliDetalle = function(key){
 .canal-tab{flex:1;min-width:110px;border:none;background:transparent;border-radius:8px;padding:9px 12px;
   font-size:12px;font-weight:700;color:var(--t2);cursor:pointer;font-family:inherit;transition:all .18s}
 .canal-tab.act{color:#fff;box-shadow:0 3px 10px rgba(0,0,0,.15)}
-.canal-tab.act[data-c="todos"]    {background:linear-gradient(135deg,#5C5470,#3E3850)}
+.canal-tab.act[data-c="todos"]    {background:linear-gradient(135deg,#5A5862,#3A383F)}
 .canal-tab.act[data-c="oficina"]  {background:linear-gradient(135deg,#1565C0,#0D47A1)}
 .canal-tab.act[data-c="ruta"]     {background:linear-gradient(135deg,#2E7D32,#1B5E20)}
 .canal-tab.act[data-c="embajadora"]{background:linear-gradient(135deg,#C2185B,#880E4F)}

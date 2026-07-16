@@ -510,4 +510,22 @@ DO $$ BEGIN
 END $$;
 ALTER TABLE lab_entradas ADD COLUMN IF NOT EXISTS lote_proveedor TEXT;
 ALTER TABLE lab_entradas ADD COLUMN IF NOT EXISTS fecha_vencimiento DATE;
+
+-- ── Ruta con Mapa: selección manual de la ruta del día ──────────────
+-- Antes, la ruta se armaba sola con TODO contrato aprobado con GPS y saldo.
+-- Ahora gerente/supervisor eligen a mano (buscando por factura/cédula/
+-- teléfono/nombre) a quién visitar hoy; el mapa solo usa esta lista.
+CREATE TABLE IF NOT EXISTS ruta_seleccion (
+  id            SERIAL PRIMARY KEY,
+  contrato_id   INTEGER NOT NULL REFERENCES contratos(id) ON DELETE CASCADE,
+  fecha         DATE NOT NULL DEFAULT CURRENT_DATE,
+  estado        TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente','pagado','abonado','no_pago','saltado')),
+  monto_resultado NUMERIC(12,2),
+  nota          TEXT,
+  visitado_en   TIMESTAMPTZ,
+  agregado_por  INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  creado_en     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ruta_seleccion_contrato_fecha ON ruta_seleccion(contrato_id, fecha);
+CREATE INDEX IF NOT EXISTS idx_ruta_seleccion_fecha ON ruta_seleccion(fecha);
 ALTER TABLE lab_recetas ADD COLUMN IF NOT EXISTS merma_pct NUMERIC(5,2) NOT NULL DEFAULT 0;

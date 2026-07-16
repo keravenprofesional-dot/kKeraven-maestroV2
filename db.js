@@ -13,8 +13,8 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 // permisos_custom en la base de datos que sobreescribe esta lista por completo
 // para ese usuario puntual.
 const PERMS_POR_ROL = {
-  gerente:     ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion'],
-  subgerente:  ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion'],
+  gerente:     ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel'],
+  subgerente:  ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel'],
   coordinador: ['dash','contrato','buzon','cobros','arqueo','almp','com','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta'],
   supervisor:  ['dash','contrato','buzon','cobros','almm','cfg','clientes','cxc','miscom','rendimiento','asistente','cobrador','ruta'],
   almacen:     ['dash','arqueo','almp','almm','cfg','asistente'],
@@ -277,6 +277,80 @@ async function listarContratos({ estado } = {}) {
     estado ? [estado] : []
   );
   return rows;
+}
+
+// ── RUTA CON MAPA: selección manual de la ruta del día ────────────────
+// Busca contratos aprobados con saldo pendiente por factura, cédula,
+// teléfono o nombre del cliente -- lo que gerente/supervisor usan para
+// armar a mano la ruta de hoy (ya no se arma sola con todo lo que tenga GPS).
+async function buscarContratosParaRuta(q) {
+  const texto = `%${String(q || '').trim()}%`;
+  const { rows } = await pool.query(
+    `SELECT c.id, c.numero_factura, c.saldo, c.fecha_limite, c.gps_lat, c.gps_lng,
+            cl.nombre AS cliente_nombre, cl.cedula AS cliente_cedula,
+            cl.telefono1 AS cliente_tel1, cl.direccion AS cliente_direccion,
+            cl.referencia AS cliente_referencia, cl.institucion AS cliente_institucion,
+            (rs.id IS NOT NULL) AS ya_en_ruta_hoy
+     FROM contratos c
+     JOIN clientes cl ON cl.id = c.cliente_id
+     LEFT JOIN ruta_seleccion rs ON rs.contrato_id = c.id AND rs.fecha = CURRENT_DATE
+     WHERE c.estado = 'aprobado' AND c.saldo > 0
+       AND (c.numero_factura ILIKE $1 OR cl.cedula ILIKE $1 OR cl.telefono1 ILIKE $1
+            OR cl.telefono2 ILIKE $1 OR cl.nombre ILIKE $1)
+     ORDER BY cl.nombre
+     LIMIT 30`,
+    [texto]
+  );
+  return rows;
+}
+
+async function listarRutaSeleccionHoy() {
+  const { rows } = await pool.query(
+    `SELECT rs.id AS seleccion_id, rs.estado, rs.monto_resultado, rs.nota, rs.visitado_en,
+            c.id AS contrato_id, c.numero_factura, c.saldo, c.fecha_limite, c.gps_lat, c.gps_lng,
+            cl.nombre AS cliente_nombre, cl.telefono1 AS cliente_tel1,
+            cl.direccion AS cliente_direccion, cl.referencia AS cliente_referencia,
+            cl.institucion AS cliente_institucion
+     FROM ruta_seleccion rs
+     JOIN contratos c ON c.id = rs.contrato_id
+     JOIN clientes cl ON cl.id = c.cliente_id
+     WHERE rs.fecha = CURRENT_DATE
+     ORDER BY rs.creado_en`
+  );
+  return rows;
+}
+
+// Si el contrato no tenía GPS, se lo completa aquí (sin pisar uno que ya
+// exista) para que la próxima vez ya no falte.
+async function agregarARutaSeleccion(contratoId, usuarioId, gpsLat, gpsLng) {
+  if (gpsLat != null && gpsLng != null) {
+    await pool.query(
+      `UPDATE contratos SET gps_lat = $2, gps_lng = $3
+       WHERE id = $1 AND gps_lat IS NULL`,
+      [contratoId, gpsLat, gpsLng]
+    );
+  }
+  const { rows } = await pool.query(
+    `INSERT INTO ruta_seleccion (contrato_id, agregado_por)
+     VALUES ($1, $2)
+     ON CONFLICT (contrato_id, fecha) DO NOTHING
+     RETURNING id`,
+    [contratoId, usuarioId]
+  );
+  return rows[0] || null;
+}
+
+async function quitarDeRutaSeleccion(seleccionId) {
+  await pool.query(`DELETE FROM ruta_seleccion WHERE id = $1 AND fecha = CURRENT_DATE`, [seleccionId]);
+}
+
+async function actualizarEstadoRuta(seleccionId, estado, montoResultado, nota) {
+  const { rows } = await pool.query(
+    `UPDATE ruta_seleccion SET estado = $2, monto_resultado = $3, nota = $4, visitado_en = now()
+     WHERE id = $1 RETURNING *`,
+    [seleccionId, estado, montoResultado ?? null, nota || null]
+  );
+  return rows[0] || null;
 }
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -1441,6 +1515,11 @@ module.exports = {
   crearContrato,
   listarContratos,
   decidirContrato,
+  buscarContratosParaRuta,
+  listarRutaSeleccionHoy,
+  agregarARutaSeleccion,
+  quitarDeRutaSeleccion,
+  actualizarEstadoRuta,
   editarClienteDeContrato,
   eliminarContrato,
   editarDatosCobranza,
