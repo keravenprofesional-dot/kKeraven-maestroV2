@@ -529,3 +529,18 @@ CREATE TABLE IF NOT EXISTS ruta_seleccion (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ruta_seleccion_contrato_fecha ON ruta_seleccion(contrato_id, fecha);
 CREATE INDEX IF NOT EXISTS idx_ruta_seleccion_fecha ON ruta_seleccion(fecha);
 ALTER TABLE lab_recetas ADD COLUMN IF NOT EXISTS merma_pct NUMERIC(5,2) NOT NULL DEFAULT 0;
+
+-- ── Código único por producto (SKU interno, formato PRD-0001) ───────
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS codigo TEXT;
+INSERT INTO contadores (clave, valor) VALUES ('producto', 0) ON CONFLICT (clave) DO NOTHING;
+-- Rellena codigo para productos que ya existian antes de este cambio,
+-- en orden de id, usando el mismo contador atomico que usaran los nuevos.
+DO $$
+DECLARE r RECORD; n INTEGER;
+BEGIN
+  FOR r IN SELECT id FROM productos WHERE codigo IS NULL ORDER BY id LOOP
+    UPDATE contadores SET valor = valor + 1 WHERE clave = 'producto' RETURNING valor INTO n;
+    UPDATE productos SET codigo = 'PRD-' || LPAD(n::text, 4, '0') WHERE id = r.id;
+  END LOOP;
+END $$;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_productos_codigo ON productos(codigo) WHERE codigo IS NOT NULL;

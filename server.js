@@ -203,14 +203,14 @@ app.get('/api/productos', requireAuth, h(async (req, res) => {
 }));
 
 app.post('/api/productos', requireAuth, requirePermiso('productos'), requirePermisoSi(esImportacionExcel, 'excel'), h(async (req, res) => {
-  const { nombre, precioReferencia, categoria } = req.body || {};
+  const { nombre, precioReferencia, categoria, codigo } = req.body || {};
   if (!nombre) return res.status(400).json({ error: 'Falta el nombre del producto' });
-  res.status(201).json(await db.crearProducto({ nombre, precioReferencia, categoria }));
+  res.status(201).json(await db.crearProducto({ nombre, precioReferencia, categoria, codigo }));
 }));
 
 app.patch('/api/productos/:id', requireAuth, requirePermiso('productos'), requirePermisoSi(esImportacionExcel, 'excel'), h(async (req, res) => {
-  const { nombre, precioReferencia, categoria } = req.body || {};
-  const actualizado = await db.actualizarProducto(req.params.id, { nombre, precioReferencia, categoria });
+  const { nombre, precioReferencia, categoria, codigo } = req.body || {};
+  const actualizado = await db.actualizarProducto(req.params.id, { nombre, precioReferencia, categoria, codigo });
   if (!actualizado) return res.status(404).json({ error: 'Producto no encontrado' });
   res.json(actualizado);
 }));
@@ -567,6 +567,16 @@ app.post('/api/ia/chat', requireAuth, h(async (req, res) => {
   const resultado = await db.llamarIA(messages, sys || '');
   if (resultado.error) return res.status(502).json({ error: resultado.error });
   res.json({ texto: resultado.texto });
+}));
+
+// Límite propio y más grande solo para esta ruta -- una foto de cédula en
+// base64 no entra en el límite general de 200kb del resto de la API.
+app.post('/api/ia/leer-cedula', requireAuth, express.json({ limit: '8mb' }), h(async (req, res) => {
+  const { imagenBase64 } = req.body || {};
+  if (!imagenBase64) return res.status(400).json({ error: 'Falta la imagen' });
+  const resultado = await db.leerCedulaConIA(imagenBase64);
+  if (resultado.error) return res.status(502).json({ error: resultado.error });
+  res.json(resultado);
 }));
 
 app.use((err, req, res, next) => {

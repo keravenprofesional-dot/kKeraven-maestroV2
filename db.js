@@ -6,7 +6,13 @@ const crypto = require('crypto');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Supabase (y la mayoría de la nube) exige SSL; Postgres local/Docker en
+// la misma red no lo necesita. DB_SSL=true lo activa explícitamente
+// cuando DATABASE_URL apunta a un host remoto.
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+});
 
 // Permisos por defecto segun rol (misma tabla que PERMS en el HTML original,
 // linea 609 de keraven_maestro_v2_37.html). Un usuario puede tener
@@ -147,11 +153,19 @@ async function listarProductos({ soloActivos = true } = {}) {
   return rows;
 }
 
-async function crearProducto({ nombre, precioReferencia, categoria }) {
+async function siguienteCodigoProducto() {
   const { rows } = await pool.query(
-    `INSERT INTO productos (nombre, precio_referencia, categoria) VALUES ($1,$2,$3)
+    `UPDATE contadores SET valor = valor + 1 WHERE clave = 'producto' RETURNING valor`
+  );
+  return 'PRD-' + String(rows[0].valor).padStart(4, '0');
+}
+
+async function crearProducto({ nombre, precioReferencia, categoria, codigo }) {
+  const codigoFinal = codigo || await siguienteCodigoProducto();
+  const { rows } = await pool.query(
+    `INSERT INTO productos (nombre, precio_referencia, categoria, codigo) VALUES ($1,$2,$3,$4)
      RETURNING *`,
-    [nombre, precioReferencia || 0, categoria || 'Otros']
+    [nombre, precioReferencia || 0, categoria || 'Otros', codigoFinal]
   );
   // nuevo producto arranca con stock 0 en bodega y ruta
   await pool.query(
@@ -162,14 +176,15 @@ async function crearProducto({ nombre, precioReferencia, categoria }) {
   return rows[0];
 }
 
-async function actualizarProducto(id, { nombre, precioReferencia, categoria }) {
+async function actualizarProducto(id, { nombre, precioReferencia, categoria, codigo }) {
   const { rows } = await pool.query(
     `UPDATE productos SET
        nombre = COALESCE($2, nombre),
        precio_referencia = COALESCE($3, precio_referencia),
-       categoria = COALESCE($4, categoria)
+       categoria = COALESCE($4, categoria),
+       codigo = COALESCE($5, codigo)
      WHERE id = $1 RETURNING *`,
-    [id, nombre, precioReferencia, categoria]
+    [id, nombre, precioReferencia, categoria, codigo]
   );
   return rows[0] || null;
 }
@@ -1475,6 +1490,87 @@ async function llamarIA(mensajes, sistema) {
   }
 }
 
+// Lee una foto de cédula dominicana con IA (vision): dice si de verdad es
+// una cédula, y si lo es, extrae nombre y número para compararlos contra
+// lo que el usuario digitó en el contrato. Nunca lanza excepción.
+async function leerCedulaConIA(imagenBase64) {
+  let activo;
+  try {
+    activo = await _iaProveedorActivo();
+  } catch (err) {
+    return { error: 'No se pudo leer la cédula: ' + err.message };
+  }
+  if (!activo) return { error: 'No hay una clave de IA configurada. Pídele a Gerencia que la active en Configuración.' };
+  const { proveedor, apiKey } = activo;
+  const prompt =
+    'Mirá esta imagen con cuidado. Respondé SOLO con JSON válido, sin backticks ni texto extra, con esta forma exacta:\n' +
+    '{"esCedula":true,"legible":true,"nombre":"","cedula":""}\n' +
+    '"esCedula": true solo si la imagen es una foto de una cédula de identidad dominicana real (documento físico con foto, nombre y número). ' +
+    'Si es cualquier otra cosa (una persona, un paisaje, otro documento, una pantalla en blanco, etc.) poné esCedula:false y dejá nombre/cedula vacíos. ' +
+    '"legible": true solo si además se puede leer el nombre y el número con claridad. ' +
+    '"nombre": el NOMBRE COMPLETO impreso, tal cual aparece. "cedula": el número de cédula, SOLO dígitos (sin guiones).';
+
+  try {
+    let texto;
+    if (proveedor === 'claude') {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001', max_tokens: 400,
+          messages: [{ role: 'user', content: [
+            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imagenBase64 } },
+            { type: 'text', text: prompt },
+          ] }],
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+      texto = d.content[0].text;
+    } else if (proveedor === 'openai') {
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini', max_tokens: 400,
+          messages: [{ role: 'user', content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + imagenBase64 } },
+          ] }],
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+      texto = d.choices[0].message.content;
+    } else if (proveedor === 'gemini') {
+      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [
+          { text: prompt },
+          { inline_data: { mime_type: 'image/jpeg', data: imagenBase64 } },
+        ] }], generationConfig: { maxOutputTokens: 400 } }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+      texto = d.candidates[0].content.parts[0].text;
+    } else {
+      return { error: 'Proveedor de IA no reconocido: ' + proveedor };
+    }
+    const limpio = String(texto || '').replace(/```json|```/g, '').trim();
+    let json;
+    try { json = JSON.parse(limpio); }
+    catch (e) { return { error: 'La IA no devolvió una respuesta entendible.' }; }
+    return {
+      esCedula: !!json.esCedula,
+      legible: !!json.legible,
+      nombre: String(json.nombre || ''),
+      cedula: String(json.cedula || '').replace(/\D/g, ''),
+    };
+  } catch (err) {
+    return { error: 'No se pudo contactar la IA (' + proveedor + '): ' + err.message };
+  }
+}
+
 module.exports = {
   pool,
   init,
@@ -1510,6 +1606,7 @@ module.exports = {
   desactivarClaveIA,
   listarConfigIA,
   llamarIA,
+  leerCedulaConIA,
   resolverCliente,
   siguienteNumeroFactura,
   crearContrato,

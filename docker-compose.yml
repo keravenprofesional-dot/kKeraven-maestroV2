@@ -23,6 +23,8 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       SESSION_SECRET: ${SESSION_SECRET}
       COOKIE_SECURE: ${COOKIE_SECURE}
+      IA_CIFRADO_SECRET: ${IA_CIFRADO_SECRET}
+      DB_SSL: ${DB_SSL:-false}
       PORT: 3000
     depends_on:
       db:
