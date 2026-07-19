@@ -598,8 +598,8 @@ let USUARIOS=[];
 // abajo, viene de /api/login) — esta tabla nunca se usa para dejar
 // pasar o bloquear una accion.
 const PERMS={
-  gerente:    ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion'],
-  subgerente: ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion'],
+  gerente:    ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','rrhh'],
+  subgerente: ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','rrhh'],
   coordinador:['dash','contrato','buzon','cobros','arqueo','almp','com','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta'],
   supervisor: ['dash','contrato','buzon','cobros','almm','cfg','clientes','cxc','miscom','rendimiento','asistente','cobrador','ruta'],
   almacen:    ['dash','arqueo','almp','almm','cfg','asistente'],
@@ -622,7 +622,9 @@ const NAV=[
   {id:'laboratorio',lab:'Laboratorio',         ico:'ti-flask',               sec:'Almacén'},
   {id:'com',      lab:'Comisiones',            ico:'ti-chart-bar',           sec:'Administración'},
   {id:'miscom',   lab:'Cuadre Comisiones',     ico:'ti-coin',                sec:'Administración'},
-  {id:'delfac',   lab:'Eliminar Factura',      ico:'ti-trash',               sec:'Administración'},
+  {id:'delfac',   lab:'Anular Factura',      ico:'ti-ban',               sec:'Administración'},
+  {id:'auditoria',lab:'Auditoría',              ico:'ti-shield-check',        sec:'Administración'},
+  {id:'rrhh',     lab:'Recursos Humanos',      ico:'ti-id-badge-2',          sec:'Administración'},
   {id:'rendimiento',lab:'Rendimiento',           ico:'ti-chart-dots',          sec:'Reportes'},
   {id:'asistente',lab:'Mi Asistente IA',         ico:'ti-robot',               sec:'Herramientas'},
   {id:'users',    lab:'Usuarios',              ico:'ti-users',               sec:'Administración'},
@@ -651,6 +653,11 @@ let contratos=[],semanas=[],pagos=[],facN=1;
 let almM={},almP={},movAlm=[],entAlm=[],despachos=[],arqueos=[],solic=[];
 let selP=[],fotos={f:null,r:null},gps=null,tventa='credito';
 let editU=null,expId=null;
+var PROVINCIAS_RD=['Azua','Bahoruco','Barahona','Dajabón','Distrito Nacional','Duarte','El Seibo','Elías Piña',
+  'Espaillat','Hato Mayor','Hermanas Mirabal','Independencia','La Altagracia','La Romana','La Vega',
+  'María Trinidad Sánchez','Monseñor Nouel','Monte Cristi','Monte Plata','Pedernales','Peravia',
+  'Puerto Plata','Samaná','San Cristóbal','San José de Ocoa','San Juan','San Pedro de Macorís',
+  'Sánchez Ramírez','Santiago','Santiago Rodríguez','Santo Domingo','Valverde'];
 const COLS=['#A87A2E','#185FA5','#0F6E56','#A32D2D','#5B4E8A','#C05621','#2C7A7B','#702459'];
 
 // ── HELPERS ────────────────────────────────────────────────────────
@@ -691,7 +698,8 @@ async function apiFetch(url,opts={}){
 // pantalla que ya lee usuarios con esos nombres de campo.
 function mapUsuarioApi(u){
   return{id:u.id,n:u.nombre,rol:u.rol,rl:u.rol_label,c:u.color||'#A87A2E',
-    on:u.activo!==false,ed:u.editable!==false,permisos:u.permisos_custom||null};
+    on:u.activo!==false,ed:u.editable!==false,permisos:u.permisos_custom||null,
+    verTodasFacturas:u.ver_todas_facturas===true};
 }
 
 async function cargarProductos(){
@@ -723,12 +731,13 @@ function mapContratoApi(c){
   return{id:c.id,fac:c.numero_factura,fecha:(c.fecha||'').slice(0,10),promotor:c.promotor_nombre||'',
     zona:c.zona||'',cliente:c.cliente_nombre,cedula:c.cliente_cedula||'',tel1:c.cliente_tel1||'',
     tel2:c.cliente_tel2||'',inst:c.cliente_institucion||'',barrio:c.cliente_barrio||'',
-    ref:c.cliente_referencia||'',dir:c.cliente_direccion||'',gps:c.gps_plus_code||'',
+    ref:c.cliente_referencia||'',dir:c.cliente_direccion||'',provincia:c.cliente_provincia||'',gps:c.gps_plus_code||'',
     tipo:c.tipo_venta,plazo:c.plazo_dias,lim:(c.fecha_limite||'').slice(0,10)||'',
     prods:c.productos||[],monto:Number(c.monto)||0,descuento:Number(c.descuento)||0,
     neto:Number(c.neto)||0,saldo:Number(c.saldo)||0,obs:c.observaciones||'',
     fF:c.foto_frente_url,fR:c.foto_reverso_url,fFac:c.foto_factura_url,canal:c.canal||'ruta',
     status:c.estado,por:'',hora:'',
+    anuladoPorNombre:c.anulado_por_nombre||'',anuladoEn:c.anulado_en||null,motivoAnulacion:c.motivo_anulacion||'',
     dec:c.decidido_en?{q:'',h:new Date(c.decidido_en).toLocaleString('es-DO'),c:''}:null,
     abonos:(c.abonos||[]).map(a=>({f:(a.fecha||'').slice(0,10),m:Number(a.monto),q:a.registrado_por_nombre||'—',via:a.via,nota:a.nota}))};
 }
@@ -737,6 +746,11 @@ async function cargarContratos(){
     const lista=await apiFetch('/api/contratos');
     contratos=lista.map(mapContratoApi);
   }catch(e){console.error('No se pudieron cargar los contratos:',e);}
+}
+var MI_CUADRE=null;
+async function cargarMiCuadre(){
+  try{ MI_CUADRE=await apiFetch('/api/contratos/mi-cuadre'); }
+  catch(e){ console.error('No se pudo cargar el cuadre de ventas:',e); MI_CUADRE=null; }
 }
 async function cargarStock(){
   try{
@@ -868,6 +882,7 @@ async function login(){
   $('sbnm').textContent=u.n;$('sbrl').textContent=u.rl;
   await cargarProductos();
   await cargarContratos();
+  await cargarMiCuadre();
   await cargarStock();
   await cargarComisionesSemanas();
   await cargarComisionesPagos();
@@ -952,6 +967,8 @@ function render(id){
   else if(id==='com'){m.innerHTML=rCom();setTimeout(()=>cTab('sem'),0);regenComisiones().then(rg=>{if(rg>0&&pag==='com')cTab('sem');});}
   else if(id==='miscom'){regenComisiones();m.innerHTML=rMisCom();setTimeout(()=>misCom_tab('prom'),0);}
   else if(id==='delfac')m.innerHTML=rDelFac();
+  else if(id==='auditoria'){m.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i>Cargando auditoría...</div>';Promise.all([cargarAuditoria(),cargarUsuariosAdmin()]).then(()=>{if(pag==='auditoria')m.innerHTML=rAuditoria();});}
+  else if(id==='rrhh'){m.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i>Cargando RRHH...</div>';cargarRRHH().then(()=>{if(pag==='rrhh'){m.innerHTML=rRRHH();setTimeout(()=>rrhh_tab('per'),0);}});}
   else if(id==='rendimiento'){m.innerHTML=rRendimiento();setTimeout(()=>rend_tab('vendedor'),0);}
   else if(id==='asistente')m.innerHTML=rAsistente();
   else if(id==='users'){m.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i>Cargando usuarios...</div>';cargarUsuariosAdmin().then(()=>{if(pag==='users')m.innerHTML=rUsers();});}
@@ -1001,7 +1018,9 @@ function rDash(){
     {id:'pedidos',name:'Pedidos',ico:'ti-shopping-bag',stat:'Catálogo online'},
     {id:'rendimiento',name:'Rendimiento',ico:'ti-chart-dots',stat:'Reportes'},
     {id:'users',name:'Usuarios',ico:'ti-users',stat:'Equipo'},
-    {id:'delfac',name:'Eliminar Fac.',ico:'ti-trash',stat:'Admin'},
+    {id:'delfac',name:'Anular Fac.',ico:'ti-ban',stat:'Admin'},
+    {id:'auditoria',name:'Auditoría',ico:'ti-shield-check',stat:'Historial y alertas'},
+    {id:'rrhh',name:'Recursos Humanos',ico:'ti-id-badge-2',stat:'Personal'},
     {id:'cfg',name:'Config.',ico:'ti-settings',stat:'Sistema'},
     {id:'asistente',name:'IA',ico:'ti-robot',stat:'Asistente'},
   ];
@@ -1187,9 +1206,25 @@ function kvTouchEnd(e){
 }
 
 
+function _miCuadreHtml(){
+  if(!MI_CUADRE)return'';
+  const pe=MI_CUADRE.porEstado||{};
+  const g=(k)=>pe[k]?pe[k].cantidad:0;
+  return `<div class="card">
+    <div class="ct"><i class="ti ti-chart-bar" style="color:var(--gold)"></i>Mi cuadre de ventas</div>
+    <div class="cs">Resumen de tu propia facturación. Por seguridad, no podés ver el detalle de otras ventas ni de clientes.</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px">
+      <div><b>${MI_CUADRE.totalVentas||0}</b> ventas registradas</div>
+      <div style="color:#D97706"><b>${g('pendiente')+g('pendiente_fotos')}</b> pendientes</div>
+      <div style="color:var(--green)"><b>${g('aprobado')}</b> aprobadas</div>
+      <div style="color:var(--er)"><b>${g('rechazado')}</b> rechazadas</div>
+      <div><b>${fM(MI_CUADRE.totalMonto||0)}</b> monto total</div>
+    </div>
+  </div>`;
+}
 function rContrato(){
   const proms=USUARIOS.filter(u=>u.rol==='promotor'&&u.on);
-  return `<div class="card">
+  return `${ses&&ses.rol==='promotor'?_miCuadreHtml():''}<div class="card">
     <div class="ct"><i class="ti ti-file-text" style="color:var(--gold);font-size:18px"></i>Contrato de venta
       <span class="pill" style="margin-left:auto">KRV-${pad(facN)}</span></div>
     <div class="cs">Campos con <span style="color:var(--er)">*</span> son obligatorios.</div>
@@ -1215,7 +1250,7 @@ function rContrato(){
           ${proms.map(p=>`<option>${p.n}</option>`).join('')}
           <option>PROMOTOR A</option><option>PROMOTOR B</option><option>PROMOTOR C</option>
         </select><div class="em" id="e_pr"></div></div>
-      <div class="fi"><label>Zona / Ruta</label>
+      <div class="fi"><label>Zona / Ruta <span class="req">*</span></label>
         <select id="cf_zo">
           <option value="">Seleccionar...</option>
           <option>SANTO DOMINGO</option><option>SANTIAGO</option><option>LA VEGA</option>
@@ -1223,7 +1258,7 @@ function rContrato(){
           <option>SAN FRANCISCO DE MACORÍS</option><option>HIGÜEY</option><option>MOCA</option>
           <option>BONAO</option><option>PUERTO PLATA</option><option>AZUA</option>
           <option>BANI</option><option>NAGUA</option>
-        </select></div>
+        </select><div class="em" id="e_zo"></div></div>
     </div>
 
     <div class="sl"><i class="ti ti-user" style="font-size:11px"></i>Datos del cliente</div>
@@ -1239,10 +1274,13 @@ function rContrato(){
         <div class="em" id="e_t1"></div></div>
       <div class="fi"><label>Teléfono 2</label><input id="cf_t2" type="tel" placeholder="829-000-0000" maxlength="12" oninput="fTel(this)"></div>
       <div class="fi sp2"><label>Correo electrónico</label><input id="cf_em" type="email" placeholder="correo@ejemplo.com"></div>
-      <div class="fi"><label>Institución / Trabajo</label><input id="cf_in" placeholder="Escuela, Farmacia..." oninput="upper(this)"></div>
-      <div class="fi"><label>Barrio / Sector</label><input id="cf_br" placeholder="Ej: Los Mameyes, Cristo Rey..." oninput="upper(this)"></div>
-      <div class="fi"><label>Referencia del lugar</label><input id="cf_rf" placeholder="Frente al parque..." oninput="upper(this)"></div>
-      <div class="fi"><label>Dirección exacta</label><input id="cf_dir" placeholder="Calle, número, sector..." oninput="upper(this)"></div>
+      <div class="fi"><label>Institución / Trabajo <span class="req">*</span></label><input id="cf_in" placeholder="Escuela, Farmacia..." oninput="upper(this)"><div class="em" id="e_in"></div></div>
+      <div class="fi"><label>Provincia <span class="req">*</span></label>
+        <select id="cf_prov"><option value="">Seleccionar...</option>${PROVINCIAS_RD.map(p=>`<option>${p}</option>`).join('')}</select>
+        <div class="em" id="e_prov"></div></div>
+      <div class="fi"><label>Barrio / Sector <span class="req">*</span></label><input id="cf_br" placeholder="Ej: Los Mameyes, Cristo Rey..." oninput="upper(this)"><div class="em" id="e_br"></div></div>
+      <div class="fi"><label>Referencia del lugar <span class="req">*</span></label><input id="cf_rf" placeholder="Frente al parque..." oninput="upper(this)"><div class="em" id="e_rf"></div></div>
+      <div class="fi"><label>Dirección exacta <span class="req">*</span></label><input id="cf_dir" placeholder="Calle, número, sector..." oninput="upper(this)"><div class="em" id="e_dir"></div></div>
     </div>
 
     <div class="sl"><i class="ti ti-id" style="font-size:11px"></i>Foto cédula <span class="req">*</span></div>
@@ -1553,6 +1591,7 @@ function capGPS(){
     if(ma)ma.style.display='flex';
     btn.disabled=false;
     btn.innerHTML='<i class="ti ti-current-location" style="font-size:12px"></i> Actualizar';
+    _autollenarProvinciaBarrio(lat,lng);
   }
 
   function err1(e){
@@ -1579,6 +1618,39 @@ function capGPS(){
 
 
 function abrirMapa(){if(gps)window.open('https://www.google.com/maps?q='+gps.lat+','+gps.lng,'_blank');}
+
+/* ── Autocompletar Provincia/Barrio a partir del GPS capturado ──
+   Usa Nominatim (OpenStreetMap, gratis, sin clave) para convertir
+   lat/lng en provincia + barrio, y llena los campos si aún están
+   vacíos (no pisa lo que el usuario ya haya escrito a mano). */
+function _matchProvincia(txt){
+  if(!txt) return '';
+  var t=txt.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+  var m=PROVINCIAS_RD.find(function(p){
+    var pn=p.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+    return t.indexOf(pn)>=0 || pn.indexOf(t)>=0;
+  });
+  return m||'';
+}
+async function _autollenarProvinciaBarrio(lat,lng){
+  var selProv=$('cf_prov'), inpBarrio=$('cf_br');
+  if(!selProv && !inpBarrio) return;
+  try{
+    var resp=await fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&zoom=16&addressdetails=1',
+      { headers:{ 'Accept-Language':'es' } });
+    if(!resp.ok) return;
+    var data=await resp.json();
+    var a=data.address||{};
+    if(selProv && !selProv.value){
+      var prov=_matchProvincia(a.state||a.region||a.county||'');
+      if(prov) selProv.value=prov;
+    }
+    if(inpBarrio && !inpBarrio.value.trim()){
+      var barrio=a.suburb||a.neighbourhood||a.quarter||a.city_district||a.village||'';
+      if(barrio) inpBarrio.value=barrio.toUpperCase();
+    }
+  }catch(e){ console.warn('No se pudo autocompletar provincia/barrio desde el GPS:',e); }
+}
 function sTipo(t){tventa=t;$('ro_cr').classList.toggle('on',t==='credito');$('ro_co').classList.toggle('on',t==='contado');$('pl_sec').style.display=t==='credito'?'':'none';}
 function calcPl(){
   const d=parseInt($('cf_pl').value)||0;
@@ -1611,10 +1683,12 @@ function calcDescuento(){
 }
 async function enviarC(){
   let ok=true;
-  [['cf_nm','e_nm','Nombre'],['cf_ce','e_ce','Cédula'],['cf_t1','e_t1','Teléfono'],['cf_mn','e_mn','Monto'],['cf_pr','e_pr','Promotor']].forEach(([id,eid,lbl])=>{
+  [['cf_nm','e_nm','Nombre'],['cf_ce','e_ce','Cédula'],['cf_t1','e_t1','Teléfono'],['cf_mn','e_mn','Monto'],['cf_pr','e_pr','Promotor'],
+   ['cf_zo','e_zo','Zona / Ruta'],['cf_in','e_in','Institución / Trabajo'],['cf_prov','e_prov','Provincia'],
+   ['cf_br','e_br','Barrio / Sector'],['cf_rf','e_rf','Referencia del lugar'],['cf_dir','e_dir','Dirección exacta']].forEach(([id,eid,lbl])=>{
     const el=$(id);if(!el)return;
-    if(!el.value.trim()){el.classList.add('er');$(eid).textContent=lbl+' requerido';ok=false;}
-    else{el.classList.remove('er');$(eid).textContent='';}
+    if(!el.value.trim()){el.classList.add('er');const em=$(eid);if(em)em.textContent=lbl+' requerido';ok=false;}
+    else{el.classList.remove('er');const em=$(eid);if(em)em.textContent='';}
   });
   if(tventa==='credito'&&!$('cf_pl').value){$('e_pl').textContent='Selecciona el plazo';ok=false;}
   if(!fotos.f){$('e_ff').textContent='Foto del frente requerida';$('fb_f').style.borderColor='var(--er)';ok=false;}
@@ -1629,7 +1703,7 @@ async function enviarC(){
     promotorId:promotorUsuario?promotorUsuario.id:null,promotorNombre:nombrePromotor,
     zona:$('cf_zo').value,nombre:$('cf_nm').value,cedula:$('cf_ce').value,
     telefono1:$('cf_t1').value,telefono2:$('cf_t2').value,email:$('cf_em').value||'',
-    institucion:$('cf_in').value,barrio:$('cf_br').value||'',referencia:$('cf_rf').value,
+    institucion:$('cf_in').value,barrio:$('cf_br').value||'',referencia:$('cf_rf').value,provincia:$('cf_prov').value||'',
     direccion:$('cf_dir').value||'',gpsLat:gps?gps.lat:null,gpsLng:gps?gps.lng:null,
     gpsPlusCode:gps?gps.plusCode:null,gpsPrecisionM:gps?gps.acc:null,
     tipoVenta:tventa,plazoDias:plazo||null,fechaLimite:plazo?addD($('cf_fe').value,plazo):null,
@@ -1649,8 +1723,8 @@ function resetC(){
   // de 4s tras enviar el contrato (setTimeout en enviarC), el formulario
   // ya no existe en el DOM -- no hay nada que limpiar.
   if(!$('cf_fe'))return;
-  ['cf_nm','cf_ce','cf_t1','cf_t2','cf_in','cf_rf','cf_gp','cf_mn','cf_ob','cf_fl'].forEach(id=>{const el=$(id);if(el)el.value='';});
-  ['cf_pr','cf_zo','cf_pl'].forEach(id=>{const el=$(id);if(el)el.value='';});
+  ['cf_nm','cf_ce','cf_t1','cf_t2','cf_in','cf_br','cf_rf','cf_dir','cf_gp','cf_mn','cf_ob','cf_fl'].forEach(id=>{const el=$(id);if(el)el.value='';});
+  ['cf_pr','cf_zo','cf_prov','cf_pl'].forEach(id=>{const el=$(id);if(el)el.value='';});
   $('cf_fe').value=hoy();document.querySelectorAll('.em').forEach(e=>e.textContent='');
   document.querySelectorAll('.er').forEach(e=>e.classList.remove('er'));
   clF('f');clF('r');
@@ -4333,7 +4407,7 @@ var PERM_MODS=[
   {sec:'Comercial',mods:[{id:'clientes',lab:'Clientes',ico:'👥'},{id:'cxc',lab:'CxC',ico:'📄'},{id:'pedidos',lab:'Pedidos',ico:'🛍️'},{id:'embajadoras',lab:'Canal Embajadoras',ico:'👑'}]},
   {sec:'Almacén',mods:[{id:'arqueo',lab:'Arqueo',ico:'🧾'},{id:'almp',lab:'Alm. Principal',ico:'🏭'},{id:'almm',lab:'Alm. Móvil',ico:'🚐'},{id:'productos',lab:'Gestión de productos',ico:'🏷️'},{id:'laboratorio',lab:'Laboratorio (ver/armar recetas)',ico:'🧪'},{id:'laboratorio_produccion',lab:'Laboratorio: confirmar producción',ico:'⚗️'}]},
   {sec:'Finanzas',mods:[{id:'cxp',lab:'CxP',ico:'💳'},{id:'nomina',lab:'Nómina',ico:'👔'},{id:'contab',lab:'Contabilidad',ico:'📒'},{id:'ccrm',lab:'CRM',ico:'🤝'}]},
-  {sec:'Admin',mods:[{id:'com',lab:'Comisiones',ico:'📊'},{id:'miscom',lab:'Cuadre Com.',ico:'💰'},{id:'users',lab:'Usuarios',ico:'👤'},{id:'rendimiento',lab:'Rendimiento',ico:'📈'},{id:'cfg',lab:'Config.',ico:'⚙️'},{id:'delfac',lab:'Eliminar Fac.',ico:'🗑️'}]},
+  {sec:'Admin',mods:[{id:'com',lab:'Comisiones',ico:'📊'},{id:'miscom',lab:'Cuadre Com.',ico:'💰'},{id:'users',lab:'Usuarios',ico:'👤'},{id:'rendimiento',lab:'Rendimiento',ico:'📈'},{id:'cfg',lab:'Config.',ico:'⚙️'},{id:'delfac',lab:'Anular Fac.',ico:'🚫'},{id:'auditoria',lab:'Auditoría',ico:'🛡️'},{id:'rrhh',lab:'Recursos Humanos',ico:'🧑‍💼'}]},
   {sec:'Herramientas',mods:[{id:'asistente',lab:'Asistente IA',ico:'🤖'},{id:'excel',lab:'Importar/Exportar Excel',ico:'📊'}]},
 ];
 
@@ -4345,6 +4419,12 @@ function abrirPermisos(uid){
     '<i class="ti ti-info-circle" style="color:var(--gold)"></i> '+(actual?'Este usuario tiene permisos personalizados, distintos a los de su rol <b>'+u.rol+'</b>.':'Usando los permisos por defecto del rol <b>'+u.rol+'</b>.')+' '+
     '<button onclick=\"resetPermisos('+uid+')\" style="margin-left:8px;padding:2px 8px;background:#fff;border:1px solid var(--br);border-radius:5px;cursor:pointer;font-size:11px">↩ Restaurar rol</button>'+
   '</div>';
+  if(u.rol!=='gerente'&&u.rol!=='subgerente'){
+    body+='<label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;margin-bottom:14px;background:var(--rbg);border:1px solid var(--er)">'+
+      '<input type="checkbox" id="pm_ver_todas_facturas" '+(u.verTodasFacturas?'checked':'')+'>'+
+      '<span style="font-size:13px"><b>Ver la facturación de todo el equipo</b><br><span style="font-size:11px;color:var(--t3)">Si está desmarcado, este usuario solo ve los contratos que él mismo registró (Facturación, Buzón, Cobros). Activalo únicamente si de verdad necesita supervisar al equipo.</span></span>'+
+    '</label>';
+  }
   PERM_MODS.forEach(function(sec){
     body+='<div style="margin-bottom:14px"><div style="font-size:9px;font-weight:800;letter-spacing:.1em;color:var(--red);text-transform:uppercase;margin-bottom:6px;border-bottom:1px solid rgba(28,27,31,.1);padding-bottom:4px">'+sec.sec+'</div>';
     sec.mods.forEach(function(mod){
@@ -4381,7 +4461,11 @@ async function guardarPermisos(uid){
     var cb=document.querySelector('[name="pm_'+mod.id+'"]');
     if(cb&&cb.checked)permisos.push(mod.id);
   });});
-  try{await apiFetch('/api/usuarios/'+uid+'/permisos',{method:'PATCH',body:{permisos}});}
+  try{
+    await apiFetch('/api/usuarios/'+uid+'/permisos',{method:'PATCH',body:{permisos}});
+    var verTodas=document.getElementById('pm_ver_todas_facturas');
+    if(verTodas) await apiFetch('/api/usuarios/'+uid+'/ver-todas-facturas',{method:'PATCH',body:{valor:verTodas.checked}});
+  }
   catch(e){alert('No se pudieron guardar los permisos: '+e.message);return;}
   cerrarPermModal();await cargarUsuariosAdmin();
   document.getElementById('main').innerHTML=rUsers();showToast('Permisos guardados ✅');
@@ -4543,8 +4627,8 @@ var _origRBuzon2=window.rBuzon;
 
 <script>
 
-var _MOD_ICONS={'dash':'🏠','contrato':'🧾','buzon':'📬','cobros':'💰','arqueo':'🧾','almp':'🏭','almm':'🚐','com':'📊','miscom':'💰','users':'👥','cfg':'⚙️','pedidos':'🛍️','cxp':'💳','nomina':'👔','contab':'📒','ccrm':'🤝','clientes':'🗂️','cxc':'📄','rendimiento':'📈','delfac':'🗑️','asistente':'🤖','productos':'🏷️','laboratorio':'🧪','ruta':'🗺️','cobrador':'📲'};
-var _MOD_TITS={'dash':'Panel Principal','contrato':'Facturación','buzon':'Buzón de Aprobación','cobros':'Ruta de Cobro','arqueo':'Arqueo','almp':'Almacén Principal','almm':'Almacén Móvil','com':'Comisiones','miscom':'Cuadre Comisiones','users':'Usuarios','cfg':'Configuración','pedidos':'Portal Pedidos','cxp':'Cuentas por Pagar','nomina':'Nómina','contab':'Contabilidad','ccrm':'CRM','clientes':'Base de Clientes','cxc':'Cuentas por Cobrar','rendimiento':'Rendimiento','delfac':'Eliminar Factura','asistente':'Asistente IA','productos':'Gestión de Productos','laboratorio':'Laboratorio','ruta':'Ruta con Mapa','cobrador':'Cobrador Automático'};
+var _MOD_ICONS={'dash':'🏠','contrato':'🧾','buzon':'📬','cobros':'💰','arqueo':'🧾','almp':'🏭','almm':'🚐','com':'📊','miscom':'💰','users':'👥','cfg':'⚙️','pedidos':'🛍️','cxp':'💳','nomina':'👔','contab':'📒','ccrm':'🤝','clientes':'🗂️','cxc':'📄','rendimiento':'📈','delfac':'🚫','asistente':'🤖','productos':'🏷️','laboratorio':'🧪','ruta':'🗺️','cobrador':'📲','auditoria':'🛡️','rrhh':'🧑‍💼'};
+var _MOD_TITS={'dash':'Panel Principal','contrato':'Facturación','buzon':'Buzón de Aprobación','cobros':'Ruta de Cobro','arqueo':'Arqueo','almp':'Almacén Principal','almm':'Almacén Móvil','com':'Comisiones','miscom':'Cuadre Comisiones','users':'Usuarios','cfg':'Configuración','pedidos':'Portal Pedidos','cxp':'Cuentas por Pagar','nomina':'Nómina','contab':'Contabilidad','ccrm':'CRM','clientes':'Base de Clientes','cxc':'Cuentas por Cobrar','rendimiento':'Rendimiento','delfac':'Anular Factura','asistente':'Asistente IA','productos':'Gestión de Productos','laboratorio':'Laboratorio','ruta':'Ruta con Mapa','cobrador':'Cobrador Automático','auditoria':'Auditoría','rrhh':'Recursos Humanos'};
 var _STAT_ICO=['💰','📊','👥','✅','⚠️','📦','📈','💳','🏆','🎯','📋','🔄','💎','🌟'];
 function applyModTheme(id){
   var m=document.getElementById('main');if(!m)return;
@@ -5534,15 +5618,15 @@ function rCXC(){
 // ── DELFAC ───────────────────────────────────────────────────────
 var _delFacId=null,_delPinIntento=0;
 function rDelFac(){
-  if(!ses||!['gerente','subgerente'].includes(ses.rol))return'<div class="card" style="text-align:center;padding:48px"><div style="font-size:48px">🔒</div><div style="font-size:18px;font-weight:700;color:var(--er);margin-top:12px">Solo el Gerente General o la Sub-Gerente pueden eliminar facturas.</div></div>';
+  if(!ses||!['gerente','subgerente'].includes(ses.rol))return'<div class="card" style="text-align:center;padding:48px"><div style="font-size:48px">🔒</div><div style="font-size:18px;font-weight:700;color:var(--er);margin-top:12px">Solo el Gerente General o la Sub-Gerente pueden anular facturas.</div></div>';
   setTimeout(function(){delFacRender();},50);
   return'<div class="card">'+
-    '<div class="ct"><i class="ti ti-trash" style="color:#C62828;font-size:18px"></i>Eliminar Factura'+
+    '<div class="ct"><i class="ti ti-ban" style="color:#C62828;font-size:18px"></i>Anular Factura'+
       '<span class="pill" style="margin-left:auto;background:#FFEBEE;border-color:#C62828;color:#7F0000">🔒 Restringido</span>'+
     '</div>'+
     '<div style="background:#FFEBEE;border:1.5px solid #C62828;border-radius:10px;padding:12px 15px;margin-bottom:14px;display:flex;gap:10px">'+
       '<span style="font-size:22px">⚠️</span>'+
-      '<div><b style="color:#7F0000">Zona de peligro — acción irreversible</b><br><span style="font-size:12px;color:#B71C1C">Se requiere PIN para cada eliminación.</span></div>'+
+      '<div><b style="color:#7F0000">Acción irreversible</b><br><span style="font-size:12px;color:#B71C1C">La factura NO se borra -- queda marcada como anulada, con quién, cuándo y por qué. Requiere PIN y motivo.</span></div>'+
     '</div>'+
     '<div style="position:relative;margin-bottom:12px">'+
       '<i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3)"></i>'+
@@ -5550,17 +5634,21 @@ function rDelFac(){
     '</div>'+
     '<div id="del_list"></div>'+
     '<div id="del_pin_modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center">'+
-      '<div style="background:#fff;border:2px solid #C62828;border-radius:20px;padding:28px 24px;width:90%;max-width:360px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">'+
+      '<div style="background:#fff;border:2px solid #C62828;border-radius:20px;padding:28px 24px;width:90%;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">'+
         '<div style="font-size:44px;margin-bottom:10px">🔐</div>'+
-        '<div style="font-size:16px;font-weight:800;color:#7F0000;margin-bottom:5px">Confirmar eliminación</div>'+
+        '<div style="font-size:16px;font-weight:800;color:#7F0000;margin-bottom:5px">Confirmar anulación</div>'+
         '<div id="del_pin_info" style="font-size:12px;color:#555;margin-bottom:16px;line-height:1.5"></div>'+
+        '<div style="text-align:left;margin-bottom:14px">'+
+          '<label style="font-size:11px;font-weight:700;color:#7F0000;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px">Motivo de la anulación *</label>'+
+          '<textarea id="del_motivo" rows="2" placeholder="Ej: cliente canceló la compra, error de digitación..." style="width:100%;padding:9px 10px;border:1.5px solid rgba(198,40,40,.3);border-radius:8px;font-family:inherit;font-size:13px;resize:vertical"></textarea>'+
+        '</div>'+
         '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px">'+
           [0,1,2,3,4,5].map(function(i){return'<input class="pin-d" maxlength="1" type="password" inputmode="numeric" id="dp'+i+'" oninput="delPinNav('+i+')" style="width:42px;height:54px;font-size:22px;text-align:center;border:2px solid rgba(198,40,40,.3);border-radius:10px;background:#FFF8F8">';}).join('')+
         '</div>'+
         '<div id="del_pin_err" style="color:#C62828;font-size:12px;min-height:16px;margin-bottom:10px;font-weight:600"></div>'+
         '<div style="display:flex;gap:8px;justify-content:center">'+
           '<button class="bs" onclick="delPinCerrar()">Cancelar</button>'+
-          '<button style="padding:9px 22px;background:linear-gradient(135deg,#C62828,#7F0000);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px" onclick="delPinConfirm()">🗑️ Eliminar</button>'+
+          '<button style="padding:9px 22px;background:linear-gradient(135deg,#C62828,#7F0000);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px" onclick="delPinConfirm()">🚫 Anular</button>'+
         '</div>'+
       '</div>'+
     '</div>'+
@@ -5573,15 +5661,19 @@ function delFacRender(){
   if(!lista.length){cont.innerHTML='<div class="empty"><i class="ti ti-file-invoice"></i><p>Sin facturas encontradas</p></div>';return;}
   cont.innerHTML='<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Factura</th><th>Fecha</th><th>Cliente</th><th>Cédula</th><th>Promotor</th><th class="tr">Monto</th><th>Estado</th><th>Acción</th></tr></thead><tbody>'+
   lista.map(function(c){
-    return'<tr><td style="font-weight:700;color:var(--gold)">'+c.fac+'</td><td style="font-size:11px">'+fD(c.fecha)+'</td><td style="font-weight:600">'+c.cliente+'</td><td style="font-size:11px">'+c.cedula+'</td><td style="font-size:11px">'+(c.promotor||'—')+'</td><td class="tr" style="font-weight:700">'+fM(c.monto)+'</td>'+
-    '<td><span style="padding:2px 9px;border-radius:100px;font-size:10px;font-weight:700;color:#fff;background:'+(c.status==='aprobado'?'#2E7D32':c.status==='rechazado'?'#C62828':'#E65100')+'">'+c.status+'</span></td>'+
-    '<td><button style="padding:5px 13px;background:linear-gradient(135deg,#C62828,#7F0000);color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit" onclick="delFacIniciar('+c.id+')">🗑️</button></td></tr>';
+    var anulada=c.status==='anulado';
+    return'<tr'+(anulada?' style="opacity:.6"':'')+'><td style="font-weight:700;color:var(--gold)">'+c.fac+'</td><td style="font-size:11px">'+fD(c.fecha)+'</td><td style="font-weight:600">'+c.cliente+'</td><td style="font-size:11px">'+c.cedula+'</td><td style="font-size:11px">'+(c.promotor||'—')+'</td><td class="tr" style="font-weight:700">'+fM(c.monto)+'</td>'+
+    '<td><span style="padding:2px 9px;border-radius:100px;font-size:10px;font-weight:700;color:#fff;background:'+(c.status==='aprobado'?'#2E7D32':c.status==='rechazado'?'#C62828':c.status==='anulado'?'#7F0000':'#E65100')+'">'+c.status+'</span>'+
+    (anulada?'<div style="font-size:10px;color:var(--t3);margin-top:3px" title="'+(c.motivoAnulacion||'')+'">🚫 '+(c.anuladoPorNombre||'—')+' · '+(c.anuladoEn?new Date(c.anuladoEn).toLocaleString('es-DO'):'')+'</div>':'')+
+    '</td>'+
+    '<td>'+(anulada?'<span style="font-size:11px;color:var(--t3)">Ya anulada</span>':'<button style="padding:5px 13px;background:linear-gradient(135deg,#C62828,#7F0000);color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit" onclick="delFacIniciar('+c.id+')">🚫 Anular</button>')+'</td></tr>';
   }).join('')+'</tbody></table></div><div style="text-align:center;padding:8px;font-size:11px;color:var(--t3)">'+lista.length+' factura(s)</div>';
 }
 function delFacIniciar(id){
   var c=contratos.find(function(x){return x.id===id;});if(!c)return;
   _delFacId=id;_delPinIntento=0;
   var info=document.getElementById('del_pin_info');if(info)info.innerHTML='<b style="color:#7F0000">'+c.fac+'</b><br>'+c.cliente+' · '+fD(c.fecha)+'<br><span style="color:#C62828">'+fM(c.monto)+'</span>';
+  var mot=document.getElementById('del_motivo');if(mot)mot.value='';
   [0,1,2,3,4,5].forEach(function(i){var el=document.getElementById('dp'+i);if(el)el.value='';});
   var err=document.getElementById('del_pin_err');if(err)err.textContent='';
   var modal=document.getElementById('del_pin_modal');if(modal)modal.style.display='flex';
@@ -5590,8 +5682,10 @@ function delFacIniciar(id){
 function delPinNav(i){var el=document.getElementById('dp'+i);if(el&&el.value&&i<5)document.getElementById('dp'+(i+1)).focus();}
 function delPinCerrar(){_delFacId=null;var m=document.getElementById('del_pin_modal');if(m)m.style.display='none';}
 async function delPinConfirm(){
-  var pin=[0,1,2,3,4,5].map(function(i){var el=document.getElementById('dp'+i);return el?el.value:'';}).join('');
+  var motivo=(document.getElementById('del_motivo')?.value||'').trim();
   var err=document.getElementById('del_pin_err');
+  if(!motivo){if(err)err.textContent='❌ El motivo de la anulación es obligatorio';return;}
+  var pin=[0,1,2,3,4,5].map(function(i){var el=document.getElementById('dp'+i);return el?el.value:'';}).join('');
   var ok=false;
   try{await apiFetch('/api/verificar-pin',{method:'POST',body:{pin}});ok=true;}catch(e){ok=false;}
   if(!ok){
@@ -5603,16 +5697,713 @@ async function delPinConfirm(){
     return;
   }
   if(!_delFacId){delPinCerrar();return;}
-  var idBorrar=_delFacId;
+  var idAnular=_delFacId;
   var resultado;
-  try{resultado=await apiFetch(`/api/contratos/${idBorrar}`,{method:'DELETE'});}
+  try{resultado=await apiFetch(`/api/contratos/${idAnular}/anular`,{method:'POST',body:{motivo:motivo}});}
   catch(e){if(err)err.textContent='❌ '+e.message;return;}
   await cargarContratos();
   await cargarComisionesSemanas();
   delPinCerrar();_delFacId=null;
   document.getElementById('main').innerHTML=rDelFac();
   setTimeout(function(){delFacRender();},50);
-  showToast('Factura '+resultado.numeroFactura+' eliminada ✅');
+  showToast('Factura '+resultado.numero_factura+' anulada ✅');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   AUDITORÍA — historial real (quién/cuándo/por qué) + alertas
+   calculadas contra los datos, no adivinadas. Solo Gerencia/Sub-Gerencia.
+══════════════════════════════════════════════════════════════════ */
+var AUDIT_EVENTOS=[], AUDIT_ALERTAS=[], TAREAS=[];
+async function cargarAuditoria(){
+  try{
+    var r=await apiFetch('/api/auditoria');
+    AUDIT_EVENTOS=r.eventos||[]; AUDIT_ALERTAS=r.alertas||[];
+    TAREAS=await apiFetch('/api/tareas');
+  }catch(e){ console.error('No se pudo cargar auditoría:',e); AUDIT_EVENTOS=[]; AUDIT_ALERTAS=[]; TAREAS=[]; }
+}
+var _AUDIT_NIVEL_COLOR={critico:{bg:'var(--rbg)',bd:'var(--er)',tx:'var(--rdk)'},alerta:{bg:'#FFF3E0',bd:'#E65100',tx:'#7F3D00'},info:{bg:'var(--bbg)',bd:'var(--blue)',tx:'var(--bdk)'}};
+var _AUDIT_TIPO_LBL={anulacion:{ico:'🚫',lbl:'Factura anulada'},decision:{ico:'✅',lbl:'Decisión de contrato'},abono:{ico:'💵',lbl:'Abono registrado'}};
+function rAuditoria(){
+  var criticos=AUDIT_ALERTAS.filter(function(a){return a.nivel==='critico';}).length;
+  var h='<div class="card">'
+    +'<div class="ct"><i class="ti ti-shield-check" style="color:var(--gold)"></i>Auditoría'
+    +'<span class="pill" style="margin-left:auto">'+AUDIT_ALERTAS.length+' alerta(s)</span></div>'
+    +'<div class="cs">Lo que ya queda registrado en el sistema, y lo que necesita tu atención.</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +'<button class="bg" onclick="auditPedirAnalisisSarah()"><i class="ti ti-robot"></i> Pedirle a Sarah un análisis</button>'
+    +'<button class="bs" onclick="descargarManualUsuario()"><i class="ti ti-file-download"></i> Descargar mi manual (PDF)</button>'
+    +'</div></div>';
+
+  h+='<div class="card"><div class="ct"><i class="ti ti-alert-triangle" style="color:'+(criticos?'var(--er)':'var(--gold)')+'"></i>Alertas ('+AUDIT_ALERTAS.length+')</div>';
+  if(!AUDIT_ALERTAS.length){
+    h+='<div class="empty"><i class="ti ti-check"></i><p>Sin alertas pendientes -- todo en orden.</p></div>';
+  } else {
+    h+=AUDIT_ALERTAS.map(function(a,ai){
+      var col=_AUDIT_NIVEL_COLOR[a.nivel]||_AUDIT_NIVEL_COLOR.info;
+      return '<div style="background:'+col.bg+';border:1.5px solid '+col.bd+';border-radius:10px;padding:12px 15px;margin-bottom:10px">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'
+        +'<b style="color:'+col.tx+'">'+a.mensaje+'</b>'
+        +'<button class="bsm" style="flex-shrink:0" onclick="auditAsignarTareaDesdeAlerta('+ai+')">📋 Asignar tarea</button>'
+        +'</div>'
+        +(a.detalle&&a.detalle.length?'<div style="font-size:11px;color:'+col.tx+';margin-top:6px;opacity:.85">'+a.detalle.slice(0,8).join(', ')+(a.detalle.length>8?' y '+(a.detalle.length-8)+' más...':'')+'</div>':'')
+        +'</div>';
+    }).join('');
+  }
+  h+='</div>';
+
+  h+='<div class="card"><div class="ct"><i class="ti ti-checklist" style="color:var(--gold)"></i>Tareas'
+    +'<button class="bsm" style="margin-left:auto" onclick="auditAbrirNuevaTarea()">+ Nueva tarea</button></div>';
+  var tareasAbiertas=TAREAS.filter(function(t){return t.estado==='pendiente'||t.estado==='en_proceso';});
+  if(!tareasAbiertas.length){
+    h+='<div class="empty"><i class="ti ti-checklist"></i><p>Sin tareas abiertas</p></div>';
+  } else {
+    h+='<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Tarea</th><th>Asignado a</th><th>Fecha límite</th><th>Estado</th><th>Acción</th></tr></thead><tbody>'
+      +tareasAbiertas.map(function(t){
+        var venc=t.fecha_limite && new Date(t.fecha_limite)<new Date(hoy());
+        return '<tr><td style="font-weight:600">'+t.titulo+(t.descripcion?'<div style="font-size:11px;color:var(--t3)">'+t.descripcion+'</div>':'')+'</td>'
+          +'<td>'+(t.asignado_a_nombre||'—')+'</td>'
+          +'<td style="color:'+(venc?'var(--er)':'inherit')+'">'+(t.fecha_limite?fD(t.fecha_limite):'—')+'</td>'
+          +'<td>'+(t.estado==='pendiente'?'⏳ Pendiente':'🔧 En proceso')+'</td>'
+          +'<td style="white-space:nowrap"><button class="bsm" onclick="auditCambiarEstadoTarea('+t.id+',\'en_proceso\')">En proceso</button> '
+          +'<button class="bsm" style="color:var(--green)" onclick="auditCambiarEstadoTarea('+t.id+',\'completada\')">✅ Completar</button></td></tr>';
+      }).join('')
+      +'</tbody></table></div>';
+  }
+  h+='</div>';
+
+  h+='<div class="card"><div class="ct"><i class="ti ti-history" style="color:var(--gold)"></i>Historial (últimos '+AUDIT_EVENTOS.length+')</div>';
+  if(!AUDIT_EVENTOS.length){
+    h+='<div class="empty"><i class="ti ti-history"></i><p>Sin eventos registrados todavía</p></div>';
+  } else {
+    h+='<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Tipo</th><th>Factura</th><th>Usuario</th><th>Detalle</th><th>Fecha</th></tr></thead><tbody>'
+      +AUDIT_EVENTOS.map(function(e){
+        var t=_AUDIT_TIPO_LBL[e.tipo]||{ico:'📋',lbl:e.tipo};
+        return '<tr><td>'+t.ico+' '+t.lbl+'</td><td style="font-weight:700;color:var(--gold)">'+(e.referencia||'—')+'</td>'
+          +'<td>'+(e.usuario||'—')+'</td><td style="max-width:260px">'+(e.detalle||'')+'</td>'
+          +'<td style="font-size:11px;white-space:nowrap">'+(e.fecha?new Date(e.fecha).toLocaleString('es-DO'):'—')+'</td></tr>';
+      }).join('')
+      +'</tbody></table></div>';
+  }
+  h+='</div>';
+  return h;
+}
+function auditPedirAnalisisSarah(){
+  var resumenAlertas=AUDIT_ALERTAS.length
+    ? AUDIT_ALERTAS.map(function(a){return '- ('+a.nivel+') '+a.mensaje;}).join('\n')
+    : 'Sin alertas pendientes.';
+  var resumenEventos=AUDIT_EVENTOS.slice(0,20).map(function(e){
+    var t=_AUDIT_TIPO_LBL[e.tipo]||{lbl:e.tipo};
+    return '- '+t.lbl+' · '+(e.referencia||'')+' · '+(e.usuario||'—')+' · '+(e.detalle||'');
+  }).join('\n');
+  var prompt='Actuá como auditora interna de KERAVEN. Te paso las alertas activas del sistema y los últimos eventos registrados (anulaciones, aprobaciones/rechazos, abonos). '+
+    'Decime qué es lo más urgente a atender, si ves algún patrón preocupante (por ejemplo muchas anulaciones seguidas, o siempre la misma persona), y qué recomendás para que el sistema funcione mejor.\n\n'+
+    'ALERTAS:\n'+resumenAlertas+'\n\nÚLTIMOS EVENTOS:\n'+(resumenEventos||'Sin eventos.');
+  if(!kv.open) kvToggle();
+  setTimeout(function(){ kvSend(prompt); }, 300);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MANUAL DE USUARIO (PDF) — según el rol/perfil de quien lo descarga,
+   solo incluye los módulos a los que esa persona realmente tiene
+   acceso (se arma con los mismos permisos que ya usa el menú).
+══════════════════════════════════════════════════════════════════ */
+var MANUAL_MODULOS={
+  dash:{tit:'Panel Principal',pasos:['Es la pantalla de inicio: muestra tus pendientes, aprobados y accesos directos a cada módulo.','Tocá "Organizar" para reordenar las tarjetas a tu gusto (se guarda solo para tu usuario).']},
+  contrato:{tit:'Facturación',pasos:['Completá TODOS los campos marcados con * (nombre, cédula, teléfono, provincia, barrio, dirección, institución, zona, promotor).','Tomá la foto de cédula (frente y reverso): la ubicación GPS y la provincia se completan solas al hacerlo.','Elegí los productos y el tipo de venta (crédito/contado). Si es crédito, elegí el plazo.','Al enviar, la venta queda "pendiente" hasta que alguien con acceso al Buzón la apruebe.']},
+  buzon:{tit:'Buzón de Aprobación',pasos:['Revisá cada contrato pendiente: datos del cliente, fotos de cédula y monto.','Aprobá solo si todo está correcto y legible -- una vez aprobado, ya genera comisión automática al promotor.','Si falta algo o hay un error, rechazalo con un comentario explicando por qué.']},
+  cobros:{tit:'Ruta de Cobro',pasos:['Acá ves los contratos a crédito con saldo pendiente.','Registrá cada abono o pago completo apenas lo recibas -- se refleja al instante en Cuentas por Cobrar y Contabilidad.']},
+  cobrador:{tit:'Cobrador Automático',pasos:['Pestaña Clientes: filtrá por vencidos, promesas de hoy o pagados.','Pestaña Cargar: subí fotos de contratos o un Excel para agregar clientes en lote.','Pestaña Programar: armá el envío automático de recordatorios por WhatsApp a una hora fija.','Pestaña Reportes: exportá pagados/abonados/morosos.']},
+  ruta:{tit:'Ruta con Mapa',pasos:['Pestaña "Preparar ruta": buscá por factura/cédula/teléfono/nombre y agregá a quién vas a visitar hoy. Si el contrato no tiene ubicación, cargala ahí mismo.','Pestaña "Mapa": te muestra la parada más cercana primero. Al terminar una visita, marcá el resultado (pagó, abonó, no pagó, saltar) y el mapa te lleva a la siguiente.']},
+  clientes:{tit:'Base de Clientes',pasos:['Es la ficha completa de cada cliente (todas sus compras, no solo una factura).','Usalo para buscar el historial completo de alguien antes de venderle de nuevo o de negociar un abono.']},
+  cxc:{tit:'Cuentas por Cobrar',pasos:['Muestra cuánto te deben en total y quién está vencido.','Revisalo regularmente para priorizar a quién cobrarle primero.']},
+  arqueo:{tit:'Arqueo de Almacén',pasos:['Se hace al cerrar una ruta: confirmá cuánto producto salió, se vendió y regresó.','Cuadralo el mismo día -- si se acumulan varios arqueos sin cerrar, se pierde el control real del inventario en ruta.']},
+  almp:{tit:'Almacén Principal',pasos:['Es el stock en bodega (no en la calle).','Registrá cada entrada de mercancía nueva aquí antes de despacharla a la ruta.']},
+  almm:{tit:'Almacén Móvil',pasos:['Es el stock que anda en la calle con cada promotor/ruta.','Los despachos desde Almacén Principal hacia acá deben quedar registrados siempre, nunca de palabra.']},
+  productos:{tit:'Gestión de Productos',pasos:['Cada producto tiene un código único (ej. SHA-001, MASC-001) -- mantené la misma lógica al crear productos nuevos de la misma familia.','Actualizá el precio de referencia aquí cuando cambie -- se usa en Facturación y Pedidos.']},
+  laboratorio:{tit:'Laboratorio',pasos:['Pestaña Almacén: cargá materias primas nuevas (químico/natural/empaque) y registrá cada entrada de compra.','Pestaña Recetas: definí cuánto de cada ingrediente lleva un producto -- el sistema calcula solo el costo y cuántas unidades salen por lote.','Pestaña Producción: antes de fabricar, revisá que haya suficiente materia prima -- el sistema no deja producir si falta algo (todo o nada).']},
+  laboratorio_produccion:{tit:'Laboratorio — Confirmar Producción',pasos:['Este permiso es aparte de armar la receta: solo quien lo tenga puede confirmar que un lote realmente se fabricó y descontar materia prima del almacén.']},
+  com:{tit:'Comisiones',pasos:['Se generan automáticamente al aprobar un contrato -- no hace falta crearlas a mano.','Revisá cada semana antes de pagar, sobre todo si hubo facturas anuladas (la comisión de una venta anulada no se paga).']},
+  miscom:{tit:'Cuadre de Comisiones',pasos:['Es el resumen por promotor antes de pagar -- confirmá el total antes de marcar como pagado.']},
+  cxp:{tit:'Cuentas por Pagar',pasos:['Registrá cada deuda con proveedores apenas se genere, con su fecha de vencimiento.','Revisá la sección de vencidas en Auditoría para no atrasarte con un proveedor.']},
+  nomina:{tit:'Nómina',pasos:['Procesá la nómina de cada quincena con los empleados activos.','Verificá AFP/SFS/ISR antes de confirmar -- una vez procesada queda como historial fijo.']},
+  contab:{tit:'Contabilidad',pasos:['Acá se ven los asientos automáticos generados por ventas, cobros, nómina y gastos.','Es el lugar para cuadrar utilidad real del mes -- no se edita a mano, se alimenta solo del resto del sistema.']},
+  ccrm:{tit:'CRM',pasos:['Llevá el seguimiento de cada cliente: etapa (nuevo, contactado, interesado, cliente, inactivo) y próxima fecha de seguimiento.','No dejes seguimientos vencidos -- Auditoría te avisa cuáles están atrasados.']},
+  pedidos:{tit:'Portal de Pedidos',pasos:['Es el catálogo online para que un cliente arme su propio pedido.','Confirmá los pedidos entrantes antes de despacharlos.']},
+  rendimiento:{tit:'Rendimiento',pasos:['Reportes de ventas y comisiones por vendedor/periodo -- usalo para decisiones, no para cargar datos.']},
+  users:{tit:'Usuarios',pasos:['Solo Gerencia/Sub-Gerencia crean usuarios y les asignan permisos.','Cada usuario debe tener su propio PIN de 6 dígitos -- nunca compartir un mismo usuario entre dos personas (se pierde la trazabilidad de quién hizo qué).']},
+  delfac:{tit:'Anular Factura',pasos:['Uso restringido a Gerencia/Sub-Gerencia.','SIEMPRE hay que escribir el motivo real de la anulación -- queda guardado permanentemente junto con quién y cuándo.']},
+  auditoria:{tit:'Auditoría',pasos:['Revisala periódicamente (recomendado: cada semana) -- ahí ves alertas reales (stock bajo, vencidos, pendientes) antes de que se conviertan en un problema.','Podés convertir cualquier alerta en una tarea asignada a alguien del equipo, con fecha límite.']},
+  rrhh:{tit:'Recursos Humanos',pasos:['Pestaña Personal: mirá tardanzas, faltas y amonestaciones de cada empleado activo. "Ver detalle" abre su historial completo y sus vacaciones; "Ficha" abre su solicitud de empleo completa (datos personales, académicos, contacto de emergencia, ARS/AFP).','Registrá cada tardanza, falta o amonestación el mismo día que ocurre -- el sistema te muestra el artículo del Código de Trabajo que suele aplicar, pero eso es solo referencia: la decisión y la indagación siempre las hace RRHH.','Vacaciones se acumulan solas según la fecha de ingreso (14 días/año con menos de 5 años, 18 días/año con 5 o más) -- registrá cada período tomado para descontarlo del disponible.','Pestaña Reclutamiento: llevá cada candidato desde que aplica hasta que pasa a empleado fijo (aplicado → entrevista → prueba → fijo). "Ficha" completa su solicitud de empleo; "Cuestionario" aplica una evaluación de competencias según el puesto (vendedor, almacén, secretaria, supervisor) -- es una herramienta de APOYO, no un test psicológico clínico ni una decisión automática. Al marcarlo "fijo" se crea su registro en Nómina automáticamente, arrastrando toda su ficha.','Pestaña Código de Trabajo: consultá la referencia por tipo de caso cuando lo necesites, sin tener que registrar una incidencia.','Pestaña Deberes y Derechos: consultá de un vistazo los derechos y deberes generales del trabajador y del empleador (salario, seguridad social, vacaciones, preaviso/cesantía, etc.) -- también informativo, no sustituye asesoría legal.']},
+  cfg:{tit:'Configuración',pasos:['Ajustes generales del sistema: clave de Sarah (IA), respaldos de la base de datos.','Hacé un respaldo manual antes de cualquier cambio grande (ej. antes de una migración o una prueba).']},
+  asistente:{tit:'Sarah — Asistente IA',pasos:['Preguntale sobre tus datos reales del sistema (ventas, comisiones, cuadres).','Podés pedirle que te organice tareas, agenda y recordatorios personales.']},
+};
+async function descargarManualUsuario(){
+  if(typeof pedLoadLibs==='function') await pedLoadLibs(); else { await pedLoadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); }
+  var jsPDFCtor=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
+  var doc=new jsPDFCtor({unit:'pt',format:'a4'});
+  var margen=48, y=64, ancho=doc.internal.pageSize.getWidth()-margen*2;
+  var misPermisos=perms();
+  var modulos=Object.keys(MANUAL_MODULOS).filter(function(id){return misPermisos.includes(id);});
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(20);
+  doc.text('Manual de Usuario — KERAVEN Profesional', margen, y); y+=26;
+  doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(90);
+  doc.text('Usuario: '+(ses&&ses.n?ses.n:'—')+'  ·  Rol: '+(ses&&ses.rl?ses.rl:'—'), margen, y); y+=16;
+  doc.text('Generado: '+new Date().toLocaleString('es-DO'), margen, y); y+=30;
+  doc.setTextColor(0);
+
+  modulos.forEach(function(id){
+    var m=MANUAL_MODULOS[id];
+    if(y>720){ doc.addPage(); y=64; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(13);
+    doc.text(m.tit, margen, y); y+=18;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5);
+    m.pasos.forEach(function(p){
+      if(y>780){ doc.addPage(); y=64; }
+      var l=doc.splitTextToSize('• '+p, ancho-10);
+      doc.text(l, margen+8, y); y+=l.length*13+3;
+    });
+    y+=12;
+  });
+
+  doc.save('manual_usuario_'+(ses&&ses.rl?ses.rl.replace(/\s+/g,'_'):'kerplus')+'.pdf');
+}
+
+/* ── Tareas ── */
+function _auditModalTarea(titulo,descripcion,fechaLimite){
+  var ov=document.createElement('div');
+  ov.id='tarea_modal_ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  var opcionesUsuarios=(USUARIOS||[]).filter(function(u){return u.on!==false;}).map(function(u){return '<option value="'+u.id+'">'+u.n+' ('+u.rl+')</option>';}).join('');
+  ov.innerHTML=
+    '<div style="background:#fff;border-radius:16px;width:100%;max-width:420px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
+    + '<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Nueva tarea</div>'
+    + '<div style="padding:18px 20px">'
+    +   '<div class="fi"><label>Título *</label><input id="tar_tit" value="'+(titulo||'').replace(/"/g,'&quot;')+'"></div>'
+    +   '<div class="fi" style="margin-top:10px"><label>Descripción</label><textarea id="tar_desc" rows="2">'+(descripcion||'')+'</textarea></div>'
+    +   '<div class="g2" style="margin-top:10px">'
+    +     '<div class="fi"><label>Asignar a</label><select id="tar_asig"><option value="">Sin asignar</option>'+opcionesUsuarios+'</select></div>'
+    +     '<div class="fi"><label>Fecha límite</label><input id="tar_fecha" type="date" value="'+(fechaLimite||'')+'"></div>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="padding:14px 20px;border-top:1px solid var(--br);display:flex;justify-content:flex-end;gap:8px">'
+    +   '<button class="bs" onclick="document.getElementById(\'tarea_modal_ov\').remove()">Cancelar</button>'
+    +   '<button class="bg" onclick="auditGuardarTarea()">Guardar</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  setTimeout(function(){var el=document.getElementById('tar_tit');if(el)el.focus();},50);
+}
+function auditAbrirNuevaTarea(){ _auditModalTarea('','',''); }
+function auditAsignarTareaDesdeAlerta(ai){
+  var a=AUDIT_ALERTAS[ai]; if(!a) return;
+  _auditModalTarea(a.mensaje, (a.detalle&&a.detalle.length?'Afecta: '+a.detalle.slice(0,10).join(', '):''), '');
+  var sel=document.getElementById('tar_asig');
+  if(sel) sel.dataset.origenTipo=a.tipo;
+}
+async function auditGuardarTarea(){
+  var titulo=(document.getElementById('tar_tit')?.value||'').trim();
+  var descripcion=(document.getElementById('tar_desc')?.value||'').trim();
+  var asignadoA=document.getElementById('tar_asig')?.value||null;
+  var fechaLimite=document.getElementById('tar_fecha')?.value||null;
+  var origenTipo=document.getElementById('tar_asig')?.dataset.origenTipo||null;
+  if(!titulo){ alert('Falta el título de la tarea.'); return; }
+  try{
+    await apiFetch('/api/tareas',{method:'POST',body:{titulo:titulo,descripcion:descripcion,asignadoA:asignadoA||null,fechaLimite:fechaLimite||null,origenTipo:origenTipo}});
+  }catch(e){ alert('No se pudo guardar la tarea: '+e.message); return; }
+  document.getElementById('tarea_modal_ov')?.remove();
+  await cargarAuditoria();
+  if(pag==='auditoria') document.getElementById('main').innerHTML=rAuditoria();
+  showToast('Tarea creada ✅');
+}
+async function auditCambiarEstadoTarea(id,estado){
+  try{ await apiFetch('/api/tareas/'+id,{method:'PATCH',body:{estado:estado}}); }
+  catch(e){ showToast('No se pudo actualizar la tarea','error'); return; }
+  await cargarAuditoria();
+  if(pag==='auditoria') document.getElementById('main').innerHTML=rAuditoria();
+  showToast(estado==='completada'?'✅ Tarea completada':'Tarea actualizada');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   RECURSOS HUMANOS — tardanzas/faltas/amonestaciones, vacaciones y
+   reclutamiento/período de prueba. Las referencias al Código de Trabajo
+   son solo orientativas (ver disclaimer): el encargado de RRHH decide
+   e indaga, el sistema no resuelve nada. Solo Gerencia/Sub-Gerencia.
+══════════════════════════════════════════════════════════════════ */
+var RRHH_EMPLEADOS=[], RRHH_CANDIDATOS=[], RRHH_CODIGO={}, RRHH_DEBERES={};
+var _RRHH_TIPO_LBL={tardanza:'Tardanza',falta_justificada:'Falta justificada',falta_injustificada:'Falta injustificada',amonestacion:'Amonestación',bajo_rendimiento:'Bajo rendimiento',mal_manejo:'Mal manejo',observacion:'Observación',evaluacion_desempeno:'Evaluación de rendimiento',otro:'Otro'};
+var _RRHH_ETAPA_LBL={aplicado:'Aplicado',entrevista:'Entrevista',prueba:'Período de prueba',fijo:'Empleado fijo',rechazado:'Rechazado',retirado:'Retirado'};
+var _RRHH_PUESTO_LBL={vendedor:'Vendedor / Promotor',almacen:'Encargado de Almacén',secretaria:'Secretaria Administrativa',supervisor:'Supervisor',otro:'Otro'};
+async function cargarRRHH(){
+  try{
+    var r=await Promise.all([apiFetch('/api/rrhh/empleados'),apiFetch('/api/rrhh/candidatos'),apiFetch('/api/rrhh/codigo-trabajo'),apiFetch('/api/rrhh/deberes-derechos')]);
+    RRHH_EMPLEADOS=r[0]||[]; RRHH_CANDIDATOS=r[1]||[]; RRHH_CODIGO=r[2]||{}; RRHH_DEBERES=r[3]||{};
+  }catch(e){ console.error('No se pudo cargar RRHH:',e); RRHH_EMPLEADOS=[]; RRHH_CANDIDATOS=[]; RRHH_CODIGO={}; RRHH_DEBERES={}; }
+}
+function rRRHH(){
+  return '<div class="card"><div class="ct"><i class="ti ti-id-badge-2" style="color:var(--gold)"></i>Recursos Humanos</div>'
+    +'<div class="cs">Tardanzas, faltas, amonestaciones, vacaciones, reclutamiento y marco legal laboral del equipo.</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +'<button id="rrhh_per" class="bg" onclick="rrhh_tab(\'per\')">Personal</button>'
+    +'<button id="rrhh_rec" class="bs" onclick="rrhh_tab(\'rec\')">Reclutamiento</button>'
+    +'<button id="rrhh_cod" class="bs" onclick="rrhh_tab(\'cod\')">Código de Trabajo</button>'
+    +'<button id="rrhh_deb" class="bs" onclick="rrhh_tab(\'deb\')">Deberes y Derechos</button>'
+    +'</div></div>'
+    +'<div id="rrhh_c"></div>';
+}
+function rrhh_tab(t){
+  ['per','rec','cod','deb'].forEach(function(x){var b=$('rrhh_'+x);if(b)b.className=x===t?'bg':'bs';});
+  var c=$('rrhh_c'); if(!c) return;
+  if(t==='per') c.innerHTML=_rrhhPersonalHtml();
+  else if(t==='rec') c.innerHTML=_rrhhReclutamientoHtml();
+  else if(t==='cod') c.innerHTML=_rrhhCodigoHtml();
+  else c.innerHTML=_rrhhDeberesHtml();
+}
+function _rrhhDeberesHtml(){
+  var d=RRHH_DEBERES||{};
+  function bloque(titulo,ico,items){
+    if(!items||!items.length)return'';
+    return '<div class="card"><div class="ct" style="margin:-16px -16px 13px"><i class="ti '+ico+'" style="color:var(--gold)"></i>'+titulo+'</div>'
+      +items.map(function(it){
+        return '<div style="padding:8px 0;border-bottom:1px solid var(--br)"><b style="font-size:12.5px">'+it.tema+'</b>'
+          +(it.articulo?' <span style="font-size:10.5px;color:var(--gold);font-weight:700">'+it.articulo+'</span>':'')
+          +'<div style="font-size:11.5px;color:var(--t3);margin-top:2px">'+it.resumen+'</div></div>';
+      }).join('')
+      +'</div>';
+  }
+  return '<div style="padding:10px 12px;background:#FFF3E0;border:1.5px solid #E65100;border-radius:10px;font-size:11.5px;color:#7F3D00;margin-bottom:12px">'
+    +'<i class="ti ti-alert-triangle"></i> Referencia orientativa del Código de Trabajo (Ley 16-92). No es asesoría legal -- verificá la numeración vigente con un abogado laboral.</div>'
+    +bloque('Derechos del trabajador','ti-shield-check',d.derechosTrabajador)
+    +bloque('Deberes del trabajador','ti-clipboard-check',d.deberesTrabajador)
+    +bloque('Derechos del empleador','ti-building',d.derechosEmpleador)
+    +bloque('Deberes del empleador','ti-briefcase',d.deberesEmpleador);
+}
+function _rrhhPersonalHtml(){
+  var activos=RRHH_EMPLEADOS.filter(function(e){return e.activo!==false;});
+  if(!activos.length) return '<div class="card"><div class="empty"><i class="ti ti-users"></i><p>Sin empleados activos registrados en Nómina.</p></div></div>';
+  return '<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nombre</th><th>Cargo</th><th class="tr">Tardanzas (90d)</th><th class="tr">Faltas injust. (90d)</th><th class="tr">Amonest. (1a)</th><th>Acción</th></tr></thead><tbody>'
+    +activos.map(function(e){
+      var alerta=Number(e.faltas_90d)>0||Number(e.amonestaciones_1a)>0;
+      return '<tr'+(alerta?' style="background:var(--rbg)"':'')+'><td style="font-weight:600">'+e.nombre+'</td><td>'+(e.cargo||'—')+'</td>'
+        +'<td class="tr">'+(e.tardanzas_90d||0)+'</td>'
+        +'<td class="tr" style="color:'+(Number(e.faltas_90d)>0?'var(--er)':'inherit')+'">'+(e.faltas_90d||0)+'</td>'
+        +'<td class="tr" style="color:'+(Number(e.amonestaciones_1a)>0?'var(--er)':'inherit')+'">'+(e.amonestaciones_1a||0)+'</td>'
+        +'<td><button class="bsm" onclick="rrhhAbrirEmpleado('+e.id+')">Ficha completa</button></td></tr>';
+    }).join('')
+    +'</tbody></table></div></div>';
+}
+function _rrhhReclutamientoHtml(){
+  var h='<div class="card"><div class="ct" style="margin:-16px -16px 13px">Candidatos'
+    +'<button class="bsm" style="margin-left:auto" onclick="rrhhModalCandidato()">+ Nuevo candidato</button></div>'
+    +'<div class="cs">Flujo recomendado: 1) completá su <b>Ficha</b> (solicitud de empleo) → 2) aplicale la <b>Prueba</b> de competencias del puesto → 3) avanzá su <b>Etapa</b> según la entrevista y el período de prueba.</div>';
+  if(!RRHH_CANDIDATOS.length){ return h+'<div class="empty"><i class="ti ti-user-plus"></i><p>Sin candidatos registrados</p></div></div>'; }
+  h+='<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nombre</th><th>Puesto</th><th>Perfil de prueba</th><th>Resultado de la prueba</th><th>Etapa</th><th>Inicio prueba</th><th>Acción</th></tr></thead><tbody>'
+    +RRHH_CANDIDATOS.map(function(c){
+      var resultado=c.evaluaciones_count>0
+        ? '<span class="pill" style="background:var(--gbg);border-color:var(--green);color:var(--gdk)">'+c.ultimo_puntaje+' pts'+(c.evaluaciones_count>1?' ('+c.evaluaciones_count+')':'')+'</span>'
+        : '<span class="pill" style="background:var(--rbg);border-color:var(--er);color:var(--rdk)">Sin aplicar</span>';
+      return '<tr><td style="font-weight:600">'+c.nombre+'</td><td>'+(c.puesto_aplicado||'—')+'</td>'
+        +'<td><span class="pill">'+(_RRHH_PUESTO_LBL[c.puesto_perfil]||c.puesto_perfil||'Otro')+'</span></td>'
+        +'<td>'+resultado+'</td>'
+        +'<td><span class="pill">'+(_RRHH_ETAPA_LBL[c.etapa]||c.etapa)+'</span></td>'
+        +'<td>'+(c.fecha_inicio_prueba?fD(c.fecha_inicio_prueba)+' ('+(c.dias_prueba||60)+'d)':'—')+'</td>'
+        +'<td style="white-space:nowrap"><button class="bsm" onclick="rrhhModalFichaCandidato('+c.id+')">Ficha</button> '
+        +'<button class="bsm" onclick="rrhhModalCuestionario('+c.id+')">Prueba</button> '
+        +'<button class="bsm" onclick="rrhhModalEtapaCandidato('+c.id+')">Etapa</button></td></tr>';
+    }).join('')
+    +'</tbody></table></div></div>';
+  return h;
+}
+function _rrhhCodigoHtml(){
+  var h='<div class="card"><div style="padding:10px 12px;background:#FFF3E0;border:1.5px solid #E65100;border-radius:10px;font-size:11.5px;color:#7F3D00;margin-bottom:12px">'
+    +'<i class="ti ti-alert-triangle"></i> Referencia orientativa del Código de Trabajo (Ley 16-92). No es asesoría legal ni sustituye la indagación del encargado de RRHH -- verificá la numeración vigente con un abogado laboral antes de fundamentar una sanción o un despido.</div>';
+  h+='<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Tipo de incidencia</th><th>Capítulo</th><th>Artículo (referencia)</th><th>Resumen</th></tr></thead><tbody>'
+    +Object.keys(RRHH_CODIGO).map(function(t){
+      var r=RRHH_CODIGO[t]||{};
+      return '<tr><td style="font-weight:600">'+(_RRHH_TIPO_LBL[t]||t)+'</td><td style="font-size:11px">'+(r.capitulo||'—')+'</td>'
+        +'<td style="font-size:11px;color:var(--gold);font-weight:700">'+(r.articulo||'—')+'</td><td style="font-size:11px">'+(r.resumen||'—')+'</td></tr>';
+    }).join('')
+    +'</tbody></table></div></div>';
+  return h;
+}
+
+/* ── Ficha de empleado: vacaciones + incidencias ── */
+async function rrhhAbrirEmpleado(id){
+  var emp=RRHH_EMPLEADOS.find(function(e){return e.id===id;}); if(!emp) return;
+  var ov=document.getElementById('rrhh_emp_ov');
+  if(!ov){
+    ov=document.createElement('div'); ov.id='rrhh_emp_ov';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:190;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto';
+    ov.onclick=function(e){if(e.target===ov)ov.remove();};
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:680px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden;max-height:92vh;display:flex;flex-direction:column">'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">'
+    +'<div><b>'+emp.nombre+'</b><div style="font-size:11px;color:var(--t3)">'+(emp.cargo||'—')+'</div></div>'
+    +'<button class="bs" onclick="document.getElementById(\'rrhh_emp_ov\').remove()">Cerrar</button>'
+    +'</div>'
+    +'<div style="padding:18px 20px;overflow-y:auto" id="rrhh_emp_body"><div class="empty"><i class="ti ti-loader-2"></i>Cargando...</div></div>'
+    +'</div>';
+  var body=document.getElementById('rrhh_emp_body');
+  try{
+    var vac=await apiFetch('/api/rrhh/vacaciones/'+id);
+    var inc=await apiFetch('/api/rrhh/incidencias?empleadoId='+id);
+    var r=vac.resumen||{}, hist=vac.historial||[];
+
+    var h='<div class="card" style="margin-bottom:14px"><div class="ct" style="margin:-16px -16px 13px"><i class="ti ti-id-badge-2" style="color:var(--gold)"></i>Datos personales</div>'
+      +_fichaCampos('rfe',emp)
+      +'<div class="actions" style="margin-top:10px"><button class="bg" onclick="rrhhGuardarDatosEmpleado('+id+')"><i class="ti ti-check"></i> Guardar datos personales</button></div>'
+      +'</div>';
+
+    h+='<div class="card" style="margin-bottom:14px"><div class="ct" style="margin:-16px -16px 13px"><i class="ti ti-beach" style="color:var(--gold)"></i>Vacaciones'
+      +'<button class="bsm" style="margin-left:auto" onclick="rrhhModalVacaciones('+id+')">+ Registrar</button></div>'
+      +'<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;margin-bottom:10px">'
+      +'<div><b>'+(r.diasPorAnio||'—')+'</b> días/año ('+(r.aniosCompletos||0)+' año(s) de antigüedad)</div>'
+      +'<div><b>'+(r.acumulados||0)+'</b> acumulados</div>'
+      +'<div><b>'+(r.usados||0)+'</b> tomados</div>'
+      +'<div style="color:var(--green);font-weight:700">'+(r.disponibles||0)+' disponibles</div>'
+      +'</div>';
+    h+=hist.length
+      ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Desde</th><th>Hasta</th><th>Días</th><th>Notas</th></tr></thead><tbody>'
+        +hist.map(function(v){return '<tr><td>'+fD(v.fecha_inicio)+'</td><td>'+fD(v.fecha_fin)+'</td><td>'+v.dias+'</td><td style="font-size:11px">'+(v.notas||'—')+'</td></tr>';}).join('')
+        +'</tbody></table></div>'
+      : '<div class="empty" style="padding:14px"><p>Sin vacaciones registradas</p></div>';
+    h+='</div>';
+
+    h+='<div class="card"><div class="ct" style="margin:-16px -16px 13px"><i class="ti ti-alert-circle" style="color:var(--gold)"></i>Historial (amonestaciones, observaciones y rendimiento)'
+      +'<button class="bsm" style="margin-left:auto" onclick="rrhhModalIncidencia('+id+')">+ Nuevo registro</button></div>'
+      +'<div class="cs">Cada tardanza, falta, amonestación, observación o evaluación de rendimiento queda aquí con fecha, motivo y quién la registró.</div>';
+    h+=inc.length
+      ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Referencia</th><th>Registrado por</th></tr></thead><tbody>'
+        +inc.map(function(i){return '<tr><td>'+fD(i.fecha)+'</td><td>'+(_RRHH_TIPO_LBL[i.tipo]||i.tipo)+'</td><td style="font-size:11px;max-width:200px">'+(i.descripcion||'—')+'</td><td style="font-size:11px">'+(i.articulo_referencia||'—')+'</td><td style="font-size:11px">'+(i.registrado_por_nombre||'—')+'</td></tr>';}).join('')
+        +'</tbody></table></div>'
+      : '<div class="empty" style="padding:14px"><p>Sin registros todavía</p></div>';
+    h+='</div>';
+    body.innerHTML=h;
+  }catch(e){ body.innerHTML='<div class="empty"><p>No se pudo cargar: '+e.message+'</p></div>'; }
+}
+
+/* ── Incidencias ── */
+function rrhhModalIncidencia(empId){
+  var ov=document.createElement('div'); ov.id='rrhh_inc_ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  var opcionesTipo=Object.keys(_RRHH_TIPO_LBL).map(function(t){return '<option value="'+t+'">'+_RRHH_TIPO_LBL[t]+'</option>';}).join('');
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:460px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Nuevo registro — amonestación, observación o evaluación</div>'
+    +'<div style="padding:18px 20px">'
+    +'<div class="fi"><label>Tipo *</label><select id="rrhh_inc_tipo" onchange="_rrhhPreviewCodigo()">'+opcionesTipo+'</select></div>'
+    +'<div class="g2" style="margin-top:10px"><div class="fi"><label>Fecha</label><input id="rrhh_inc_fecha" type="date" value="'+hoy()+'"></div>'
+    +'<div class="fi"><label>Artículo (editable)</label><input id="rrhh_inc_art" oninput="this.dataset.tocado=\'1\'"></div></div>'
+    +'<div class="fi" style="margin-top:10px"><label>Descripción de lo ocurrido</label><textarea id="rrhh_inc_desc" rows="3"></textarea></div>'
+    +'<div id="rrhh_inc_prev" style="margin-top:10px;font-size:11px;color:var(--t3);background:var(--bg2);border-radius:8px;padding:10px"></div>'
+    +'</div>'
+    +'<div style="padding:14px 20px;border-top:1px solid var(--br);display:flex;justify-content:flex-end;gap:8px">'
+    +'<button class="bs" onclick="document.getElementById(\'rrhh_inc_ov\').remove()">Cancelar</button>'
+    +'<button class="bg" onclick="rrhhGuardarIncidencia('+empId+')">Guardar</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  _rrhhPreviewCodigo();
+}
+function _rrhhPreviewCodigo(){
+  var tipo=document.getElementById('rrhh_inc_tipo')?.value;
+  var ref=RRHH_CODIGO[tipo];
+  var art=document.getElementById('rrhh_inc_art');
+  var prev=document.getElementById('rrhh_inc_prev');
+  if(!ref){ if(prev)prev.innerHTML=''; return; }
+  if(art && !art.dataset.tocado) art.value=ref.articulo||'';
+  if(prev) prev.innerHTML='<b>'+(ref.capitulo||'')+'</b><br>'+(ref.resumen||'')+'<br><i style="opacity:.75">Referencia orientativa, no es asesoría legal — verificá con un abogado laboral antes de sancionar o despedir.</i>';
+}
+async function rrhhGuardarIncidencia(empId){
+  var tipo=document.getElementById('rrhh_inc_tipo')?.value;
+  var fecha=document.getElementById('rrhh_inc_fecha')?.value||null;
+  var articuloReferencia=document.getElementById('rrhh_inc_art')?.value||null;
+  var descripcion=document.getElementById('rrhh_inc_desc')?.value||null;
+  try{
+    await apiFetch('/api/rrhh/incidencias',{method:'POST',body:{empleadoId:empId,tipo:tipo,fecha:fecha,descripcion:descripcion,articuloReferencia:articuloReferencia}});
+  }catch(e){ alert('No se pudo guardar la incidencia: '+e.message); return; }
+  document.getElementById('rrhh_inc_ov')?.remove();
+  await cargarRRHH();
+  rrhhAbrirEmpleado(empId);
+  showToast('Incidencia registrada ✅');
+}
+
+/* ── Vacaciones ── */
+function rrhhModalVacaciones(empId){
+  var ov=document.createElement('div'); ov.id='rrhh_vac_ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:420px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Registrar vacaciones</div>'
+    +'<div style="padding:18px 20px">'
+    +'<div class="g2"><div class="fi"><label>Desde *</label><input id="rrhh_vac_ini" type="date" onchange="_rrhhCalcDias()"></div>'
+    +'<div class="fi"><label>Hasta *</label><input id="rrhh_vac_fin" type="date" onchange="_rrhhCalcDias()"></div></div>'
+    +'<div class="fi" style="margin-top:10px"><label>Días</label><input id="rrhh_vac_dias" type="number" min="1"></div>'
+    +'<div class="fi" style="margin-top:10px"><label>Notas</label><textarea id="rrhh_vac_notas" rows="2"></textarea></div>'
+    +'</div>'
+    +'<div style="padding:14px 20px;border-top:1px solid var(--br);display:flex;justify-content:flex-end;gap:8px">'
+    +'<button class="bs" onclick="document.getElementById(\'rrhh_vac_ov\').remove()">Cancelar</button>'
+    +'<button class="bg" onclick="rrhhGuardarVacaciones('+empId+')">Guardar</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+}
+function _rrhhCalcDias(){
+  var ini=document.getElementById('rrhh_vac_ini')?.value;
+  var fin=document.getElementById('rrhh_vac_fin')?.value;
+  if(!ini||!fin) return;
+  var d=Math.round((new Date(fin)-new Date(ini))/86400000)+1;
+  var campo=document.getElementById('rrhh_vac_dias');
+  if(campo && d>0) campo.value=d;
+}
+async function rrhhGuardarVacaciones(empId){
+  var fechaInicio=document.getElementById('rrhh_vac_ini')?.value;
+  var fechaFin=document.getElementById('rrhh_vac_fin')?.value;
+  var dias=Number(document.getElementById('rrhh_vac_dias')?.value||0);
+  var notas=document.getElementById('rrhh_vac_notas')?.value||null;
+  if(!fechaInicio||!fechaFin||!dias){ alert('Completá fechas y días.'); return; }
+  try{
+    await apiFetch('/api/rrhh/vacaciones',{method:'POST',body:{empleadoId:empId,fechaInicio:fechaInicio,fechaFin:fechaFin,dias:dias,notas:notas}});
+  }catch(e){ alert('No se pudo registrar: '+e.message); return; }
+  document.getElementById('rrhh_vac_ov')?.remove();
+  rrhhAbrirEmpleado(empId);
+  showToast('Vacaciones registradas ✅');
+}
+
+/* ── Reclutamiento / período de prueba ── */
+function rrhhModalCandidato(){
+  var ov=document.createElement('div'); ov.id='rrhh_cand_ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:420px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Nuevo candidato</div>'
+    +'<div style="padding:18px 20px">'
+    +'<div class="fi"><label>Nombre *</label><input id="rrhh_cand_nom" oninput="upper(this)"></div>'
+    +'<div class="g2" style="margin-top:10px"><div class="fi"><label>Cédula</label><input id="rrhh_cand_ced" oninput="fCed(this)"></div>'
+    +'<div class="fi"><label>Teléfono</label><input id="rrhh_cand_tel" oninput="fTel(this)"></div></div>'
+    +'<div class="g2" style="margin-top:10px"><div class="fi"><label>Puesto al que aplica</label><input id="rrhh_cand_puesto"></div>'
+    +'<div class="fi"><label>Días de prueba</label><input id="rrhh_cand_dias" type="number" value="60"></div></div>'
+    +'<div class="fi" style="margin-top:10px"><label>Perfil de cuestionario</label><select id="rrhh_cand_perfil">'
+    +Object.keys(_RRHH_PUESTO_LBL).map(function(p){return '<option value="'+p+'">'+_RRHH_PUESTO_LBL[p]+'</option>';}).join('')
+    +'</select><div style="font-size:11px;color:var(--t3);margin-top:4px">Determina qué cuestionario de competencias le corresponde.</div></div>'
+    +'</div>'
+    +'<div style="padding:14px 20px;border-top:1px solid var(--br);display:flex;justify-content:flex-end;gap:8px">'
+    +'<button class="bs" onclick="document.getElementById(\'rrhh_cand_ov\').remove()">Cancelar</button>'
+    +'<button class="bg" onclick="rrhhGuardarCandidato()">Guardar</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+}
+async function rrhhGuardarCandidato(){
+  var nombre=(document.getElementById('rrhh_cand_nom')?.value||'').trim();
+  var cedula=document.getElementById('rrhh_cand_ced')?.value||null;
+  var telefono=document.getElementById('rrhh_cand_tel')?.value||null;
+  var puestoAplicado=document.getElementById('rrhh_cand_puesto')?.value||null;
+  var diasPrueba=Number(document.getElementById('rrhh_cand_dias')?.value||60);
+  var puestoPerfil=document.getElementById('rrhh_cand_perfil')?.value||'otro';
+  if(!nombre){ alert('Falta el nombre del candidato.'); return; }
+  try{
+    await apiFetch('/api/rrhh/candidatos',{method:'POST',body:{nombre:nombre,cedula:cedula,telefono:telefono,puestoAplicado:puestoAplicado,diasPrueba:diasPrueba,puestoPerfil:puestoPerfil}});
+  }catch(e){ alert('No se pudo guardar: '+e.message); return; }
+  document.getElementById('rrhh_cand_ov')?.remove();
+  await cargarRRHH();
+  if(pag==='rrhh') rrhh_tab('rec');
+  showToast('Candidato registrado ✅');
+}
+
+/* ── Ficha completa (estilo solicitud de empleo) ── */
+function _fichaCampos(prefix,d){
+  d=d||{};
+  return '<div class="sl">Datos personales</div>'
+    +'<div class="g3">'
+    +'<div class="fi"><label>Edad</label><input id="'+prefix+'_edad" type="number" min="0" value="'+(d.edad||'')+'"></div>'
+    +'<div class="fi"><label>Estado civil</label><select id="'+prefix+'_ec"><option value="">Sin especificar</option>'
+      +['Soltero/a','Casado/a','Unión libre','Divorciado/a','Viudo/a'].map(function(o){return '<option'+(d.estado_civil===o?' selected':'')+'>'+o+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="fi"><label>Nacionalidad</label><input id="'+prefix+'_nac" value="'+(d.nacionalidad||'Dominicana')+'"></div>'
+    +'<div class="fi"><label>Tipo de sangre</label><select id="'+prefix+'_sang"><option value="">Sin especificar</option>'
+      +['O+','O-','A+','A-','B+','B-','AB+','AB-'].map(function(o){return '<option'+(d.tipo_sangre===o?' selected':'')+'>'+o+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="fi sp2"><label>Dirección</label><input id="'+prefix+'_dir" value="'+(d.direccion||'')+'"></div>'
+    +'<div class="fi"><label>Número de casa</label><input id="'+prefix+'_ncasa" value="'+(d.numero_casa||'')+'"></div>'
+    +'</div>'
+    +'<div class="sl">Información académica</div>'
+    +'<div class="g3">'
+    +'<div class="fi"><label>Nivel académico</label><select id="'+prefix+'_niv"><option value="">Sin especificar</option>'
+      +['Primario','Secundario','Técnico','Universitario','Postgrado'].map(function(o){return '<option'+(d.nivel_academico===o?' selected':'')+'>'+o+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="fi"><label>Título obtenido</label><input id="'+prefix+'_tit" value="'+(d.titulo_obtenido||'')+'"></div>'
+    +'<div class="fi"><label>Institución</label><input id="'+prefix+'_inst" value="'+(d.institucion_educativa||'')+'"></div>'
+    +'</div>'
+    +'<div class="fi"><label>Cursos realizados</label><textarea id="'+prefix+'_cursos" rows="2">'+(d.cursos_realizados||'')+'</textarea></div>'
+    +'<div class="sl">Referencias laborales (últimos 3 lugares donde trabajó)</div>'
+    +[1,2,3].map(function(n){
+      return '<div class="g3" style="margin-bottom:6px">'
+        +'<div class="fi"><label>Empresa '+n+'</label><input id="'+prefix+'_rl'+n+'e" value="'+(d['ref_laboral'+n+'_empresa']||'')+'"></div>'
+        +'<div class="fi"><label>Supervisor '+n+'</label><input id="'+prefix+'_rl'+n+'s" value="'+(d['ref_laboral'+n+'_supervisor']||'')+'"></div>'
+        +'<div class="fi"><label>Motivo de salida '+n+'</label><input id="'+prefix+'_rl'+n+'m" value="'+(d['ref_laboral'+n+'_motivo']||'')+'"></div>'
+        +'</div>';
+    }).join('')
+    +'<div class="sl">Referencias personales (3 personas)</div>'
+    +[1,2,3].map(function(n){
+      return '<div class="g3" style="margin-bottom:6px">'
+        +'<div class="fi"><label>Nombre '+n+'</label><input id="'+prefix+'_rp'+n+'n" value="'+(d['ref_personal'+n+'_nombre']||'')+'"></div>'
+        +'<div class="fi"><label>Teléfono '+n+'</label><input id="'+prefix+'_rp'+n+'t" oninput="fTel(this)" value="'+(d['ref_personal'+n+'_telefono']||'')+'"></div>'
+        +'<div class="fi"><label>Parentesco '+n+'</label><input id="'+prefix+'_rp'+n+'p" value="'+(d['ref_personal'+n+'_parentesco']||'')+'"></div>'
+        +'</div>';
+    }).join('');
+}
+function _fichaLeer(prefix){
+  var d={
+    edad:Number(document.getElementById(prefix+'_edad')?.value||0)||null,
+    estadoCivil:document.getElementById(prefix+'_ec')?.value||null,
+    nacionalidad:document.getElementById(prefix+'_nac')?.value||null,
+    tipoSangre:document.getElementById(prefix+'_sang')?.value||null,
+    direccion:document.getElementById(prefix+'_dir')?.value||null,
+    numeroCasa:document.getElementById(prefix+'_ncasa')?.value||null,
+    nivelAcademico:document.getElementById(prefix+'_niv')?.value||null,
+    tituloObtenido:document.getElementById(prefix+'_tit')?.value||null,
+    institucionEducativa:document.getElementById(prefix+'_inst')?.value||null,
+    cursosRealizados:document.getElementById(prefix+'_cursos')?.value||null,
+  };
+  [1,2,3].forEach(function(n){
+    d['refLaboral'+n+'Empresa']=document.getElementById(prefix+'_rl'+n+'e')?.value||null;
+    d['refLaboral'+n+'Supervisor']=document.getElementById(prefix+'_rl'+n+'s')?.value||null;
+    d['refLaboral'+n+'Motivo']=document.getElementById(prefix+'_rl'+n+'m')?.value||null;
+    d['refPersonal'+n+'Nombre']=document.getElementById(prefix+'_rp'+n+'n')?.value||null;
+    d['refPersonal'+n+'Telefono']=document.getElementById(prefix+'_rp'+n+'t')?.value||null;
+    d['refPersonal'+n+'Parentesco']=document.getElementById(prefix+'_rp'+n+'p')?.value||null;
+  });
+  return d;
+}
+function rrhhModalFichaCandidato(id){
+  var c=RRHH_CANDIDATOS.find(function(x){return x.id===id;}); if(!c) return;
+  var ov=document.createElement('div'); ov.id='rrhh_ficha_ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:640px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Ficha completa — '+c.nombre+'</div>'
+    +'<div style="padding:18px 20px;max-height:70vh;overflow-y:auto">'+_fichaCampos('rf',c)+'</div>'
+    +'<div style="padding:14px 20px;border-top:1px solid var(--br);display:flex;justify-content:flex-end;gap:8px">'
+    +'<button class="bs" onclick="document.getElementById(\'rrhh_ficha_ov\').remove()">Cancelar</button>'
+    +'<button class="bg" onclick="rrhhGuardarFichaCandidato('+id+')">Guardar</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+}
+async function rrhhGuardarFichaCandidato(id){
+  try{ await apiFetch('/api/rrhh/candidatos/'+id+'/perfil',{method:'PATCH',body:_fichaLeer('rf')}); }
+  catch(e){ alert('No se pudo guardar la ficha: '+e.message); return; }
+  document.getElementById('rrhh_ficha_ov')?.remove();
+  await cargarRRHH();
+  if(pag==='rrhh') rrhh_tab('rec');
+  showToast('Ficha guardada ✅');
+}
+async function rrhhGuardarDatosEmpleado(id){
+  try{ await apiFetch('/api/rrhh/empleados/'+id+'/perfil',{method:'PATCH',body:_fichaLeer('rfe')}); }
+  catch(e){ alert('No se pudo guardar la ficha: '+e.message); return; }
+  await cargarRRHH();
+  showToast('Datos personales guardados ✅');
+}
+
+/* ── Cuestionario de competencias (apoyo para RRHH, no un test clínico) ── */
+async function rrhhModalCuestionario(candidatoId){
+  var c=RRHH_CANDIDATOS.find(function(x){return x.id===candidatoId;}); if(!c) return;
+  var puesto=c.puesto_perfil||'otro';
+  var ov=document.createElement('div'); ov.id='rrhh_cuest_ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:600px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Cuestionario de competencias — '+c.nombre+'</div>'
+    +'<div style="padding:18px 20px;max-height:75vh;overflow-y:auto" id="rrhh_cuest_body"><div class="empty"><i class="ti ti-loader-2"></i>Cargando...</div></div>'
+    +'</div>';
+  document.body.appendChild(ov);
+  var body=document.getElementById('rrhh_cuest_body');
+  try{
+    var plantilla=await apiFetch('/api/rrhh/cuestionario/'+puesto);
+    var evaluaciones=await apiFetch('/api/rrhh/evaluaciones?candidatoId='+candidatoId);
+    var h='<div style="padding:10px 12px;background:#FFF3E0;border:1.5px solid #E65100;border-radius:10px;font-size:11px;color:#7F3D00;margin-bottom:14px">'
+      +'<i class="ti ti-alert-triangle"></i> Herramienta de apoyo para RRHH -- NO es un test psicológico clínico ni descalifica automáticamente a nadie. Vos seguís siendo quien decide.</div>';
+    if(evaluaciones.length){
+      h+='<div class="sl">Evaluaciones previas</div>'
+        +evaluaciones.map(function(ev){
+          return '<div style="padding:8px 0;border-bottom:1px solid var(--br);font-size:11.5px">'
+            +'<b>Puntaje referencial: '+ev.puntaje_referencial+'</b> · '+(ev.evaluado_por_nombre||'—')+' · '+new Date(ev.creado_en).toLocaleDateString('es-DO')
+            +(ev.notas_evaluador?'<div style="color:var(--t3);margin-top:2px">'+ev.notas_evaluador+'</div>':'')+'</div>';
+        }).join('');
+    }
+    h+='<div class="sl" style="margin-top:12px">'+plantilla.titulo+' -- nueva evaluación</div>';
+    h+=plantilla.preguntas.map(function(p,pi){
+      return '<div style="margin-bottom:12px"><div style="font-size:12.5px;font-weight:600;margin-bottom:5px">'+(pi+1)+'. '+p.texto+'</div>'
+        +p.opciones.map(function(o){
+          return '<label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;cursor:pointer">'
+            +'<input type="radio" name="rrhh_q_'+p.id+'" value="'+o.val+'"> '+o.texto+'</label>';
+        }).join('')
+        +'</div>';
+    }).join('');
+    h+='<div class="fi" style="margin-top:6px"><label>Notas del evaluador</label><textarea id="rrhh_cuest_notas" rows="2"></textarea></div>';
+    h+='<div class="actions" style="margin-top:10px"><button class="bg" onclick="rrhhGuardarCuestionario('+candidatoId+',\''+puesto+'\')"><i class="ti ti-check"></i> Guardar evaluación</button></div>';
+    body.innerHTML=h;
+  }catch(e){ body.innerHTML='<div class="empty"><p>No se pudo cargar: '+e.message+'</p></div>'; }
+}
+async function rrhhGuardarCuestionario(candidatoId,puesto){
+  var respuestas={};
+  document.querySelectorAll('#rrhh_cuest_body input[type="radio"]:checked').forEach(function(el){
+    var id=el.name.replace('rrhh_q_','');
+    respuestas[id]=el.value;
+  });
+  var notasEvaluador=document.getElementById('rrhh_cuest_notas')?.value||null;
+  if(!Object.keys(respuestas).length){ alert('Respondé al menos una pregunta.'); return; }
+  var resultado;
+  try{ resultado=await apiFetch('/api/rrhh/evaluaciones',{method:'POST',body:{candidatoId:candidatoId,puesto:puesto,respuestas:respuestas,notasEvaluador:notasEvaluador}}); }
+  catch(e){ alert('No se pudo guardar la evaluación: '+e.message); return; }
+  document.getElementById('rrhh_cuest_ov')?.remove();
+  await cargarRRHH();
+  if(pag==='rrhh') rrhh_tab('rec');
+  showToast('Evaluación guardada · puntaje referencial: '+resultado.puntaje_referencial);
+}
+
+function rrhhModalEtapaCandidato(id){
+  var c=RRHH_CANDIDATOS.find(function(x){return x.id===id;}); if(!c) return;
+  var ov=document.createElement('div'); ov.id='rrhh_etapa_ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  var opciones=Object.keys(_RRHH_ETAPA_LBL).map(function(e){return '<option value="'+e+'"'+(e===c.etapa?' selected':'')+'>'+_RRHH_ETAPA_LBL[e]+'</option>';}).join('');
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:420px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">'+c.nombre+' — actualizar etapa</div>'
+    +'<div style="padding:18px 20px">'
+    +'<div class="fi"><label>Etapa</label><select id="rrhh_etapa_sel" onchange="_rrhhToggleFijo()">'+opciones+'</select></div>'
+    +'<div id="rrhh_etapa_fijo" style="display:none;margin-top:10px">'
+    +'<div class="fi"><label>Cargo</label><input id="rrhh_etapa_cargo" value="'+(c.puesto_aplicado||'')+'"></div>'
+    +'<div class="g2" style="margin-top:10px"><div class="fi"><label>Salario bruto</label><input id="rrhh_etapa_sal" type="number" min="0"></div>'
+    +'<div class="fi"><label>Fecha de ingreso</label><input id="rrhh_etapa_ingreso" type="date" value="'+hoy()+'"></div></div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:6px">Al pasar a "Empleado fijo" se crea el registro en Nómina automáticamente.</div>'
+    +'</div>'
+    +'</div>'
+    +'<div style="padding:14px 20px;border-top:1px solid var(--br);display:flex;justify-content:flex-end;gap:8px">'
+    +'<button class="bs" onclick="document.getElementById(\'rrhh_etapa_ov\').remove()">Cancelar</button>'
+    +'<button class="bg" onclick="rrhhGuardarEtapaCandidato('+id+')">Guardar</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  _rrhhToggleFijo();
+}
+function _rrhhToggleFijo(){
+  var sel=document.getElementById('rrhh_etapa_sel');
+  var div=document.getElementById('rrhh_etapa_fijo');
+  if(div) div.style.display=(sel&&sel.value==='fijo')?'block':'none';
+}
+async function rrhhGuardarEtapaCandidato(id){
+  var etapa=document.getElementById('rrhh_etapa_sel')?.value;
+  var body={etapa:etapa};
+  if(etapa==='fijo'){
+    body.cargo=document.getElementById('rrhh_etapa_cargo')?.value||null;
+    body.salarioBruto=Number(document.getElementById('rrhh_etapa_sal')?.value||0);
+    body.fechaIngreso=document.getElementById('rrhh_etapa_ingreso')?.value||null;
+  }
+  try{
+    await apiFetch('/api/rrhh/candidatos/'+id,{method:'PATCH',body:body});
+  }catch(e){ alert('No se pudo actualizar: '+e.message); return; }
+  document.getElementById('rrhh_etapa_ov')?.remove();
+  await cargarRRHH();
+  if(pag==='rrhh') rrhh_tab('rec');
+  showToast('Etapa actualizada ✅');
 }
 
 </script>
@@ -5695,7 +6486,7 @@ var CB_dlg = {
   close:function(){var d=document.getElementById('cb-dlg');if(d&&d.close)d.close();}
 };
 
-var CB_HTML_B64 = "CjxoZWFkZXI+CiAgPGgxPvCfkrAgQ29icmFkb3IgS2VyYXZlbjwvaDE+CiAgPGRpdj4KICAgIDxidXR0b24gY2xhc3M9ImF6dWwiIG9uY2xpY2s9IkNCX2V4cG9ydGFySlNPTigpIj7wn5K+IFJlc3BhbGRvPC9idXR0b24+CiAgICA8YnV0dG9uIGNsYXNzPSJhenVsIiBvbmNsaWNrPSJkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnY2ItaW1wb3J0YXInKS5jbGljaygpIj7wn5OCIFJlc3RhdXJhcjwvYnV0dG9uPgogICAgPGlucHV0IHR5cGU9ImZpbGUiIGlkPSJjYi1pbXBvcnRhciIgYWNjZXB0PSIuanNvbiIgc3R5bGU9ImRpc3BsYXk6bm9uZSIgb25jaGFuZ2U9IkNCX2ltcG9ydGFySlNPTihldmVudCkiPgogICAgPGJ1dHRvbiBjbGFzcz0iYXp1bCIgb25jbGljaz0iQ0JfZXhwb3J0YXJDU1YoQ0JfY2xpZW50ZXMsICdjb2JyYW56YScpIj7irIfvuI8gRXhwb3J0YXIgQ1NWPC9idXR0b24+CiAgPC9kaXY+CjwvaGVhZGVyPgo8bmF2PgogIDxidXR0b24gaWQ9ImNiLXRhYi1jbGllbnRlcyIgY2xhc3M9ImFjdGl2YSIgb25jbGljaz0iQ0JfbW9zdHJhclRhYignY2xpZW50ZXMnKSI+8J+RpSBDbGllbnRlczwvYnV0dG9uPgogIDxidXR0b24gaWQ9ImNiLXRhYi1jYXJnYXIiIG9uY2xpY2s9IkNCX21vc3RyYXJUYWIoJ2NhcmdhcicpIj7wn5O4IENhcmdhcjwvYnV0dG9uPgogIDxidXR0b24gaWQ9ImNiLXRhYi1wcm9ncmFtYXIiIG9uY2xpY2s9IkNCX21vc3RyYXJUYWIoJ3Byb2dyYW1hcicpIj7ij7AgUHJvZ3JhbWFyPC9idXR0b24+CiAgPGJ1dHRvbiBpZD0iY2ItdGFiLXJlcG9ydGVzIiBvbmNsaWNrPSJDQl9tb3N0cmFyVGFiKCdyZXBvcnRlcycpIj7wn5OKIFJlcG9ydGVzPC9idXR0b24+CjwvbmF2PgoKPCEtLSA9PT09PT09PT09PT09PT09PT09PSBQRVNUQcORQSBDTElFTlRFUyA9PT09PT09PT09PT09PT09PT09PSAtLT4KPGRpdiBjbGFzcz0iY29udGVuaWRvIiBpZD0iY2Itc2VjLWNsaWVudGVzIj4KICA8ZGl2IGNsYXNzPSJ0YXJqZXRhcyI+CiAgICA8ZGl2IGNsYXNzPSJ0YXJqZXRhIj48ZGl2PvCfkrwgVE9UQUwgRkFDVFVSQURPPC9kaXY+PGRpdiBjbGFzcz0idmFsb3IiIGlkPSJjYi10LWZhY3R1cmFkbyI+4oCUPC9kaXY+PGRpdiBzdHlsZT0iZm9udC1zaXplOjEycHg7Y29sb3I6IzY2NyIgaWQ9ImNiLXQtY2FudGlkYWQiPuKAlDwvZGl2PjwvZGl2PgogICAgPGRpdiBjbGFzcz0idGFyamV0YSI+PGRpdj5Db2JyYWRvPC9kaXY+PGRpdiBjbGFzcz0idmFsb3IgdmVyZGUiIGlkPSJjYi10LWNvYnJhZG8iPuKAlDwvZGl2PjwvZGl2PgogICAgPGRpdiBjbGFzcz0idGFyamV0YSI+PGRpdj5Ub3RhbCBwZW5kaWVudGU8L2Rpdj48ZGl2IGNsYXNzPSJ2YWxvciByb2pvIiBpZD0iY2ItdC1wZW5kaWVudGUiPuKAlDwvZGl2PjwvZGl2PgogICAgPGRpdiBjbGFzcz0idGFyamV0YSI+PGRpdj5DbGllbnRlcyB2ZW5jaWRvczwvZGl2PjxkaXYgY2xhc3M9InZhbG9yIHJvam8iIGlkPSJjYi10LXZlbmNpZG9zIj7igJQ8L2Rpdj48L2Rpdj4KICAgIDxkaXYgY2xhc3M9InRhcmpldGEiPjxkaXY+UHJvbWVzYXMgcGFyYSBob3k8L2Rpdj48ZGl2IGNsYXNzPSJ2YWxvciBuYXJhbmphIiBpZD0iY2ItdC1wcm9tZXNhcyI+4oCUPC9kaXY+PC9kaXY+CiAgICA8ZGl2IGNsYXNzPSJ0YXJqZXRhIj48ZGl2PlBhZ2Fkb3M8L2Rpdj48ZGl2IGNsYXNzPSJ2YWxvciB2ZXJkZSIgaWQ9ImNiLXQtcGFnYWRvcyI+4oCUPC9kaXY+PC9kaXY+CiAgPC9kaXY+CgogIDxkaXYgY2xhc3M9ImFjY2lvbmVzIj4KICAgIDxidXR0b24gY2xhc3M9InByaW5jaXBhbCIgb25jbGljaz0iQ0JfY29icmFyVG9kb3MoKSI+8J+TsiBDT0JSQVIgQSBUT0RPUyBMT1MgVkVOQ0lET1M8L2J1dHRvbj4KICAgIDxzcGFuIGlkPSJjYi1wcm9ncmVzby1lbnZpbyI+PC9zcGFuPgogICAgPHNlbGVjdCBpZD0iY2ItZmlsdHJvIiBvbmNoYW5nZT0iQ0JfcGludGFyKCkiPgogICAgICA8b3B0aW9uIHZhbHVlPSJ0b2RvcyI+VmVyOiB0b2Rvczwvb3B0aW9uPgogICAgICA8b3B0aW9uIHZhbHVlPSJ2ZW5jaWRvcyIgc2VsZWN0ZWQ+VmVyOiBzb2xvIHZlbmNpZG9zPC9vcHRpb24+CiAgICAgIDxvcHRpb24gdmFsdWU9InByb21lc2FzIj5WZXI6IHByb21lc2FzIGRlIGhveTwvb3B0aW9uPgogICAgICA8b3B0aW9uIHZhbHVlPSJwYWdhZG9zIj5WZXI6IHBhZ2Fkb3M8L29wdGlvbj4KICAgIDwvc2VsZWN0PgogICAgPGlucHV0IGlkPSJjYi1idXNjYXIiIHBsYWNlaG9sZGVyPSLwn5SNIEJ1c2NhciBub21icmUgbyBjb250cmF0by4uLiIgb25pbnB1dD0iQ0JfcGludGFyKCkiPgogIDwvZGl2PgoKICA8ZGV0YWlscyBzdHlsZT0ibWFyZ2luLWJvdHRvbToxMnB4Ij4KICAgIDxzdW1tYXJ5IHN0eWxlPSJjdXJzb3I6cG9pbnRlciI+4pyP77iPIEVkaXRhciBtZW5zYWplIGRlIGNvYnJvIChwbGFudGlsbGEpPC9zdW1tYXJ5PgogICAgPHRleHRhcmVhIGlkPSJjYi1wbGFudGlsbGEiIG9uY2hhbmdlPSJDQl9ndWFyZGFyUGxhbnRpbGxhKCkiPjwvdGV4dGFyZWE+CiAgICA8ZGl2IGNsYXNzPSJwaWUiPkNvbW9kaW5lczoge25vbWJyZX0ge2NvbnRyYXRvfSB7c2FsZG99IHtkaWFzfSB7bGltaXRlfS4gQ29uIG3DoXMgZGUgMzAgZMOtYXMgZGUgYXRyYXNvIHNlIGFncmVnYSBzb2xhIGxhIGFkdmVydGVuY2lhIGRlbCByZWNhcmdvIGRlbCBjb250cmF0by48L2Rpdj4KICA8L2RldGFpbHM+CgogIDx0YWJsZT4KICAgIDx0aGVhZD48dHI+CiAgICAgIDx0aD5Oby48L3RoPjx0aD5DbGllbnRlPC90aD48dGg+VGVsw6lmb25vPC90aD48dGg+TW9udG8gZmFjdHVyYSBSRCQ8L3RoPjx0aD5SRVNUQSAoZGViZSkgUkQkPC90aD48dGg+VmVuY2U8L3RoPjx0aD5BdHJhc288L3RoPjx0aD5Fc3RhZG88L3RoPjx0aD5Qcm9tZXNhPC90aD48dGg+Tm90YXM8L3RoPjx0aD5BY2Npb25lczwvdGg+CiAgICA8L3RyPjwvdGhlYWQ+CiAgICA8dGJvZHkgaWQ9ImNiLWN1ZXJwbyI+PC90Ym9keT4KICA8L3RhYmxlPgoKICA8ZGl2IGNsYXNzPSJwaWUiPlBhZ29zOiBCYW5yZXNlcnZhcyBjdGEuIGNvcnJpZW50ZSA5NjA4OTYyOTk3IMK3IEJhbmNvIFBvcHVsYXIgY3RhLiBhaG9ycm8gODQwOTg2NDQyIMK3IGEgbm9tYnJlIGRlIEpvc8OpIEF1Z3VzdG8gRHVyw6FuIEdhcmPDrWEuPGJyPgogIExvcyBkYXRvcyBzZSBndWFyZGFuIGVuIGVsIHNpc3RlbWEgKGJhc2UgZGUgZGF0b3MgcmVhbCkgeSBzZSB2ZW4gYWwgaW5zdGFudGUgZW4gRmFjdHVyYWNpw7NuLCBDdWVudGFzIHBvciBDb2JyYXIgeSBSZW5kaW1pZW50by48L2Rpdj4KPC9kaXY+Cgo8IS0tID09PT09PT09PT09PT09PT09PT09IFBFU1RBw5FBIENBUkdBUiA9PT09PT09PT09PT09PT09PT09PSAtLT4KPGRpdiBjbGFzcz0iY29udGVuaWRvIG9jdWx0byIgaWQ9ImNiLXNlYy1jYXJnYXIiPgogIDxkaXYgY2xhc3M9InBhbmVsIj4KICAgIDxoMz7wn5O4IE9wY2nDs24gMSDigJQgTGVlciBmb3RvcyBkZSBjb250cmF0b3MgY29uIElBPC9oMz4KICAgIDxwPlNlbGVjY2lvbmEgdW5hIG8gdmFyaWFzIGZvdG9zIGRlIGNvbnRyYXRvcyB5IGxhIElBIGV4dHJhZXLDoSBsb3MgZGF0b3MgeSBsb3MgYWdyZWdhcsOhIGEgbGEgbGlzdGEgYXV0b23DoXRpY2FtZW50ZS48YnI+CiAgICA8c21hbGw+TmVjZXNpdGEgdW5hIGNsYXZlIGRlIEFQSSBkZSBDbGF1ZGUgKHBsYXRmb3JtLmNsYXVkZS5jb20pLiBTZSBndWFyZGEgZW4gdHUgbmF2ZWdhZG9yIHkgZWwgY29zdG8gZXMgZGUgY2VudGF2b3MgcG9yIGZvdG8uPC9zbWFsbD48L3A+CiAgICA8ZGl2IGNsYXNzPSJhY2Npb25lcyI+CiAgICAgIDxpbnB1dCB0eXBlPSJwYXNzd29yZCIgaWQ9ImNiLWNsYXZlLWFwaSIgcGxhY2Vob2xkZXI9IkNsYXZlIEFQSSAoc2stYW50LS4uLikiIHN0eWxlPSJ3aWR0aDoyODBweCIgb25jaGFuZ2U9ImxvY2FsU3RvcmFnZS5zZXRJdGVtKCdjb2JyYWRvcl9hcGknLCB0aGlzLnZhbHVlLnRyaW0oKSkiPgogICAgICA8aW5wdXQgdHlwZT0iZmlsZSIgaWQ9ImNiLWZvdG9zIiBhY2NlcHQ9ImltYWdlLyoiIG11bHRpcGxlPgogICAgICA8YnV0dG9uIGNsYXNzPSJwcmluY2lwYWwiIG9uY2xpY2s9IkNCX2xlZXJGb3RvcygpIj7wn6SWIExlZXIgZm90b3MgeSBhZ3JlZ2FyPC9idXR0b24+CiAgICA8L2Rpdj4KICAgIDxkaXYgaWQ9ImNiLWxvZy1jYXJnYSI+RXNwZXJhbmRvIGZvdG9zLi4uPC9kaXY+CiAgPC9kaXY+CgogIDxkaXYgY2xhc3M9InBhbmVsIj4KICAgIDxoMz7wn5OCIE9wY2nDs24gMiDigJQgSW1wb3J0YXIgbG90ZSBwcmVwYXJhZG8gcG9yIENsYXVkZSAoc2luIGNvc3RvIGRlIEFQSSk8L2gzPgogICAgPHA+RW52w61hIGxhcyBmb3RvcyBkZSB0dXMgY29udHJhdG9zIGVuIGVsIGNoYXQgZGUgQ2xhdWRlIChDb3dvcmspLCBwaWRlIGVsICJsb3RlIHBhcmEgZWwgY29icmFkb3IiIHkgdGUgZW50cmVnYXLDoSB1biBhcmNoaXZvIDxiPi5qc29uPC9iPi4gQ8OhcmdhbG8gYXF1w60geSBsb3MgQ0JfY2xpZW50ZXMgc2UgYWdyZWdhbiBzb2xvcyAoc2luIGR1cGxpY2FyIGNvbnRyYXRvcyB5YSBleGlzdGVudGVzKS48L3A+CiAgICA8aW5wdXQgdHlwZT0iZmlsZSIgaWQ9ImNiLWxvdGUiIGFjY2VwdD0iLmpzb24sLmNzdiwueGxzeCwueGxzIiBvbmNoYW5nZT0iQ0JfaW1wb3J0YXJMb3RlKGV2ZW50KSI+CiAgPC9kaXY+CjwvZGl2PgoKPCEtLSA9PT09PT09PT09PT09PT09PT09PSBQRVNUQcORQSBQUk9HUkFNQVIgPT09PT09PT09PT09PT09PT09PT0gLS0+CjxkaXYgY2xhc3M9ImNvbnRlbmlkbyBvY3VsdG8iIGlkPSJjYi1zZWMtcHJvZ3JhbWFyIj4KICA8ZGl2IGNsYXNzPSJwYW5lbCI+CiAgICA8aDM+4o+wIFByb2dyYW1hciBlbnbDrW8gZGUgcmVjb3JkYXRvcmlvczwvaDM+CiAgICA8cD4xKSBNYXJjYSBsb3MgQ0JfY2xpZW50ZXMgJm5ic3A7wrcmbmJzcDsgMikgZWxpZ2UgZWwgZMOtYSB5IGxhIGhvcmEgJm5ic3A7wrcmbmJzcDsgMykgZGVqYSBlc3RlIHByb2dyYW1hIDxiPmFiaWVydG8gZW4gZWwgbmF2ZWdhZG9yPC9iPjogYWwgbGxlZ2FyIGxhIGhvcmEsIHNvbmFyw6EgeSBjb21lbnphcsOhIGVsIGVudsOtbyBhdXRvbcOhdGljYW1lbnRlLjwvcD4KICAgIDxkaXYgY2xhc3M9ImFjY2lvbmVzIj4KICAgICAgPGxhYmVsPvCfk4UgRMOtYTogPGlucHV0IHR5cGU9ImRhdGUiIGlkPSJjYi1wcm9nLWZlY2hhIj48L2xhYmVsPgogICAgICA8bGFiZWw+8J+VkiBIb3JhOiA8aW5wdXQgdHlwZT0idGltZSIgaWQ9ImNiLXByb2ctaG9yYSIgdmFsdWU9IjA5OjAwIj48L2xhYmVsPgogICAgICA8YnV0dG9uIGNsYXNzPSJwcmluY2lwYWwiIG9uY2xpY2s9IkNCX3Byb2dyYW1hckVudmlvKCkiPuKPsCBQUk9HUkFNQVIgRU5Ww41PPC9idXR0b24+CiAgICA8L2Rpdj4KICAgIDx0YWJsZT4KICAgICAgPHRoZWFkPjx0cj48dGggc3R5bGU9IndpZHRoOjM2cHgiPjxpbnB1dCB0eXBlPSJjaGVja2JveCIgb25jbGljaz0iQ0Jfc2VsVG9kb3ModGhpcykiIHRpdGxlPSJNYXJjYXIgdG9kb3MiPjwvdGg+PHRoPk5vLjwvdGg+PHRoPkNsaWVudGU8L3RoPjx0aD5UZWzDqWZvbm88L3RoPjx0aD5SRVNUQSAoZGViZSkgUkQkPC90aD48dGg+QXRyYXNvPC90aD48L3RyPjwvdGhlYWQ+CiAgICAgIDx0Ym9keSBpZD0iY2ItY3VlcnBvLXNlbCI+PC90Ym9keT4KICAgIDwvdGFibGU+CiAgPC9kaXY+CiAgPGRpdiBjbGFzcz0icGFuZWwiPgogICAgPGgzPvCfk4sgRW52w61vcyBwcm9ncmFtYWRvczwvaDM+CiAgICA8ZGl2IGlkPSJjYi1saXN0YS1qb2JzIj48L2Rpdj4KICA8L2Rpdj4KPC9kaXY+Cgo8IS0tID09PT09PT09PT09PT09PT09PT09IFBFU1RBw5FBIFJFUE9SVEVTID09PT09PT09PT09PT09PT09PT09IC0tPgo8ZGl2IGNsYXNzPSJjb250ZW5pZG8gb2N1bHRvIiBpZD0iY2Itc2VjLXJlcG9ydGVzIj4KICA8ZGl2IGNsYXNzPSJhY2Npb25lcyI+CiAgICA8YnV0dG9uIGNsYXNzPSJidG4tcmVwb3J0ZSBhY3RpdmEiIGlkPSJjYi1yZXAtcGFnYWRvcyIgb25jbGljaz0iQ0JfdmVyUmVwb3J0ZSgncGFnYWRvcycpIj7inIUgUGFnYWRvczwvYnV0dG9uPgogICAgPGJ1dHRvbiBjbGFzcz0iYnRuLXJlcG9ydGUiIGlkPSJjYi1yZXAtYWJvbmFkb3MiIG9uY2xpY2s9IkNCX3ZlclJlcG9ydGUoJ2Fib25hZG9zJykiPvCfkrUgQWJvbmFkb3MgKGRlYmVuIHBhcnRlKTwvYnV0dG9uPgogICAgPGJ1dHRvbiBjbGFzcz0iYnRuLXJlcG9ydGUiIGlkPSJjYi1yZXAtbW9yb3NvcyIgb25jbGljaz0iQ0JfdmVyUmVwb3J0ZSgnbW9yb3NvcycpIj7wn5qrIE51bmNhIGhhbiBwYWdhZG88L2J1dHRvbj4KICAgIDxidXR0b24gY2xhc3M9ImF6dWwiIG9uY2xpY2s9IkNCX2V4cG9ydGFyUmVwb3J0ZSgpIj7irIfvuI8gRXhwb3J0YXIgZXN0ZSByZXBvcnRlPC9idXR0b24+CiAgPC9kaXY+CiAgPGRpdiBjbGFzcz0idGFyamV0YXMiIGlkPSJjYi1yZXN1bWVuLXJlcG9ydGUiPjwvZGl2PgogIDx0YWJsZT4KICAgIDx0aGVhZD48dHI+PHRoPk5vLjwvdGg+PHRoPkNsaWVudGU8L3RoPjx0aD5UZWzDqWZvbm88L3RoPjx0aD5Nb250byBSRCQ8L3RoPjx0aD5QYWdhZG8gUkQkPC90aD48dGg+U2FsZG8gUkQkPC90aD48dGg+VmVuY2U8L3RoPjx0aD5BdHJhc288L3RoPjx0aD5Ob3RhczwvdGg+PHRoPjwvdGg+PC90cj48L3RoZWFkPgogICAgPHRib2R5IGlkPSJjYi1jdWVycG8tcmVwb3J0ZSI+PC90Ym9keT4KICA8L3RhYmxlPgo8L2Rpdj4KCjxkaWFsb2cgaWQ9ImNiLWRsZyI+CiAgPGgzIGlkPSJjYi1kbGctdGl0dWxvIj5DbGllbnRlPC9oMz4KICA8ZGl2IGNsYXNzPSJmaWxhLWZvcm0iPgogICAgPGRpdj48bGFiZWw+Tm8uIGNvbnRyYXRvPC9sYWJlbD48aW5wdXQgaWQ9ImNiLWYtbm8iIHJlYWRvbmx5IHN0eWxlPSJiYWNrZ3JvdW5kOiNlZWUiPjwvZGl2PgogICAgPGRpdj48bGFiZWw+Tm9tYnJlPC9sYWJlbD48aW5wdXQgaWQ9ImNiLWYtbm9tYnJlIiByZWFkb25seSBzdHlsZT0iYmFja2dyb3VuZDojZWVlIj48L2Rpdj4KICA8L2Rpdj4KICA8ZGl2IGNsYXNzPSJmaWxhLWZvcm0iPgogICAgPGRpdj48bGFiZWw+VGVsw6lmb25vPC9sYWJlbD48aW5wdXQgaWQ9ImNiLWYtdGVsIiByZWFkb25seSBzdHlsZT0iYmFja2dyb3VuZDojZWVlIj48L2Rpdj4KICAgIDxkaXY+PGxhYmVsPlRlbMOpZm9ubyAyIChlZGl0YWJsZSk8L2xhYmVsPjxpbnB1dCBpZD0iY2ItZi10ZWwyIiBwbGFjZWhvbGRlcj0iODA5LTAwMC0wMDAwIiBtYXhsZW5ndGg9IjEyIiBvbmlucHV0PSJmVGVsKHRoaXMpIj48L2Rpdj4KICA8L2Rpdj4KICA8ZGl2IGNsYXNzPSJmaWxhLWZvcm0iPgogICAgPGRpdj48bGFiZWw+TW9udG8gdG90YWwgUkQkPC9sYWJlbD48aW5wdXQgaWQ9ImNiLWYtbW9udG8iIHR5cGU9Im51bWJlciIgcmVhZG9ubHkgc3R5bGU9ImJhY2tncm91bmQ6I2VlZSI+PC9kaXY+CiAgICA8ZGl2PjxsYWJlbD5TYWxkbyBwZW5kaWVudGUgUkQkICh1c2EgIkNvYnJhciIgcGFyYSBjYW1iaWFybG8pPC9sYWJlbD48aW5wdXQgaWQ9ImNiLWYtc2FsZG8iIHR5cGU9Im51bWJlciIgcmVhZG9ubHkgc3R5bGU9ImJhY2tncm91bmQ6I2VlZSI+PC9kaXY+CiAgPC9kaXY+CiAgPGRpdiBjbGFzcz0iZmlsYS1mb3JtIj4KICAgIDxkaXY+PGxhYmVsPkZlY2hhIGzDrW1pdGU8L2xhYmVsPjxpbnB1dCBpZD0iY2ItZi1saW1pdGUiIHR5cGU9ImRhdGUiPjwvZGl2PgogICAgPGRpdj48bGFiZWw+UHJvbWVzYSBkZSBwYWdvPC9sYWJlbD48aW5wdXQgaWQ9ImNiLWYtcHJvbWVzYSIgdHlwZT0iZGF0ZSI+PC9kaXY+CiAgPC9kaXY+CiAgPGxhYmVsPk5vdGFzPC9sYWJlbD48dGV4dGFyZWEgaWQ9ImNiLWYtbm90YXMiIHJvd3M9IjIiPjwvdGV4dGFyZWE+CiAgPGRpdiBjbGFzcz0icGllIj5FbCBub21icmUsIGPDqWR1bGEgeSB0ZWzDqWZvbm8gcHJpbmNpcGFsIHNvbG8gbG9zIGVkaXRhIEdlcmVuY2lhIGRlc2RlIGVsIEJ1esOzbi4gQXF1w60gc2UgYWN0dWFsaXphIHRlbMOpZm9ubyAyLCBmZWNoYSBsw61taXRlLCBwcm9tZXNhIGRlIHBhZ28geSBub3RhcyBkZSBnZXN0acOzbi48L2Rpdj4KICA8ZGl2IHN0eWxlPSJtYXJnaW4tdG9wOjE0cHg7IGRpc3BsYXk6ZmxleDsgZ2FwOjhweDsganVzdGlmeS1jb250ZW50OmZsZXgtZW5kIj4KICAgIDxidXR0b24gb25jbGljaz0iQ0JfZGxnLmNsb3NlKCkiPkNhbmNlbGFyPC9idXR0b24+CiAgICA8YnV0dG9uIGNsYXNzPSJwZWxpZ3JvIiBpZD0iY2ItYnRuLWJvcnJhciIgb25jbGljaz0iQ0JfYm9ycmFyQ2xpZW50ZSgpIj7wn5eRIEJvcnJhcjwvYnV0dG9uPgogICAgPGJ1dHRvbiBjbGFzcz0iYXp1bCIgb25jbGljaz0iQ0JfZ3VhcmRhckNsaWVudGUoKSI+R3VhcmRhcjwvYnV0dG9uPgogIDwvZGl2Pgo8L2RpYWxvZz4KCg==";
+var CB_HTML_B64 = "CjxoZWFkZXI+CiAgPGgxPvCfkrAgQ29icmFkb3IgS2VyYXZlbjwvaDE+CiAgPGRpdj4KICAgIDxidXR0b24gY2xhc3M9ImF6dWwiIG9uY2xpY2s9IkNCX2V4cG9ydGFySlNPTigpIj7wn5K+IFJlc3BhbGRvPC9idXR0b24+CiAgICA8YnV0dG9uIGNsYXNzPSJhenVsIiBvbmNsaWNrPSJkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnY2ItaW1wb3J0YXInKS5jbGljaygpIj7wn5OCIFJlc3RhdXJhcjwvYnV0dG9uPgogICAgPGlucHV0IHR5cGU9ImZpbGUiIGlkPSJjYi1pbXBvcnRhciIgYWNjZXB0PSIuanNvbiIgc3R5bGU9ImRpc3BsYXk6bm9uZSIgb25jaGFuZ2U9IkNCX2ltcG9ydGFySlNPTihldmVudCkiPgogICAgPGJ1dHRvbiBjbGFzcz0iYXp1bCIgb25jbGljaz0iQ0JfZXhwb3J0YXJDU1YoQ0JfY2xpZW50ZXMsICdjb2JyYW56YScpIj7irIfvuI8gRXhwb3J0YXIgQ1NWPC9idXR0b24+CiAgPC9kaXY+CjwvaGVhZGVyPgo8bmF2PgogIDxidXR0b24gaWQ9ImNiLXRhYi1jbGllbnRlcyIgY2xhc3M9ImFjdGl2YSIgb25jbGljaz0iQ0JfbW9zdHJhclRhYignY2xpZW50ZXMnKSI+8J+RpSBDbGllbnRlczwvYnV0dG9uPgogIDxidXR0b24gaWQ9ImNiLXRhYi1jYXJnYXIiIG9uY2xpY2s9IkNCX21vc3RyYXJUYWIoJ2NhcmdhcicpIj7wn5O4IENhcmdhcjwvYnV0dG9uPgogIDxidXR0b24gaWQ9ImNiLXRhYi1wcm9ncmFtYXIiIG9uY2xpY2s9IkNCX21vc3RyYXJUYWIoJ3Byb2dyYW1hcicpIj7ij7AgUHJvZ3JhbWFyPC9idXR0b24+CiAgPGJ1dHRvbiBpZD0iY2ItdGFiLXJlcG9ydGVzIiBvbmNsaWNrPSJDQl9tb3N0cmFyVGFiKCdyZXBvcnRlcycpIj7wn5OKIFJlcG9ydGVzPC9idXR0b24+CjwvbmF2PgoKPCEtLSA9PT09PT09PT09PT09PT09PT09PSBQRVNUQcORQSBDTElFTlRFUyA9PT09PT09PT09PT09PT09PT09PSAtLT4KPGRpdiBjbGFzcz0iY29udGVuaWRvIiBpZD0iY2Itc2VjLWNsaWVudGVzIj4KICA8ZGl2IGNsYXNzPSJ0YXJqZXRhcyI+CiAgICA8ZGl2IGNsYXNzPSJ0YXJqZXRhIj48ZGl2PvCfkrwgVE9UQUwgRkFDVFVSQURPPC9kaXY+PGRpdiBjbGFzcz0idmFsb3IiIGlkPSJjYi10LWZhY3R1cmFkbyI+4oCUPC9kaXY+PGRpdiBzdHlsZT0iZm9udC1zaXplOjEycHg7Y29sb3I6IzY2NyIgaWQ9ImNiLXQtY2FudGlkYWQiPuKAlDwvZGl2PjwvZGl2PgogICAgPGRpdiBjbGFzcz0idGFyamV0YSI+PGRpdj5Db2JyYWRvPC9kaXY+PGRpdiBjbGFzcz0idmFsb3IgdmVyZGUiIGlkPSJjYi10LWNvYnJhZG8iPuKAlDwvZGl2PjwvZGl2PgogICAgPGRpdiBjbGFzcz0idGFyamV0YSI+PGRpdj5Ub3RhbCBwZW5kaWVudGU8L2Rpdj48ZGl2IGNsYXNzPSJ2YWxvciByb2pvIiBpZD0iY2ItdC1wZW5kaWVudGUiPuKAlDwvZGl2PjwvZGl2PgogICAgPGRpdiBjbGFzcz0idGFyamV0YSI+PGRpdj5DbGllbnRlcyB2ZW5jaWRvczwvZGl2PjxkaXYgY2xhc3M9InZhbG9yIHJvam8iIGlkPSJjYi10LXZlbmNpZG9zIj7igJQ8L2Rpdj48L2Rpdj4KICAgIDxkaXYgY2xhc3M9InRhcmpldGEiPjxkaXY+UHJvbWVzYXMgcGFyYSBob3k8L2Rpdj48ZGl2IGNsYXNzPSJ2YWxvciBuYXJhbmphIiBpZD0iY2ItdC1wcm9tZXNhcyI+4oCUPC9kaXY+PC9kaXY+CiAgICA8ZGl2IGNsYXNzPSJ0YXJqZXRhIj48ZGl2PlBhZ2Fkb3M8L2Rpdj48ZGl2IGNsYXNzPSJ2YWxvciB2ZXJkZSIgaWQ9ImNiLXQtcGFnYWRvcyI+4oCUPC9kaXY+PC9kaXY+CiAgPC9kaXY+CgogIDxkaXYgY2xhc3M9ImFjY2lvbmVzIj4KICAgIDxidXR0b24gY2xhc3M9InByaW5jaXBhbCIgb25jbGljaz0iQ0JfY29icmFyVG9kb3MoKSI+8J+TsiBDT0JSQVIgQSBUT0RPUyBMT1MgVkVOQ0lET1M8L2J1dHRvbj4KICAgIDxzcGFuIGlkPSJjYi1wcm9ncmVzby1lbnZpbyI+PC9zcGFuPgogICAgPHNlbGVjdCBpZD0iY2ItZmlsdHJvIiBvbmNoYW5nZT0iQ0JfcGludGFyKCkiPgogICAgICA8b3B0aW9uIHZhbHVlPSJ0b2RvcyI+VmVyOiB0b2Rvczwvb3B0aW9uPgogICAgICA8b3B0aW9uIHZhbHVlPSJ2ZW5jaWRvcyIgc2VsZWN0ZWQ+VmVyOiBzb2xvIHZlbmNpZG9zPC9vcHRpb24+CiAgICAgIDxvcHRpb24gdmFsdWU9InByb21lc2FzIj5WZXI6IHByb21lc2FzIGRlIGhveTwvb3B0aW9uPgogICAgICA8b3B0aW9uIHZhbHVlPSJwYWdhZG9zIj5WZXI6IHBhZ2Fkb3M8L29wdGlvbj4KICAgIDwvc2VsZWN0PgogICAgPHNlbGVjdCBpZD0iY2ItZmlsdHJvLXByb3ZpbmNpYSIgb25jaGFuZ2U9IkNCX3BpbnRhcigpIj4KICAgICAgPG9wdGlvbiB2YWx1ZT0iIj5Ub2RhcyBsYXMgcHJvdmluY2lhczwvb3B0aW9uPgogICAgPC9zZWxlY3Q+CiAgICA8aW5wdXQgaWQ9ImNiLWJ1c2NhciIgcGxhY2Vob2xkZXI9IvCflI0gQnVzY2FyIG5vbWJyZSBvIGNvbnRyYXRvLi4uIiBvbmlucHV0PSJDQl9waW50YXIoKSI+CiAgPC9kaXY+CgogIDxkZXRhaWxzIHN0eWxlPSJtYXJnaW4tYm90dG9tOjEycHgiPgogICAgPHN1bW1hcnkgc3R5bGU9ImN1cnNvcjpwb2ludGVyIj7inI/vuI8gRWRpdGFyIG1lbnNhamUgZGUgY29icm8gKHBsYW50aWxsYSk8L3N1bW1hcnk+CiAgICA8dGV4dGFyZWEgaWQ9ImNiLXBsYW50aWxsYSIgb25jaGFuZ2U9IkNCX2d1YXJkYXJQbGFudGlsbGEoKSI+PC90ZXh0YXJlYT4KICAgIDxkaXYgY2xhc3M9InBpZSI+Q29tb2RpbmVzOiB7bm9tYnJlfSB7Y29udHJhdG99IHtzYWxkb30ge2RpYXN9IHtsaW1pdGV9LiBDb24gbcOhcyBkZSAzMCBkw61hcyBkZSBhdHJhc28gc2UgYWdyZWdhIHNvbGEgbGEgYWR2ZXJ0ZW5jaWEgZGVsIHJlY2FyZ28gZGVsIGNvbnRyYXRvLjwvZGl2PgogIDwvZGV0YWlscz4KCiAgPHRhYmxlPgogICAgPHRoZWFkPjx0cj4KICAgICAgPHRoPk5vLjwvdGg+PHRoPkNsaWVudGU8L3RoPjx0aD5Qcm92aW5jaWE8L3RoPjx0aD5UZWzDqWZvbm88L3RoPjx0aD5Nb250byBmYWN0dXJhIFJEJDwvdGg+PHRoPlJFU1RBIChkZWJlKSBSRCQ8L3RoPjx0aD5WZW5jZTwvdGg+PHRoPkF0cmFzbzwvdGg+PHRoPkVzdGFkbzwvdGg+PHRoPlByb21lc2E8L3RoPjx0aD5Ob3RhczwvdGg+PHRoPkFjY2lvbmVzPC90aD4KICAgIDwvdHI+PC90aGVhZD4KICAgIDx0Ym9keSBpZD0iY2ItY3VlcnBvIj48L3Rib2R5PgogIDwvdGFibGU+CgogIDxkaXYgY2xhc3M9InBpZSI+UGFnb3M6IEJhbnJlc2VydmFzIGN0YS4gY29ycmllbnRlIDk2MDg5NjI5OTcgwrcgQmFuY28gUG9wdWxhciBjdGEuIGFob3JybyA4NDA5ODY0NDIgwrcgYSBub21icmUgZGUgSm9zw6kgQXVndXN0byBEdXLDoW4gR2FyY8OtYS48YnI+CiAgTG9zIGRhdG9zIHNlIGd1YXJkYW4gZW4gZWwgc2lzdGVtYSAoYmFzZSBkZSBkYXRvcyByZWFsKSB5IHNlIHZlbiBhbCBpbnN0YW50ZSBlbiBGYWN0dXJhY2nDs24sIEN1ZW50YXMgcG9yIENvYnJhciB5IFJlbmRpbWllbnRvLjwvZGl2Pgo8L2Rpdj4KCjwhLS0gPT09PT09PT09PT09PT09PT09PT0gUEVTVEHDkUEgQ0FSR0FSID09PT09PT09PT09PT09PT09PT09IC0tPgo8ZGl2IGNsYXNzPSJjb250ZW5pZG8gb2N1bHRvIiBpZD0iY2Itc2VjLWNhcmdhciI+CiAgPGRpdiBjbGFzcz0icGFuZWwiPgogICAgPGgzPvCfk7ggT3BjacOzbiAxIOKAlCBMZWVyIGZvdG9zIGRlIGNvbnRyYXRvcyBjb24gSUE8L2gzPgogICAgPHA+U2VsZWNjaW9uYSB1bmEgbyB2YXJpYXMgZm90b3MgZGUgY29udHJhdG9zIHkgbGEgSUEgZXh0cmFlcsOhIGxvcyBkYXRvcyB5IGxvcyBhZ3JlZ2Fyw6EgYSBsYSBsaXN0YSBhdXRvbcOhdGljYW1lbnRlLjxicj4KICAgIDxzbWFsbD5OZWNlc2l0YSB1bmEgY2xhdmUgZGUgQVBJIGRlIENsYXVkZSAocGxhdGZvcm0uY2xhdWRlLmNvbSkuIFNlIGd1YXJkYSBlbiB0dSBuYXZlZ2Fkb3IgeSBlbCBjb3N0byBlcyBkZSBjZW50YXZvcyBwb3IgZm90by48L3NtYWxsPjwvcD4KICAgIDxkaXYgY2xhc3M9ImFjY2lvbmVzIj4KICAgICAgPGlucHV0IHR5cGU9InBhc3N3b3JkIiBpZD0iY2ItY2xhdmUtYXBpIiBwbGFjZWhvbGRlcj0iQ2xhdmUgQVBJIChzay1hbnQtLi4uKSIgc3R5bGU9IndpZHRoOjI4MHB4IiBvbmNoYW5nZT0ibG9jYWxTdG9yYWdlLnNldEl0ZW0oJ2NvYnJhZG9yX2FwaScsIHRoaXMudmFsdWUudHJpbSgpKSI+CiAgICAgIDxpbnB1dCB0eXBlPSJmaWxlIiBpZD0iY2ItZm90b3MiIGFjY2VwdD0iaW1hZ2UvKiIgbXVsdGlwbGU+CiAgICAgIDxidXR0b24gY2xhc3M9InByaW5jaXBhbCIgb25jbGljaz0iQ0JfbGVlckZvdG9zKCkiPvCfpJYgTGVlciBmb3RvcyB5IGFncmVnYXI8L2J1dHRvbj4KICAgIDwvZGl2PgogICAgPGRpdiBpZD0iY2ItbG9nLWNhcmdhIj5Fc3BlcmFuZG8gZm90b3MuLi48L2Rpdj4KICA8L2Rpdj4KCiAgPGRpdiBjbGFzcz0icGFuZWwiPgogICAgPGgzPvCfk4IgT3BjacOzbiAyIOKAlCBJbXBvcnRhciBsb3RlIHByZXBhcmFkbyBwb3IgQ2xhdWRlIChzaW4gY29zdG8gZGUgQVBJKTwvaDM+CiAgICA8cD5FbnbDrWEgbGFzIGZvdG9zIGRlIHR1cyBjb250cmF0b3MgZW4gZWwgY2hhdCBkZSBDbGF1ZGUgKENvd29yayksIHBpZGUgZWwgImxvdGUgcGFyYSBlbCBjb2JyYWRvciIgeSB0ZSBlbnRyZWdhcsOhIHVuIGFyY2hpdm8gPGI+Lmpzb248L2I+LiBDw6FyZ2FsbyBhcXXDrSB5IGxvcyBDQl9jbGllbnRlcyBzZSBhZ3JlZ2FuIHNvbG9zIChzaW4gZHVwbGljYXIgY29udHJhdG9zIHlhIGV4aXN0ZW50ZXMpLjwvcD4KICAgIDxpbnB1dCB0eXBlPSJmaWxlIiBpZD0iY2ItbG90ZSIgYWNjZXB0PSIuanNvbiwuY3N2LC54bHN4LC54bHMiIG9uY2hhbmdlPSJDQl9pbXBvcnRhckxvdGUoZXZlbnQpIj4KICA8L2Rpdj4KPC9kaXY+Cgo8IS0tID09PT09PT09PT09PT09PT09PT09IFBFU1RBw5FBIFBST0dSQU1BUiA9PT09PT09PT09PT09PT09PT09PSAtLT4KPGRpdiBjbGFzcz0iY29udGVuaWRvIG9jdWx0byIgaWQ9ImNiLXNlYy1wcm9ncmFtYXIiPgogIDxkaXYgY2xhc3M9InBhbmVsIj4KICAgIDxoMz7ij7AgUHJvZ3JhbWFyIGVudsOtbyBkZSByZWNvcmRhdG9yaW9zPC9oMz4KICAgIDxwPjEpIE1hcmNhIGxvcyBDQl9jbGllbnRlcyAmbmJzcDvCtyZuYnNwOyAyKSBlbGlnZSBlbCBkw61hIHkgbGEgaG9yYSAmbmJzcDvCtyZuYnNwOyAzKSBkZWphIGVzdGUgcHJvZ3JhbWEgPGI+YWJpZXJ0byBlbiBlbCBuYXZlZ2Fkb3I8L2I+OiBhbCBsbGVnYXIgbGEgaG9yYSwgc29uYXLDoSB5IGNvbWVuemFyw6EgZWwgZW52w61vIGF1dG9tw6F0aWNhbWVudGUuPC9wPgogICAgPGRpdiBjbGFzcz0iYWNjaW9uZXMiPgogICAgICA8bGFiZWw+8J+ThSBEw61hOiA8aW5wdXQgdHlwZT0iZGF0ZSIgaWQ9ImNiLXByb2ctZmVjaGEiPjwvbGFiZWw+CiAgICAgIDxsYWJlbD7wn5WSIEhvcmE6IDxpbnB1dCB0eXBlPSJ0aW1lIiBpZD0iY2ItcHJvZy1ob3JhIiB2YWx1ZT0iMDk6MDAiPjwvbGFiZWw+CiAgICAgIDxidXR0b24gY2xhc3M9InByaW5jaXBhbCIgb25jbGljaz0iQ0JfcHJvZ3JhbWFyRW52aW8oKSI+4o+wIFBST0dSQU1BUiBFTlbDjU88L2J1dHRvbj4KICAgIDwvZGl2PgogICAgPHRhYmxlPgogICAgICA8dGhlYWQ+PHRyPjx0aCBzdHlsZT0id2lkdGg6MzZweCI+PGlucHV0IHR5cGU9ImNoZWNrYm94IiBvbmNsaWNrPSJDQl9zZWxUb2Rvcyh0aGlzKSIgdGl0bGU9Ik1hcmNhciB0b2RvcyI+PC90aD48dGg+Tm8uPC90aD48dGg+Q2xpZW50ZTwvdGg+PHRoPlRlbMOpZm9ubzwvdGg+PHRoPlJFU1RBIChkZWJlKSBSRCQ8L3RoPjx0aD5BdHJhc288L3RoPjwvdHI+PC90aGVhZD4KICAgICAgPHRib2R5IGlkPSJjYi1jdWVycG8tc2VsIj48L3Rib2R5PgogICAgPC90YWJsZT4KICA8L2Rpdj4KICA8ZGl2IGNsYXNzPSJwYW5lbCI+CiAgICA8aDM+8J+TiyBFbnbDrW9zIHByb2dyYW1hZG9zPC9oMz4KICAgIDxkaXYgaWQ9ImNiLWxpc3RhLWpvYnMiPjwvZGl2PgogIDwvZGl2Pgo8L2Rpdj4KCjwhLS0gPT09PT09PT09PT09PT09PT09PT0gUEVTVEHDkUEgUkVQT1JURVMgPT09PT09PT09PT09PT09PT09PT0gLS0+CjxkaXYgY2xhc3M9ImNvbnRlbmlkbyBvY3VsdG8iIGlkPSJjYi1zZWMtcmVwb3J0ZXMiPgogIDxkaXYgY2xhc3M9ImFjY2lvbmVzIj4KICAgIDxidXR0b24gY2xhc3M9ImJ0bi1yZXBvcnRlIGFjdGl2YSIgaWQ9ImNiLXJlcC1wYWdhZG9zIiBvbmNsaWNrPSJDQl92ZXJSZXBvcnRlKCdwYWdhZG9zJykiPuKchSBQYWdhZG9zPC9idXR0b24+CiAgICA8YnV0dG9uIGNsYXNzPSJidG4tcmVwb3J0ZSIgaWQ9ImNiLXJlcC1hYm9uYWRvcyIgb25jbGljaz0iQ0JfdmVyUmVwb3J0ZSgnYWJvbmFkb3MnKSI+8J+StSBBYm9uYWRvcyAoZGViZW4gcGFydGUpPC9idXR0b24+CiAgICA8YnV0dG9uIGNsYXNzPSJidG4tcmVwb3J0ZSIgaWQ9ImNiLXJlcC1tb3Jvc29zIiBvbmNsaWNrPSJDQl92ZXJSZXBvcnRlKCdtb3Jvc29zJykiPvCfmqsgTnVuY2EgaGFuIHBhZ2FkbzwvYnV0dG9uPgogICAgPGJ1dHRvbiBjbGFzcz0iYXp1bCIgb25jbGljaz0iQ0JfZXhwb3J0YXJSZXBvcnRlKCkiPuKsh++4jyBFeHBvcnRhciBlc3RlIHJlcG9ydGU8L2J1dHRvbj4KICA8L2Rpdj4KICA8ZGl2IGNsYXNzPSJ0YXJqZXRhcyIgaWQ9ImNiLXJlc3VtZW4tcmVwb3J0ZSI+PC9kaXY+CiAgPHRhYmxlPgogICAgPHRoZWFkPjx0cj48dGg+Tm8uPC90aD48dGg+Q2xpZW50ZTwvdGg+PHRoPlRlbMOpZm9ubzwvdGg+PHRoPk1vbnRvIFJEJDwvdGg+PHRoPlBhZ2FkbyBSRCQ8L3RoPjx0aD5TYWxkbyBSRCQ8L3RoPjx0aD5WZW5jZTwvdGg+PHRoPkF0cmFzbzwvdGg+PHRoPk5vdGFzPC90aD48dGg+PC90aD48L3RyPjwvdGhlYWQ+CiAgICA8dGJvZHkgaWQ9ImNiLWN1ZXJwby1yZXBvcnRlIj48L3Rib2R5PgogIDwvdGFibGU+CjwvZGl2PgoKPGRpYWxvZyBpZD0iY2ItZGxnIj4KICA8aDMgaWQ9ImNiLWRsZy10aXR1bG8iPkNsaWVudGU8L2gzPgogIDxkaXYgY2xhc3M9ImZpbGEtZm9ybSI+CiAgICA8ZGl2PjxsYWJlbD5Oby4gY29udHJhdG88L2xhYmVsPjxpbnB1dCBpZD0iY2ItZi1ubyIgcmVhZG9ubHkgc3R5bGU9ImJhY2tncm91bmQ6I2VlZSI+PC9kaXY+CiAgICA8ZGl2PjxsYWJlbD5Ob21icmU8L2xhYmVsPjxpbnB1dCBpZD0iY2ItZi1ub21icmUiIHJlYWRvbmx5IHN0eWxlPSJiYWNrZ3JvdW5kOiNlZWUiPjwvZGl2PgogIDwvZGl2PgogIDxkaXYgY2xhc3M9ImZpbGEtZm9ybSI+CiAgICA8ZGl2PjxsYWJlbD5UZWzDqWZvbm88L2xhYmVsPjxpbnB1dCBpZD0iY2ItZi10ZWwiIHJlYWRvbmx5IHN0eWxlPSJiYWNrZ3JvdW5kOiNlZWUiPjwvZGl2PgogICAgPGRpdj48bGFiZWw+VGVsw6lmb25vIDIgKGVkaXRhYmxlKTwvbGFiZWw+PGlucHV0IGlkPSJjYi1mLXRlbDIiIHBsYWNlaG9sZGVyPSI4MDktMDAwLTAwMDAiIG1heGxlbmd0aD0iMTIiIG9uaW5wdXQ9ImZUZWwodGhpcykiPjwvZGl2PgogIDwvZGl2PgogIDxkaXYgY2xhc3M9ImZpbGEtZm9ybSI+CiAgICA8ZGl2PjxsYWJlbD5Nb250byB0b3RhbCBSRCQ8L2xhYmVsPjxpbnB1dCBpZD0iY2ItZi1tb250byIgdHlwZT0ibnVtYmVyIiByZWFkb25seSBzdHlsZT0iYmFja2dyb3VuZDojZWVlIj48L2Rpdj4KICAgIDxkaXY+PGxhYmVsPlNhbGRvIHBlbmRpZW50ZSBSRCQgKHVzYSAiQ29icmFyIiBwYXJhIGNhbWJpYXJsbyk8L2xhYmVsPjxpbnB1dCBpZD0iY2ItZi1zYWxkbyIgdHlwZT0ibnVtYmVyIiByZWFkb25seSBzdHlsZT0iYmFja2dyb3VuZDojZWVlIj48L2Rpdj4KICA8L2Rpdj4KICA8ZGl2IGNsYXNzPSJmaWxhLWZvcm0iPgogICAgPGRpdj48bGFiZWw+RmVjaGEgbMOtbWl0ZTwvbGFiZWw+PGlucHV0IGlkPSJjYi1mLWxpbWl0ZSIgdHlwZT0iZGF0ZSI+PC9kaXY+CiAgICA8ZGl2PjxsYWJlbD5Qcm9tZXNhIGRlIHBhZ288L2xhYmVsPjxpbnB1dCBpZD0iY2ItZi1wcm9tZXNhIiB0eXBlPSJkYXRlIj48L2Rpdj4KICA8L2Rpdj4KICA8bGFiZWw+Tm90YXM8L2xhYmVsPjx0ZXh0YXJlYSBpZD0iY2ItZi1ub3RhcyIgcm93cz0iMiI+PC90ZXh0YXJlYT4KICA8ZGl2IGNsYXNzPSJwaWUiPkVsIG5vbWJyZSwgY8OpZHVsYSB5IHRlbMOpZm9ubyBwcmluY2lwYWwgc29sbyBsb3MgZWRpdGEgR2VyZW5jaWEgZGVzZGUgZWwgQnV6w7NuLiBBcXXDrSBzZSBhY3R1YWxpemEgdGVsw6lmb25vIDIsIGZlY2hhIGzDrW1pdGUsIHByb21lc2EgZGUgcGFnbyB5IG5vdGFzIGRlIGdlc3Rpw7NuLjwvZGl2PgogIDxkaXYgc3R5bGU9Im1hcmdpbi10b3A6MTRweDsgZGlzcGxheTpmbGV4OyBnYXA6OHB4OyBqdXN0aWZ5LWNvbnRlbnQ6ZmxleC1lbmQiPgogICAgPGJ1dHRvbiBvbmNsaWNrPSJDQl9kbGcuY2xvc2UoKSI+Q2FuY2VsYXI8L2J1dHRvbj4KICAgIDxidXR0b24gY2xhc3M9InBlbGlncm8iIGlkPSJjYi1idG4tYm9ycmFyIiBvbmNsaWNrPSJDQl9ib3JyYXJDbGllbnRlKCkiPvCfl5EgQm9ycmFyPC9idXR0b24+CiAgICA8YnV0dG9uIGNsYXNzPSJhenVsIiBvbmNsaWNrPSJDQl9ndWFyZGFyQ2xpZW50ZSgpIj5HdWFyZGFyPC9idXR0b24+CiAgPC9kaXY+CjwvZGlhbG9nPgoK";
 
 function CB_decode(s){
   var bin=atob(s), b=new Uint8Array(bin.length);
@@ -6126,11 +6917,20 @@ function CB_sonar(){
   }catch(e){}
 }
 
+// ------------------- Provincias (RD, ver PROVINCIAS_RD global) -------------------
+function CB_llenarFiltroProvincia(){
+  var sel=document.getElementById('cb-filtro-provincia');
+  if(!sel || sel.options.length>1) return;
+  PROVINCIAS_RD.forEach(function(p){ sel.innerHTML+='<option value="'+p+'">'+p+'</option>'; });
+}
+
 // ------------------- Tabla principal -------------------
 function CB_pintar(){
   if(!document.getElementById('cb-cuerpo')) return;
+  CB_llenarFiltroProvincia();
 
   const filtro = document.getElementById("cb-filtro").value;
+  const filtroProvincia = (document.getElementById("cb-filtro-provincia")||{}).value||'';
   const q = document.getElementById("cb-buscar").value.toLowerCase();
   const cuerpo = document.getElementById("cb-cuerpo");
   cuerpo.innerHTML = "";
@@ -6147,14 +6947,16 @@ function CB_pintar(){
       (filtro==="vencidos" && est==="vencido") ||
       (filtro==="promesas" && c.promesa===CB_hoyISO() && est!=="pagado") ||
       (filtro==="pagados" && est==="pagado");
+    const coincideProvincia = !filtroProvincia || c.provincia===filtroProvincia;
     const coincide = !q || c.nombre.toLowerCase().includes(q) || String(c.no).includes(q);
-    if (!pasa || !coincide) return;
+    if (!pasa || !coincideProvincia || !coincide) return;
     const dias = CB_diasAtraso(c);
     const tr = document.createElement("tr");
     tr.className = est;
     tr.innerHTML = `
       <td>${c.no}</td>
       <td><b>${c.nombre}</b></td>
+      <td>${c.provincia||"—"}</td>
       <td>${c.tel||"—"}${c.tel2?"<br>"+c.tel2:""}</td>
       <td>${CB_fmt(c.monto)}</td>
       <td class="rojo"><b>${c.saldo>0? CB_fmt(c.saldo) : "0 ✅"}</b></td>
@@ -8248,7 +9050,8 @@ function ctoAVista(c){
     saldo:  (c.saldo===undefined||c.saldo===null) ? (Number(c.monto)||0) : Number(c.saldo)||0,
     limite: c.lim||'',
     promesa:c.promesa||'',
-    notas:  c.obs||''
+    notas:  c.obs||'',
+    provincia: c.provincia||''
   };
 }
 function vistaAContrato(v, c){

@@ -181,6 +181,15 @@ app.patch('/api/usuarios/:id/permisos', requireAuth, requireRol('gerente', 'subg
   res.json({ ok: true });
 }));
 
+// Alcance de Facturación: por defecto cada usuario (salvo Gerente/
+// Sub-Gerente) solo ve lo que él mismo registró. Esto habilita ver la
+// facturación de todo el equipo -- exclusivo de quien Gerencia decida.
+app.patch('/api/usuarios/:id/ver-todas-facturas', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const { valor } = req.body || {};
+  await db.actualizarVerTodasFacturas(req.params.id, !!valor);
+  res.json({ ok: true });
+}));
+
 app.patch('/api/usuarios/:id/pin', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
   const { pin } = req.body || {};
   if (!pin) return res.status(400).json({ error: 'Falta el nuevo PIN' });
@@ -285,7 +294,13 @@ app.post('/api/lab/producciones', requireAuth, requirePermiso('laboratorio'), re
 
 // ── CONTRATOS / FACTURACIÓN ───────────────────────────────────────────
 app.get('/api/contratos', requireAuth, requireAnyPermiso('contrato', 'buzon', 'cobros'), h(async (req, res) => {
-  res.json(await db.listarContratos({ estado: req.query.estado }));
+  res.json(await db.listarContratos({ estado: req.query.estado, usuario: req.usuario }));
+}));
+
+// Cuadre de ventas del propio usuario -- lo único que un promotor/vendedor
+// puede ver de su facturación: totales, nunca el detalle de un cliente.
+app.get('/api/contratos/mi-cuadre', requireAuth, requirePermiso('contrato'), h(async (req, res) => {
+  res.json(await db.resumenVentasUsuario(req.usuario.id));
 }));
 
 app.post('/api/contratos', requireAuth, requirePermiso('contrato'), requirePermisoSi(esImportacionExcel, 'excel'), h(async (req, res) => {
@@ -324,10 +339,42 @@ app.patch('/api/contratos/:id/cliente', requireAuth, requireRol('gerente', 'subg
 // Eliminar factura -- accion irreversible, exclusiva Gerente/Sub-Gerente.
 // El frontend ya revalida el PIN por separado (/api/verificar-pin)
 // antes de llamar a esto; el requireRol de aca es la segunda capa.
-app.delete('/api/contratos/:id', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
-  const resultado = await db.eliminarContrato(req.params.id);
+// Ya no se borra la factura -- queda el registro completo, marcado
+// como anulado, con quien, cuando y por que (ver anularContrato en db.js).
+app.post('/api/contratos/:id/anular', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const { motivo } = req.body || {};
+  if (!motivo || !motivo.trim()) return res.status(400).json({ error: 'El motivo de la anulación es obligatorio' });
+  const resultado = await db.anularContrato(req.params.id, req.usuario.id, motivo.trim());
   if (!resultado) return res.status(404).json({ error: 'Contrato no encontrado' });
   res.json(resultado);
+}));
+
+// Auditoría: linea de tiempo de anulaciones/decisiones/abonos, y
+// alertas calculadas contra los datos reales. Solo Gerencia.
+app.get('/api/auditoria', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const [eventos, alertas] = await Promise.all([db.listarAuditoria(), db.alertasSistema()]);
+  res.json({ eventos, alertas });
+}));
+
+// Tareas: pueden nacer de una alerta de Auditoría o crearse a mano.
+// Cualquier usuario autenticado ve/actualiza sus propias tareas; solo
+// Gerencia/Sub-Gerencia pueden crear y asignarle una tarea a otro.
+app.get('/api/tareas', requireAuth, h(async (req, res) => {
+  res.json(await db.listarTareas({ soloAbiertas: req.query.abiertas === '1' }));
+}));
+app.post('/api/tareas', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const { titulo, descripcion, origenTipo, asignadoA, fechaLimite } = req.body || {};
+  if (!titulo || !titulo.trim()) return res.status(400).json({ error: 'Falta el título de la tarea' });
+  res.status(201).json(await db.crearTarea({ titulo, descripcion, origenTipo, asignadoA, fechaLimite }, req.usuario.id));
+}));
+app.patch('/api/tareas/:id', requireAuth, h(async (req, res) => {
+  const { estado } = req.body || {};
+  if (!['pendiente', 'en_proceso', 'completada', 'descartada'].includes(estado)) {
+    return res.status(400).json({ error: 'Estado inválido' });
+  }
+  const tarea = await db.actualizarEstadoTarea(req.params.id, estado);
+  if (!tarea) return res.status(404).json({ error: 'Tarea no encontrada' });
+  res.json(tarea);
 }));
 
 app.post('/api/contratos/:id/abonar', requireAuth, requireAnyPermiso('cobros', 'cobrador', 'ruta'), h(async (req, res) => {
@@ -525,6 +572,103 @@ app.post('/api/nominas/procesar', requireAuth, requirePermiso('nomina'), h(async
   const resultado = await db.procesarNomina({ mes, quincena }, req.usuario.id);
   if (resultado.error) return res.status(400).json({ error: resultado.error });
   res.status(201).json(resultado);
+}));
+
+// ── RECURSOS HUMANOS ───────────────────────────────────────────────────
+// Tardanzas, faltas, amonestaciones, vacaciones y reclutamiento/período de
+// prueba. Exclusivo Gerente/Sub-Gerente por la sensibilidad de los datos
+// disciplinarios. Las referencias a artículos del Código de Trabajo son
+// solo informativas (ver CODIGO_TRABAJO_REFERENCIA en db.js) -- el
+// encargado de RRHH es quien decide e indaga, el sistema no resuelve nada.
+app.get('/api/rrhh/empleados', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  res.json(await db.listarEmpleadosRRHH());
+}));
+
+app.get('/api/rrhh/codigo-trabajo', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  res.json(db.CODIGO_TRABAJO_REFERENCIA);
+}));
+
+app.get('/api/rrhh/deberes-derechos', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  res.json(db.CODIGO_TRABAJO_DEBERES_DERECHOS);
+}));
+
+// Plantilla del cuestionario de competencias por puesto -- sin
+// respuestas, solo la estructura de preguntas/opciones.
+app.get('/api/rrhh/cuestionario/:puesto', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  res.json(db.obtenerCuestionario(req.params.puesto));
+}));
+
+app.get('/api/rrhh/incidencias', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  res.json(await db.listarIncidencias(req.query.empleadoId || null));
+}));
+app.post('/api/rrhh/incidencias', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const { empleadoId, tipo, fecha, descripcion, articuloReferencia } = req.body || {};
+  const TIPOS = ['tardanza', 'falta_justificada', 'falta_injustificada', 'amonestacion', 'bajo_rendimiento', 'mal_manejo', 'observacion', 'evaluacion_desempeno', 'otro'];
+  if (!empleadoId || !TIPOS.includes(tipo)) return res.status(400).json({ error: 'Empleado o tipo de incidencia inválidos' });
+  res.status(201).json(await db.registrarIncidencia({ empleadoId, tipo, fecha, descripcion, articuloReferencia }, req.usuario.id));
+}));
+
+app.get('/api/rrhh/vacaciones/:empleadoId', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const [resumen, historial] = await Promise.all([
+    db.calcularVacaciones(req.params.empleadoId),
+    db.listarVacaciones(req.params.empleadoId),
+  ]);
+  if (!resumen) return res.status(404).json({ error: 'Empleado no encontrado' });
+  res.json({ resumen, historial });
+}));
+app.post('/api/rrhh/vacaciones', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const { empleadoId, fechaInicio, fechaFin, dias, notas } = req.body || {};
+  if (!empleadoId || !fechaInicio || !fechaFin || !dias || Number(dias) <= 0) {
+    return res.status(400).json({ error: 'Faltan datos de las vacaciones' });
+  }
+  res.status(201).json(await db.registrarVacaciones({ empleadoId, fechaInicio, fechaFin, dias, notas }, req.usuario.id));
+}));
+
+app.get('/api/rrhh/candidatos', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  res.json(await db.listarCandidatos());
+}));
+app.post('/api/rrhh/candidatos', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const datos = req.body || {};
+  if (!datos.nombre || !datos.nombre.trim()) return res.status(400).json({ error: 'Falta el nombre del candidato' });
+  res.status(201).json(await db.crearCandidato(datos, req.usuario.id));
+}));
+// Completar/editar la ficha (solicitud de empleo) de un candidato, sin
+// tocar su etapa -- eso lo maneja el PATCH de abajo.
+app.patch('/api/rrhh/candidatos/:id/perfil', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const candidato = await db.actualizarPerfilCandidato(req.params.id, req.body || {});
+  if (!candidato) return res.status(404).json({ error: 'Candidato no encontrado' });
+  res.json(candidato);
+}));
+app.patch('/api/rrhh/candidatos/:id', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const { etapa, cargo, salarioBruto, fechaIngreso } = req.body || {};
+  const ETAPAS = ['aplicado', 'entrevista', 'prueba', 'fijo', 'rechazado', 'retirado'];
+  if (!ETAPAS.includes(etapa)) return res.status(400).json({ error: 'Etapa inválida' });
+  const candidato = await db.actualizarEtapaCandidato(req.params.id, etapa, { cargo, salarioBruto, fechaIngreso });
+  if (!candidato) return res.status(404).json({ error: 'Candidato no encontrado' });
+  res.json(candidato);
+}));
+
+// Ficha extendida de un empleado ya contratado (ej. dado de alta directo
+// en Nómina, sin pasar por el pipeline de candidatos).
+app.patch('/api/rrhh/empleados/:id/perfil', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const empleado = await db.actualizarPerfilEmpleado(req.params.id, req.body || {});
+  if (!empleado) return res.status(404).json({ error: 'Empleado no encontrado' });
+  res.json(empleado);
+}));
+
+// Cuestionario de competencias respondido -- herramienta de apoyo para
+// RRHH, no una decisión automática de contratación (ver disclaimer en
+// db.js / CUESTIONARIOS_POR_PUESTO).
+app.get('/api/rrhh/evaluaciones', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  if (!req.query.candidatoId) return res.status(400).json({ error: 'Falta candidatoId' });
+  res.json(await db.listarEvaluaciones(req.query.candidatoId));
+}));
+app.post('/api/rrhh/evaluaciones', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const { candidatoId, puesto, respuestas, notasEvaluador } = req.body || {};
+  if (!candidatoId || !puesto || !respuestas || typeof respuestas !== 'object') {
+    return res.status(400).json({ error: 'Faltan datos de la evaluación' });
+  }
+  res.status(201).json(await db.guardarEvaluacion(candidatoId, puesto, respuestas, notasEvaluador, req.usuario.id));
 }));
 
 // ── RESPALDO Y RESTAURACIÓN DE LA BASE DE DATOS ───────────────────────

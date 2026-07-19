@@ -19,8 +19,8 @@ const pool = new Pool({
 // permisos_custom en la base de datos que sobreescribe esta lista por completo
 // para ese usuario puntual.
 const PERMS_POR_ROL = {
-  gerente:     ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel'],
-  subgerente:  ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel'],
+  gerente:     ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel','auditoria','rrhh'],
+  subgerente:  ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel','auditoria','rrhh'],
   coordinador: ['dash','contrato','buzon','cobros','arqueo','almp','com','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta'],
   supervisor:  ['dash','contrato','buzon','cobros','almm','cfg','clientes','cxc','miscom','rendimiento','asistente','cobrador','ruta'],
   almacen:     ['dash','arqueo','almp','almm','cfg','asistente'],
@@ -62,10 +62,18 @@ async function buscarUsuarioPorId(id) {
 // Lista completa para el panel de administracion (incluye inactivos, sin pin_hash)
 async function listarUsuariosCompleto() {
   const { rows } = await pool.query(
-    `SELECT id, nombre, rol, rol_label, color, activo, editable, permisos_custom
+    `SELECT id, nombre, rol, rol_label, color, activo, editable, permisos_custom, ver_todas_facturas
      FROM usuarios ORDER BY id`
   );
   return rows;
+}
+
+// Gerente/Sub-Gerente ya ven todo siempre (no depende de este flag).
+// Para el resto, habilita ver la facturación de todo el equipo en vez
+// de solo la propia -- pensado para quien de verdad necesita revisar
+// el Buzón/Cobros de otros (ej. un supervisor), no para un promotor.
+async function actualizarVerTodasFacturas(id, valor) {
+  await pool.query(`UPDATE usuarios SET ver_todas_facturas = $2 WHERE id = $1`, [id, !!valor]);
 }
 
 async function actualizarUsuario(id, { nombre, rol, rolLabel }) {
@@ -207,10 +215,11 @@ async function resolverCliente(datos) {
     if (existente.rows[0]) return existente.rows[0].id;
   }
   const { rows } = await pool.query(
-    `INSERT INTO clientes (cedula, nombre, telefono1, telefono2, email, institucion, barrio, referencia, direccion, zona)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+    `INSERT INTO clientes (cedula, nombre, telefono1, telefono2, email, institucion, barrio, referencia, direccion, zona, provincia)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
     [cedula || null, datos.nombre, datos.telefono1 || null, datos.telefono2 || null, datos.email || null,
-     datos.institucion || null, datos.barrio || null, datos.referencia || null, datos.direccion || null, datos.zona || null]
+     datos.institucion || null, datos.barrio || null, datos.referencia || null, datos.direccion || null, datos.zona || null,
+     datos.provincia || null]
   );
   return rows[0].id;
 }
@@ -267,12 +276,32 @@ async function crearContrato(datos, usuarioId) {
   }
 }
 
-async function listarContratos({ estado } = {}) {
+// Alcance: Gerente/Sub-Gerente siempre ven todo. Cualquier otro usuario
+// ve SOLO los contratos que él mismo registró (creado_por = su id --
+// NO promotor_id: ese es a quién se le acredita la comisión, se elige
+// de un desplegable de texto libre y puede no coincidir con quien de
+// verdad está logueado, o quedar sin asignar), salvo que Gerencia le
+// haya activado ver_todas_facturas explícitamente (pensado para quien
+// de verdad supervisa al equipo, ej. un supervisor que revisa el Buzón
+// de otros -- no para un promotor).
+async function listarContratos({ estado, usuario } = {}) {
+  const veTodo = !usuario || usuario.rol === 'gerente' || usuario.rol === 'subgerente' || usuario.ver_todas_facturas;
+  // Un promotor/vendedor no debe ver el detalle de ninguna venta, ni
+  // siquiera la propia (nombre, cédula, teléfono, dirección, fotos) --
+  // solo su cuadre agregado (ver resumenVentasUsuario). El resto de
+  // roles sin veTodo sí ve el detalle de lo que él mismo registró.
+  if (!veTodo && usuario.rol === 'promotor') return [];
+  const condiciones = [];
+  const params = [];
+  if (estado) { params.push(estado); condiciones.push(`c.estado = $${params.length}`); }
+  if (!veTodo) { params.push(usuario.id); condiciones.push(`c.creado_por = $${params.length}`); }
+
   const { rows } = await pool.query(
     `SELECT c.*, cl.nombre AS cliente_nombre, cl.cedula AS cliente_cedula,
             cl.telefono1 AS cliente_tel1, cl.telefono2 AS cliente_tel2,
             cl.institucion AS cliente_institucion, cl.barrio AS cliente_barrio,
             cl.referencia AS cliente_referencia, cl.direccion AS cliente_direccion,
+            cl.provincia AS cliente_provincia,
             COALESCE(
               (SELECT json_agg(p.nombre) FROM contrato_productos cp
                JOIN productos p ON p.id = cp.producto_id WHERE cp.contrato_id = c.id), '[]'
@@ -284,14 +313,35 @@ async function listarContratos({ estado } = {}) {
                ) ORDER BY a.fecha)
                FROM contrato_abonos a LEFT JOIN usuarios u ON u.id = a.registrado_por
                WHERE a.contrato_id = c.id), '[]'
-            ) AS abonos
+            ) AS abonos,
+            ua.nombre AS anulado_por_nombre
      FROM contratos c
      JOIN clientes cl ON cl.id = c.cliente_id
-     ${estado ? 'WHERE c.estado = $1' : ''}
+     LEFT JOIN usuarios ua ON ua.id = c.anulado_por
+     ${condiciones.length ? 'WHERE ' + condiciones.join(' AND ') : ''}
      ORDER BY c.creado_en DESC`,
-    estado ? [estado] : []
+    params
   );
   return rows;
+}
+
+// "Cuadre de ventas" de un usuario -- lo que un promotor/vendedor sí
+// puede ver de su propia facturación: totales agregados, nunca el
+// detalle de un cliente puntual (ni nombre, cédula, teléfono ni fotos).
+async function resumenVentasUsuario(usuarioId) {
+  const { rows } = await pool.query(
+    `SELECT estado, COUNT(*)::int AS cantidad, COALESCE(SUM(monto),0)::numeric AS monto
+     FROM contratos WHERE creado_por = $1 GROUP BY estado`,
+    [usuarioId]
+  );
+  const porEstado = {};
+  let totalVentas = 0, totalMonto = 0;
+  rows.forEach((r) => {
+    porEstado[r.estado] = { cantidad: r.cantidad, monto: Number(r.monto) };
+    totalVentas += r.cantidad;
+    totalMonto += Number(r.monto);
+  });
+  return { porEstado, totalVentas, totalMonto };
 }
 
 // ── RUTA CON MAPA: selección manual de la ruta del día ────────────────
@@ -435,11 +485,12 @@ async function editarClienteDeContrato(contratoId, datosCliente, motivo) {
     await cliente.query(
       `UPDATE clientes SET
          nombre = $2, cedula = $3, telefono1 = $4, telefono2 = $5, email = $6,
-         institucion = $7, barrio = $8, referencia = $9, direccion = $10
+         institucion = $7, barrio = $8, referencia = $9, direccion = $10, provincia = $11
        WHERE id = $1`,
       [rows[0].cliente_id, datosCliente.nombre, datosCliente.cedula, datosCliente.telefono1 || null,
        datosCliente.telefono2 || null, datosCliente.email || null, datosCliente.institucion || null,
-       datosCliente.barrio || null, datosCliente.referencia || null, datosCliente.direccion || null]
+       datosCliente.barrio || null, datosCliente.referencia || null, datosCliente.direccion || null,
+       datosCliente.provincia || null]
     );
     const { rows: actualizado } = await cliente.query(
       `UPDATE contratos SET observaciones = $2 WHERE id = $1 RETURNING *`,
@@ -455,20 +506,28 @@ async function editarClienteDeContrato(contratoId, datosCliente, motivo) {
   }
 }
 
-// Elimina una factura por completo (accion irreversible, solo
-// Gerente/Sub-Gerente, con PIN reverificado en la ruta). Tambien
-// elimina la comision automatica asociada, si la tiene -- mismo
-// comportamiento que decidir() en el HTML original.
-async function eliminarContrato(id) {
+// Anula una factura (accion irreversible en el sentido de que ya no se
+// puede cobrar, solo Gerente/Sub-Gerente, con PIN reverificado en la
+// ruta) -- pero a diferencia del borrado que habia antes, el registro
+// de la factura NUNCA se elimina: queda marcada estado='anulado' con
+// quien la anulo, cuando, y el motivo. Si tenia una comision automatica
+// SIN PAGAR todavia, se elimina esa comision (no tiene sentido pagarle
+// al promotor una venta que se anulo); si ya estaba pagada, se deja
+// intacta -- eso es una situacion aparte que requiere revision manual.
+async function anularContrato(id, usuarioId, motivo) {
   const cliente = await pool.connect();
   try {
     await cliente.query('BEGIN');
-    const { rows } = await cliente.query(`SELECT numero_factura FROM contratos WHERE id = $1 FOR UPDATE`, [id]);
+    const { rows } = await cliente.query(`SELECT * FROM contratos WHERE id = $1 FOR UPDATE`, [id]);
     if (!rows[0]) { await cliente.query('ROLLBACK'); return null; }
-    await cliente.query(`DELETE FROM comisiones_semanas WHERE contrato_id = $1`, [id]);
-    await cliente.query(`DELETE FROM contratos WHERE id = $1`, [id]);
+    await cliente.query(`DELETE FROM comisiones_semanas WHERE contrato_id = $1 AND pagado = FALSE`, [id]);
+    const { rows: actualizado } = await cliente.query(
+      `UPDATE contratos SET estado = 'anulado', anulado_por = $2, anulado_en = now(), motivo_anulacion = $3
+       WHERE id = $1 RETURNING *`,
+      [id, usuarioId, motivo || null]
+    );
     await cliente.query('COMMIT');
-    return { numeroFactura: rows[0].numero_factura };
+    return actualizado[0];
   } catch (err) {
     await cliente.query('ROLLBACK');
     throw err;
@@ -1571,14 +1630,675 @@ async function leerCedulaConIA(imagenBase64) {
   }
 }
 
+// ── AUDITORÍA ─────────────────────────────────────────────────────
+// Junta lo que YA queda registrado en el sistema (quien anulo una
+// factura y por que, quien aprobo/rechazo, quien registro un abono)
+// en una sola linea de tiempo, en vez de tener que ir modulo por
+// modulo. No crea una tabla de log nueva -- reusa lo que ya existe.
+async function listarAuditoria() {
+  const { rows } = await pool.query(`
+    SELECT 'anulacion' AS tipo, c.id AS ref_id, c.numero_factura AS referencia,
+           c.anulado_en AS fecha, ua.nombre AS usuario, c.motivo_anulacion AS detalle
+    FROM contratos c LEFT JOIN usuarios ua ON ua.id = c.anulado_por
+    WHERE c.estado = 'anulado' AND c.anulado_en IS NOT NULL
+    UNION ALL
+    SELECT 'decision', c.id, c.numero_factura, c.decidido_en,
+           ud.nombre, ('Contrato ' || c.estado)
+    FROM contratos c LEFT JOIN usuarios ud ON ud.id = c.decidido_por
+    WHERE c.decidido_en IS NOT NULL AND c.estado IN ('aprobado','rechazado')
+    UNION ALL
+    SELECT 'abono', a.contrato_id, c2.numero_factura, a.fecha::timestamptz,
+           uab.nombre, ('Abono RD$' || a.monto::text || ' vía ' || COALESCE(a.via,'manual'))
+    FROM contrato_abonos a
+    JOIN contratos c2 ON c2.id = a.contrato_id
+    LEFT JOIN usuarios uab ON uab.id = a.registrado_por
+    ORDER BY fecha DESC NULLS LAST
+    LIMIT 300
+  `);
+  return rows;
+}
+
+// Alertas calculadas de verdad contra los datos reales (no adivinadas
+// por IA) -- pensadas para que Gerencia vea de un vistazo que necesita
+// atencion antes de que se vuelva un problema mayor.
+async function alertasSistema() {
+  const alertas = [];
+
+  const pend = await pool.query(
+    `SELECT numero_factura FROM contratos WHERE estado='pendiente' AND creado_en < now() - interval '5 days'`
+  );
+  if (pend.rows.length) alertas.push({
+    tipo: 'contratos_pendientes', nivel: 'alerta',
+    mensaje: pend.rows.length + ' contrato(s) llevan más de 5 días esperando aprobación en el Buzón',
+    detalle: pend.rows.map(r => r.numero_factura),
+  });
+
+  const stockBajo = await pool.query(
+    `SELECT nombre FROM lab_materias_primas WHERE activo=TRUE AND stock_minimo>0 AND stock<=stock_minimo`
+  );
+  if (stockBajo.rows.length) alertas.push({
+    tipo: 'stock_bajo', nivel: 'alerta',
+    mensaje: stockBajo.rows.length + ' materia(s) prima(s) de Laboratorio bajo el mínimo',
+    detalle: stockBajo.rows.map(r => r.nombre),
+  });
+
+  const cxpVencidas = await pool.query(
+    `SELECT proveedor, monto FROM cuentas_por_pagar WHERE estado!='pagado' AND vencimiento < CURRENT_DATE`
+  );
+  if (cxpVencidas.rows.length) alertas.push({
+    tipo: 'cxp_vencidas', nivel: 'critico',
+    mensaje: cxpVencidas.rows.length + ' cuenta(s) por pagar están vencidas',
+    detalle: cxpVencidas.rows.map(r => r.proveedor + ' (RD$' + r.monto + ')'),
+  });
+
+  const crmVencido = await pool.query(
+    `SELECT nombre FROM clientes WHERE proximo_seguimiento < CURRENT_DATE`
+  );
+  if (crmVencido.rows.length) alertas.push({
+    tipo: 'crm_vencido', nivel: 'alerta',
+    mensaje: crmVencido.rows.length + ' cliente(s) tienen seguimiento de CRM vencido',
+  });
+
+  const promotoresInactivos = await pool.query(`
+    SELECT u.nombre FROM usuarios u
+    WHERE u.rol='promotor' AND u.activo=TRUE
+      AND NOT EXISTS (SELECT 1 FROM contratos c WHERE c.promotor_id=u.id AND c.creado_en > now() - interval '30 days')
+  `);
+  if (promotoresInactivos.rows.length) alertas.push({
+    tipo: 'promotores_inactivos', nivel: 'info',
+    mensaje: promotoresInactivos.rows.length + ' promotor(es) sin ventas registradas en los últimos 30 días',
+    detalle: promotoresInactivos.rows.map(r => r.nombre),
+  });
+
+  // ── Protocolo fuera de orden: cosas que deberían haberse hecho en
+  // otro momento del proceso y no se hicieron ──
+  const sinGps = await pool.query(
+    `SELECT numero_factura FROM contratos WHERE estado='aprobado' AND (gps_lat IS NULL OR gps_lng IS NULL)`
+  );
+  if (sinGps.rows.length) alertas.push({
+    tipo: 'contratos_sin_gps', nivel: 'alerta',
+    mensaje: sinGps.rows.length + ' contrato(s) aprobado(s) sin ubicación GPS capturada',
+    detalle: sinGps.rows.map(r => r.numero_factura),
+  });
+
+  const productosSinStock = await pool.query(`
+    SELECT p.nombre FROM productos p
+    WHERE p.activo=TRUE AND NOT EXISTS (SELECT 1 FROM almacen_stock s WHERE s.producto_id=p.id)
+  `);
+  if (productosSinStock.rows.length) alertas.push({
+    tipo: 'productos_sin_stock_inicial', nivel: 'alerta',
+    mensaje: productosSinStock.rows.length + ' producto(s) activo(s) nunca tuvieron una entrada de almacén registrada',
+    detalle: productosSinStock.rows.map(r => r.nombre),
+  });
+
+  const empleadosSinNomina = await pool.query(`
+    SELECT e.nombre FROM empleados e
+    WHERE e.activo=TRUE
+      AND NOT EXISTS (SELECT 1 FROM nomina_detalle nd JOIN nominas n ON n.id=nd.nomina_id
+                      WHERE nd.empleado_id=e.id AND n.mes = to_char(CURRENT_DATE,'YYYY-MM'))
+  `);
+  if (empleadosSinNomina.rows.length) alertas.push({
+    tipo: 'empleados_sin_nomina', nivel: 'alerta',
+    mensaje: empleadosSinNomina.rows.length + ' empleado(s) activo(s) sin nómina procesada este mes',
+    detalle: empleadosSinNomina.rows.map(r => r.nombre),
+  });
+
+  const comisionesSinPagar = await pool.query(
+    `SELECT factura_texto FROM comisiones_semanas WHERE pagado=FALSE AND creado_en < now() - interval '30 days'`
+  );
+  if (comisionesSinPagar.rows.length) alertas.push({
+    tipo: 'comisiones_atrasadas', nivel: 'critico',
+    mensaje: comisionesSinPagar.rows.length + ' comisión(es) llevan más de 30 días sin pagarse',
+    detalle: comisionesSinPagar.rows.map(r => r.factura_texto).filter(Boolean),
+  });
+
+  const cedulasDuplicadas = await pool.query(`
+    SELECT cedula, COUNT(*) AS n FROM clientes WHERE cedula IS NOT NULL AND cedula <> ''
+    GROUP BY cedula HAVING COUNT(*) > 1
+  `);
+  if (cedulasDuplicadas.rows.length) alertas.push({
+    tipo: 'cedulas_duplicadas', nivel: 'critico',
+    mensaje: cedulasDuplicadas.rows.length + ' cédula(s) están repetidas en más de un cliente',
+    detalle: cedulasDuplicadas.rows.map(r => r.cedula + ' (' + r.n + ' veces)'),
+  });
+
+  return alertas;
+}
+
+// ── TAREAS ─────────────────────────────────────────────────────────
+async function crearTarea({ titulo, descripcion, origenTipo, asignadoA, fechaLimite }, creadoPor) {
+  const { rows } = await pool.query(
+    `INSERT INTO tareas (titulo, descripcion, origen_tipo, asignado_a, creado_por, fecha_limite)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [titulo, descripcion || null, origenTipo || null, asignadoA || null, creadoPor, fechaLimite || null]
+  );
+  return rows[0];
+}
+async function listarTareas({ soloAbiertas } = {}) {
+  const { rows } = await pool.query(
+    `SELECT t.*, ua.nombre AS asignado_a_nombre, uc.nombre AS creado_por_nombre
+     FROM tareas t
+     LEFT JOIN usuarios ua ON ua.id = t.asignado_a
+     LEFT JOIN usuarios uc ON uc.id = t.creado_por
+     ${soloAbiertas ? "WHERE t.estado IN ('pendiente','en_proceso')" : ''}
+     ORDER BY t.fecha_limite NULLS LAST, t.creado_en DESC`
+  );
+  return rows;
+}
+async function actualizarEstadoTarea(id, estado) {
+  const { rows } = await pool.query(
+    `UPDATE tareas SET estado = $2, completado_en = CASE WHEN $2='completada' THEN now() ELSE completado_en END
+     WHERE id = $1 RETURNING *`,
+    [id, estado]
+  );
+  return rows[0] || null;
+}
+
+// ── RECURSOS HUMANOS ─────────────────────────────────────────────────
+
+// Referencia (NO decisoria) al Codigo de Trabajo dominicano (Ley 16-92)
+// por tipo de incidencia. El sistema solo muestra el capitulo/articulo
+// que suele aplicar; el encargado de RRHH es quien indaga y decide.
+// La numeracion exacta debe verificarse con asesoria legal antes de
+// usarse como fundamento de una sancion o despido -- aqui se cita la
+// que la doctrina y la practica laboral dominicana referencian con mas
+// frecuencia para cada caso, no una cita literal garantizada vigente.
+const CODIGO_TRABAJO_DISCLAIMER =
+  'Referencia orientativa, no es asesoría legal. Verifique la numeración vigente ' +
+  'y consulte a un abogado laboral antes de fundamentar una sanción o despido en este artículo.';
+const CODIGO_TRABAJO_REFERENCIA = {
+  tardanza: {
+    capitulo: 'Del despido justificado por causas atribuibles al trabajador',
+    articulo: 'Art. 88 (causal de inasistencia/impuntualidad reiterada)',
+    resumen: 'La impuntualidad reiterada e injustificada puede constituir causa de despido si es grave o repetida.',
+  },
+  falta_justificada: {
+    capitulo: 'De la suspensión del contrato de trabajo',
+    articulo: 'Arts. 51 al 56 (causas de suspensión)',
+    resumen: 'Una falta con causa justificada (enfermedad, permiso, fuerza mayor) suspende el contrato pero no es incumplimiento del trabajador.',
+  },
+  falta_injustificada: {
+    capitulo: 'Del despido justificado por causas atribuibles al trabajador',
+    articulo: 'Art. 88 (causal de inasistencia sin permiso ni causa justificada)',
+    resumen: 'La inasistencia sin permiso ni causa justificada, sobre todo si es reiterada o de varios días consecutivos, suele figurar entre las causales de despido justificado.',
+  },
+  amonestacion: {
+    capitulo: 'Del poder disciplinario del empleador / despido justificado',
+    articulo: 'Art. 88 (como antecedente disciplinario documentado)',
+    resumen: 'La amonestación no tiene un artículo propio; funciona como antecedente documentado que puede sustentar una causal del Art. 88 si la falta se repite.',
+  },
+  bajo_rendimiento: {
+    capitulo: 'Del despido justificado por causas atribuibles al trabajador',
+    articulo: 'Art. 88 (causal de rendimiento notoriamente inferior al normal)',
+    resumen: 'El rendimiento notoriamente inferior al normal, comparado con trabajadores en condiciones similares, suele figurar entre las causales de despido justificado.',
+  },
+  mal_manejo: {
+    capitulo: 'Del despido justificado por causas atribuibles al trabajador',
+    articulo: 'Art. 88 (causal de falta de probidad o mal manejo de bienes/valores)',
+    resumen: 'El mal manejo, negligencia grave o falta de probidad en el manejo de bienes, valores o mercancía del empleador suele figurar entre las causales de despido justificado.',
+  },
+  observacion: {
+    capitulo: null,
+    articulo: null,
+    resumen: 'Observación general del empleado (no es disciplinaria por sí sola). Queda como parte de su historial.',
+  },
+  evaluacion_desempeno: {
+    capitulo: null,
+    articulo: null,
+    resumen: 'Evaluación de rendimiento del empleado (puede ser positiva, neutral o negativa). No es una acción disciplinaria.',
+  },
+  otro: {
+    capitulo: null,
+    articulo: null,
+    resumen: 'Este tipo de incidencia no tiene un artículo específico asociado. Documente los hechos con el mayor detalle posible.',
+  },
+};
+function referenciaCodigoTrabajo(tipo) {
+  const ref = CODIGO_TRABAJO_REFERENCIA[tipo] || CODIGO_TRABAJO_REFERENCIA.otro;
+  return { ...ref, disclaimer: CODIGO_TRABAJO_DISCLAIMER };
+}
+
+// Deberes y derechos generales (trabajador/empleador) segun el Codigo de
+// Trabajo dominicano (Ley 16-92) -- misma naturaleza informativa que
+// CODIGO_TRABAJO_REFERENCIA: referencia de consulta para RRHH, no
+// asesoria legal ni numeracion garantizada vigente.
+const CODIGO_TRABAJO_DEBERES_DERECHOS = {
+  derechosTrabajador: [
+    { tema: 'Salario mínimo y pago puntual', articulo: 'Arts. 192-196 (aprox.)', resumen: 'Derecho a un salario no menor al mínimo vigente por sector, pagado en los plazos acordados.' },
+    { tema: 'Seguridad social', articulo: 'Ley 87-01', resumen: 'Derecho a estar afiliado a un régimen de salud (ARS) y pensiones (AFP) desde el inicio de la relación laboral.' },
+    { tema: 'Vacaciones', articulo: 'Art. 177 (aprox.)', resumen: '14 días laborables por año con menos de 5 años de servicio, 18 días con 5 años o más.' },
+    { tema: 'Salario de Navidad (regalía pascual)', articulo: 'Arts. 219-223 (aprox.)', resumen: 'Derecho a un doceavo del salario ordinario devengado en el año, pagado antes del 20 de diciembre.' },
+    { tema: 'Descanso semanal', articulo: 'Arts. 155-165 (aprox.)', resumen: 'Derecho a un día de descanso remunerado por cada semana trabajada.' },
+    { tema: 'Preaviso y cesantía por despido injustificado', articulo: 'Arts. 75-88 (aprox.)', resumen: 'Si el despido no tiene causa justificada, el trabajador tiene derecho a preaviso y auxilio de cesantía según su antigüedad.' },
+    { tema: 'Protección durante el embarazo', articulo: 'Arts. 231-246 (aprox.)', resumen: 'Protección especial contra el despido durante el embarazo y un período después del parto; licencia de maternidad.' },
+    { tema: 'No discriminación', articulo: 'Principios generales del Código', resumen: 'Derecho a no ser discriminado por sexo, edad, raza, religión, opinión política o afiliación sindical.' },
+  ],
+  deberesTrabajador: [
+    { tema: 'Asistencia y puntualidad', resumen: 'Presentarse al trabajo en el horario acordado, salvo causa justificada.' },
+    { tema: 'Ejecutar el trabajo con cuidado', resumen: 'Realizar las labores con el cuidado y rendimiento normal esperado para el puesto.' },
+    { tema: 'Cuidar los bienes del empleador', resumen: 'Dar buen uso a herramientas, mercancía, vehículos y demás bienes confiados para el trabajo.' },
+    { tema: 'Seguir instrucciones razonables', resumen: 'Cumplir las órdenes e instrucciones del empleador relacionadas con el trabajo, dentro de lo razonable y legal.' },
+    { tema: 'Confidencialidad', resumen: 'No divulgar información confidencial del negocio (clientes, precios, procesos) conocida por razón del cargo.' },
+  ],
+  derechosEmpleador: [
+    { tema: 'Dirigir y organizar el trabajo', resumen: 'Definir horarios, funciones y métodos de trabajo dentro del marco legal.' },
+    { tema: 'Aplicar medidas disciplinarias justificadas', resumen: 'Amonestar o, en casos graves, despedir con justa causa cuando el trabajador incumple sus deberes (ver referencia por tipo de incidencia).' },
+    { tema: 'Exigir cumplimiento del reglamento interno', resumen: 'Hacer cumplir las políticas internas de la empresa, siempre que no contradigan la ley.' },
+  ],
+  deberesEmpleador: [
+    { tema: 'Pagar el salario justo y puntual', resumen: 'Pagar el salario acordado (no menor al mínimo) en los plazos establecidos.' },
+    { tema: 'Inscribir en la Seguridad Social', articulo: 'Ley 87-01', resumen: 'Registrar al trabajador en el Sistema Dominicano de Seguridad Social (TSS) desde el primer día de labores.' },
+    { tema: 'Condiciones seguras de trabajo', resumen: 'Proveer un ambiente de trabajo seguro y las herramientas necesarias para la labor.' },
+    { tema: 'Pagar prestaciones laborales', articulo: 'Arts. 75-88 (aprox.)', resumen: 'Pagar preaviso, cesantía y demás prestaciones cuando corresponda al terminar la relación laboral.' },
+    { tema: 'Entregar comprobante de pago', resumen: 'Proveer constancia de cada pago realizado (recibo de nómina).' },
+  ],
+};
+
+// Cuestionario de competencias por puesto -- herramienta de APOYO para
+// RRHH, NO un test psicológico clínico ni una decisión automática de
+// contratación. Son preguntas situacionales/técnicas de opción múltiple;
+// puntaje_referencial es solo una suma orientativa de lo respondido,
+// nunca descalifica a nadie por sí sola. RRHH sigue siendo quien decide.
+const _RRHH_GENERALES = [
+  { id: 'g1', texto: 'Si llegás 15 minutos tarde a una entrega importante sin haber avisado antes, ¿qué hacés primero?', opciones: [
+    { val: 'a', texto: 'Llamo o escribo de inmediato para avisar y explicar', puntos: 3 },
+    { val: 'b', texto: 'Sigo el trayecto y explico al llegar', puntos: 1 },
+    { val: 'c', texto: 'Prefiero no decir nada si de todas formas ya voy a llegar tarde', puntos: 0 },
+  ]},
+  { id: 'g2', texto: 'Un compañero comete un error que te afecta a vos directamente. ¿Qué hacés?', opciones: [
+    { val: 'a', texto: 'Hablo con él/ella en privado para resolverlo', puntos: 3 },
+    { val: 'b', texto: 'Lo reporto directo a mi supervisor sin hablarlo antes', puntos: 1 },
+    { val: 'c', texto: 'Lo dejo pasar aunque me perjudique, para evitar el conflicto', puntos: 1 },
+  ]},
+  { id: 'g3', texto: '¿Cómo preferís que te llamen la atención si cometés un error?', opciones: [
+    { val: 'a', texto: 'En privado, con ejemplos concretos de cómo mejorar', puntos: 3 },
+    { val: 'b', texto: 'Prefiero que nadie me diga nada, y yo lo corrijo solo', puntos: 1 },
+    { val: 'c', texto: 'Me da igual cómo, mientras se resuelva', puntos: 2 },
+  ]},
+  { id: 'g4', texto: 'Te piden hacer una tarea que no está clara del todo. ¿Qué hacés?', opciones: [
+    { val: 'a', texto: 'Pregunto para aclarar antes de empezar', puntos: 3 },
+    { val: 'b', texto: 'Empiezo y voy ajustando sobre la marcha', puntos: 2 },
+    { val: 'c', texto: 'Espero a que alguien más pregunte', puntos: 0 },
+  ]},
+  { id: 'g5', texto: '¿Con qué frecuencia te gustaría recibir retroalimentación sobre tu desempeño?', opciones: [
+    { val: 'a', texto: 'Constante, semanal o quincenal', puntos: 3 },
+    { val: 'b', texto: 'Solo si hay un problema', puntos: 1 },
+    { val: 'c', texto: 'Prefiero no recibir señalamientos', puntos: 0 },
+  ]},
+];
+const CUESTIONARIOS_POR_PUESTO = {
+  vendedor: { titulo: 'Vendedor / Promotor', preguntas: [..._RRHH_GENERALES,
+    { id: 'v1', texto: 'Un cliente te dice que el producto es muy caro comparado con otro que vio. ¿Qué hacés?', opciones: [
+      { val: 'a', texto: 'Le explico los beneficios/diferencias que justifican el precio', puntos: 3 },
+      { val: 'b', texto: 'Le bajo el precio sin consultar para cerrar la venta', puntos: 0 },
+      { val: 'c', texto: 'Le digo que ese es el precio y ya', puntos: 1 },
+    ]},
+    { id: 'v2', texto: 'Vendés un producto de RD$1,200 con 8% de comisión. ¿Cuánto ganás de comisión?', opciones: [
+      { val: 'a', texto: 'RD$96', puntos: 3 }, { val: 'b', texto: 'RD$120', puntos: 0 }, { val: 'c', texto: 'RD$80', puntos: 0 },
+    ]},
+    { id: 'v3', texto: 'Un cliente no te contesta el teléfono después de una promesa de pago. ¿Qué hacés?', opciones: [
+      { val: 'a', texto: 'Insisto con llamadas/mensajes espaciados y visito si es posible', puntos: 3 },
+      { val: 'b', texto: 'Dejo de intentar después del primer intento fallido', puntos: 0 },
+      { val: 'c', texto: 'Reporto el caso a mi supervisor para que él decida', puntos: 2 },
+    ]},
+    { id: 'v4', texto: 'Notás que un colega promotor está inflando ventas falsas para ganar más comisión. ¿Qué hacés?', opciones: [
+      { val: 'a', texto: 'Lo reporto a mi supervisor o gerencia', puntos: 3 },
+      { val: 'b', texto: 'No digo nada, no es mi problema', puntos: 0 },
+      { val: 'c', texto: 'Le pido que pare, y si sigue lo reporto', puntos: 2 },
+    ]},
+    { id: 'v5', texto: 'Preferís trabajar bajo...', opciones: [
+      { val: 'a', texto: 'Metas claras y comisión variable según resultado', puntos: 3 },
+      { val: 'b', texto: 'Un salario fijo sin metas', puntos: 1 },
+      { val: 'c', texto: 'Sin ninguna meta', puntos: 0 },
+    ]},
+    { id: 'v6', texto: 'Un cliente potencial vive en una zona insegura y ya oscureció. ¿Qué hacés?', opciones: [
+      { val: 'a', texto: 'Reprogramo la visita para un horario más seguro', puntos: 3 },
+      { val: 'b', texto: 'Voy igual porque ya prometí', puntos: 1 },
+      { val: 'c', texto: 'Cancelo definitivamente sin avisar', puntos: 0 },
+    ]},
+  ]},
+  almacen: { titulo: 'Encargado de Almacén', preguntas: [..._RRHH_GENERALES,
+    { id: 'a1', texto: 'Contás el inventario físico y no coincide con el sistema. ¿Qué hacés primero?', opciones: [
+      { val: 'a', texto: 'Recuento para confirmar antes de reportar', puntos: 3 },
+      { val: 'b', texto: 'Reporto la diferencia de inmediato sin recontar', puntos: 2 },
+      { val: 'c', texto: 'Ajusto el sistema para que coincida sin decir nada', puntos: 0 },
+    ]},
+    { id: 'a2', texto: 'Tenés 340 unidades en bodega y despachás 85 a la ruta. ¿Cuántas quedan?', opciones: [
+      { val: 'a', texto: '255', puntos: 3 }, { val: 'b', texto: '245', puntos: 0 }, { val: 'c', texto: '265', puntos: 0 },
+    ]},
+    { id: 'a3', texto: 'Al recibir mercancía nueva, ¿qué revisás primero?', opciones: [
+      { val: 'a', texto: 'Cantidad y estado físico contra la factura/guía', puntos: 3 },
+      { val: 'b', texto: 'Solo la cantidad total, sin revisar estado', puntos: 1 },
+      { val: 'c', texto: 'Firmo de recibido sin revisar, lo reviso después', puntos: 0 },
+    ]},
+    { id: 'a4', texto: 'Un producto llega dañado o vencido. ¿Qué hacés?', opciones: [
+      { val: 'a', texto: 'Lo separo, lo reporto y no lo despacho', puntos: 3 },
+      { val: 'b', texto: 'Lo despacho igual porque no queda de otra', puntos: 0 },
+      { val: 'c', texto: 'Lo dejo en la bodega sin avisar a nadie', puntos: 1 },
+    ]},
+    { id: 'a5', texto: 'Preferís un almacén...', opciones: [
+      { val: 'a', texto: 'Ordenado por categoría con conteos regulares', puntos: 3 },
+      { val: 'b', texto: 'Ordenado a tu manera, sin revisiones', puntos: 1 },
+      { val: 'c', texto: 'No importa el orden mientras se encuentre el producto', puntos: 0 },
+    ]},
+    { id: 'a6', texto: '¿Qué hacés si ves que alguien saca producto sin registrar la salida?', opciones: [
+      { val: 'a', texto: 'Lo reporto de inmediato', puntos: 3 },
+      { val: 'b', texto: 'Lo registro yo mismo después, sin decir nada', puntos: 1 },
+      { val: 'c', texto: 'No digo nada', puntos: 0 },
+    ]},
+  ]},
+  secretaria: { titulo: 'Secretaria Administrativa', preguntas: [..._RRHH_GENERALES,
+    { id: 's1', texto: 'Tenés 3 tareas urgentes a la vez: un correo de gerencia, una llamada de un cliente y una entrega de documentos. ¿Cómo decidís el orden?', opciones: [
+      { val: 'a', texto: 'Evalúo urgencia/impacto real de cada una antes de actuar', puntos: 3 },
+      { val: 'b', texto: 'Hago las cosas en el orden en que llegaron', puntos: 2 },
+      { val: 'c', texto: 'Hago primero lo que menos esfuerzo me toma', puntos: 0 },
+    ]},
+    { id: 's2', texto: 'Un documento importante tiene un error después de haberlo enviado. ¿Qué hacés?', opciones: [
+      { val: 'a', texto: 'Aviso de inmediato y envío la corrección', puntos: 3 },
+      { val: 'b', texto: 'Espero a ver si alguien lo nota', puntos: 0 },
+      { val: 'c', texto: 'Lo corrijo para la próxima vez sin avisar', puntos: 1 },
+    ]},
+    { id: 's3', texto: '¿Cómo organizás la información confidencial de la empresa?', opciones: [
+      { val: 'a', texto: 'Con acceso restringido y respaldo, según lo que corresponda', puntos: 3 },
+      { val: 'b', texto: 'La comparto si me la piden, sin mucho control', puntos: 1 },
+      { val: 'c', texto: 'No le doy mayor importancia al orden', puntos: 0 },
+    ]},
+    { id: 's4', texto: 'Manejás la agenda de gerencia y dos reuniones chocan. ¿Qué hacés?', opciones: [
+      { val: 'a', texto: 'Confirmo prioridad con quien corresponda y reprogramo con tiempo', puntos: 3 },
+      { val: 'b', texto: 'Dejo que gerencia decida al momento', puntos: 1 },
+      { val: 'c', texto: 'Cancelo una sin avisar a los involucrados', puntos: 0 },
+    ]},
+    { id: 's5', texto: '¿Qué tan cómoda/o te sentís usando Excel/Word y sistemas de oficina?', opciones: [
+      { val: 'a', texto: 'Cómoda/o, los uso a diario', puntos: 3 },
+      { val: 'b', texto: 'Básico, necesitaría capacitación', puntos: 1 },
+      { val: 'c', texto: 'Poca experiencia', puntos: 0 },
+    ]},
+    { id: 's6', texto: 'Un proveedor llama molesto por un pago atrasado que no depende de vos. ¿Qué hacés?', opciones: [
+      { val: 'a', texto: 'Escucho, explico el proceso real y doy seguimiento con quien corresponde', puntos: 3 },
+      { val: 'b', texto: 'Le digo que no es mi problema', puntos: 0 },
+      { val: 'c', texto: 'Le prometo algo que no puedo garantizar para que se calme', puntos: 1 },
+    ]},
+  ]},
+  supervisor: { titulo: 'Supervisor', preguntas: [..._RRHH_GENERALES,
+    { id: 'su1', texto: 'Un miembro de tu equipo falta seguido sin justificar. ¿Qué hacés?', opciones: [
+      { val: 'a', texto: 'Documento cada falta y converso con la persona antes de escalar', puntos: 3 },
+      { val: 'b', texto: 'Lo reporto directo para que lo despidan', puntos: 1 },
+      { val: 'c', texto: 'No digo nada para evitar el conflicto', puntos: 0 },
+    ]},
+    { id: 'su2', texto: 'Dos personas de tu equipo tienen un conflicto que afecta el trabajo. ¿Qué hacés?', opciones: [
+      { val: 'a', texto: 'Hablo con cada uno por separado y luego en conjunto para resolverlo', puntos: 3 },
+      { val: 'b', texto: 'Los ignoro, que lo resuelvan solos', puntos: 0 },
+      { val: 'c', texto: 'Tomo partido por quien conozco más', puntos: 0 },
+    ]},
+    { id: 'su3', texto: '¿Cómo asignás las tareas del día a tu equipo?', opciones: [
+      { val: 'a', texto: 'Según carga de trabajo real y fortalezas de cada quien', puntos: 3 },
+      { val: 'b', texto: 'Por orden de llegada, sin mucho análisis', puntos: 1 },
+      { val: 'c', texto: 'Las mismas tareas para todos siempre', puntos: 0 },
+    ]},
+    { id: 'su4', texto: 'Un resultado del equipo sale mal por una decisión tuya. ¿Qué hacés?', opciones: [
+      { val: 'a', texto: 'Lo reconozco frente al equipo y corrijo el rumbo', puntos: 3 },
+      { val: 'b', texto: 'Busco a quién más se le puede atribuir', puntos: 0 },
+      { val: 'c', texto: 'No lo menciono y sigo adelante', puntos: 1 },
+    ]},
+    { id: 'su5', texto: '¿Qué tan cómodo/a estás dando seguimiento con números/reportes de tu equipo?', opciones: [
+      { val: 'a', texto: 'Muy cómodo/a, reviso métricas regularmente', puntos: 3 },
+      { val: 'b', texto: 'Lo hago pero prefiero que otro lo analice', puntos: 1 },
+      { val: 'c', texto: 'Prefiero no lidiar con números', puntos: 0 },
+    ]},
+    { id: 'su6', texto: 'Un superior te da una instrucción que no compartís del todo. ¿Qué hacés?', opciones: [
+      { val: 'a', texto: 'Expreso mi punto con respeto, y si se mantiene la decisión la ejecuto', puntos: 3 },
+      { val: 'b', texto: 'La ejecuto sin decir nada aunque no esté de acuerdo', puntos: 2 },
+      { val: 'c', texto: 'La ignoro y hago lo que yo creo mejor', puntos: 0 },
+    ]},
+  ]},
+  otro: { titulo: 'Cuestionario General', preguntas: [..._RRHH_GENERALES] },
+};
+function obtenerCuestionario(puesto) {
+  return CUESTIONARIOS_POR_PUESTO[puesto] || CUESTIONARIOS_POR_PUESTO.otro;
+}
+function _puntajeCuestionario(puesto, respuestas) {
+  const cuestionario = obtenerCuestionario(puesto);
+  let total = 0;
+  cuestionario.preguntas.forEach((p) => {
+    const val = respuestas[p.id];
+    const opcion = (p.opciones || []).find((o) => o.val === val);
+    if (opcion) total += opcion.puntos;
+  });
+  return total;
+}
+async function guardarEvaluacion(candidatoId, puesto, respuestas, notasEvaluador, usuarioId) {
+  const puntaje = _puntajeCuestionario(puesto, respuestas);
+  const { rows } = await pool.query(
+    `INSERT INTO rrhh_evaluaciones (candidato_id, puesto_perfil, respuestas, puntaje_referencial, notas_evaluador, evaluado_por)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [candidatoId, puesto, JSON.stringify(respuestas), puntaje, notasEvaluador || null, usuarioId]
+  );
+  return rows[0];
+}
+async function listarEvaluaciones(candidatoId) {
+  const { rows } = await pool.query(
+    `SELECT e.*, u.nombre AS evaluado_por_nombre FROM rrhh_evaluaciones e
+     LEFT JOIN usuarios u ON u.id = e.evaluado_por
+     WHERE e.candidato_id = $1 ORDER BY e.creado_en DESC`,
+    [candidatoId]
+  );
+  return rows;
+}
+
+// Vacaciones segun antiguedad -- referencia informativa del Codigo de
+// Trabajo dominicano (Ley 16-92, Art. 177 aprox.): 14 dias laborables
+// por año con menos de 5 años de servicio, 18 dias con 5 años o mas.
+// VERIFICAR con un abogado laboral, esto no sustituye asesoria legal.
+function _diasVacacionesPorAnio(fechaIngreso) {
+  const anios = (Date.now() - new Date(fechaIngreso).getTime()) / (365.25 * 86400000);
+  return anios >= 5 ? 18 : 14;
+}
+async function calcularVacaciones(empleadoId) {
+  const { rows } = await pool.query(`SELECT fecha_ingreso FROM empleados WHERE id = $1`, [empleadoId]);
+  if (!rows[0]) return null;
+  const aniosCompletos = Math.floor((Date.now() - new Date(rows[0].fecha_ingreso).getTime()) / (365.25 * 86400000));
+  const diasPorAnio = _diasVacacionesPorAnio(rows[0].fecha_ingreso);
+  const acumulados = Math.max(0, aniosCompletos) * diasPorAnio;
+  const { rows: tomados } = await pool.query(
+    `SELECT COALESCE(SUM(dias),0) AS total FROM rrhh_vacaciones WHERE empleado_id = $1`, [empleadoId]
+  );
+  const usados = Number(tomados[0].total) || 0;
+  return { aniosCompletos, diasPorAnio, acumulados, usados, disponibles: Math.max(0, acumulados - usados) };
+}
+async function registrarVacaciones({ empleadoId, fechaInicio, fechaFin, dias, notas }, usuarioId) {
+  const { rows } = await pool.query(
+    `INSERT INTO rrhh_vacaciones (empleado_id, fecha_inicio, fecha_fin, dias, notas, registrado_por)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [empleadoId, fechaInicio, fechaFin, dias, notas || null, usuarioId]
+  );
+  return rows[0];
+}
+async function listarVacaciones(empleadoId) {
+  const { rows } = await pool.query(
+    `SELECT v.*, u.nombre AS registrado_por_nombre FROM rrhh_vacaciones v
+     LEFT JOIN usuarios u ON u.id = v.registrado_por
+     WHERE v.empleado_id = $1 ORDER BY v.fecha_inicio DESC`,
+    [empleadoId]
+  );
+  return rows;
+}
+
+async function registrarIncidencia({ empleadoId, tipo, fecha, descripcion, articuloReferencia }, usuarioId) {
+  const refAuto = articuloReferencia || referenciaCodigoTrabajo(tipo).articulo;
+  const { rows } = await pool.query(
+    `INSERT INTO rrhh_incidencias (empleado_id, tipo, fecha, descripcion, articulo_referencia, registrado_por)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [empleadoId, tipo, fecha || new Date().toISOString().slice(0, 10), descripcion || null, refAuto, usuarioId]
+  );
+  return rows[0];
+}
+async function listarIncidencias(empleadoId) {
+  const { rows } = await pool.query(
+    `SELECT i.*, u.nombre AS registrado_por_nombre FROM rrhh_incidencias i
+     LEFT JOIN usuarios u ON u.id = i.registrado_por
+     ${empleadoId ? 'WHERE i.empleado_id = $1' : ''}
+     ORDER BY i.fecha DESC, i.creado_en DESC`,
+    empleadoId ? [empleadoId] : []
+  );
+  return rows;
+}
+
+async function listarEmpleadosRRHH() {
+  const { rows } = await pool.query(`
+    SELECT e.*,
+      (SELECT COUNT(*) FROM rrhh_incidencias i WHERE i.empleado_id=e.id AND i.tipo='tardanza' AND i.fecha > CURRENT_DATE - interval '90 days') AS tardanzas_90d,
+      (SELECT COUNT(*) FROM rrhh_incidencias i WHERE i.empleado_id=e.id AND i.tipo='falta_injustificada' AND i.fecha > CURRENT_DATE - interval '90 days') AS faltas_90d,
+      (SELECT COUNT(*) FROM rrhh_incidencias i WHERE i.empleado_id=e.id AND i.tipo='amonestacion' AND i.fecha > CURRENT_DATE - interval '365 days') AS amonestaciones_1a
+    FROM empleados e ORDER BY e.activo DESC, e.nombre
+  `);
+  return rows;
+}
+
+// Reclutamiento y periodo de prueba -- ficha estilo solicitud de empleo.
+// Los campos de perfil son opcionales al crear (alta rápida) y se pueden
+// completar despues con actualizarPerfilCandidato.
+async function crearCandidato(datos, usuarioId) {
+  const d = datos || {};
+  const camposBase = ['nombre', 'cedula', 'telefono', 'puesto_aplicado', 'dias_prueba', 'puesto_perfil'];
+  const valoresBase = [d.nombre, d.cedula || null, d.telefono || null, d.puestoAplicado || null, d.diasPrueba || 60, d.puestoPerfil || 'otro'];
+  const colsFicha = _CAMPOS_FICHA.map(([, col]) => col);
+  const valoresFicha = _CAMPOS_FICHA.map(([key]) => (d[key] !== undefined ? d[key] : null));
+  const cols = [...camposBase, ...colsFicha, 'registrado_por'];
+  const valores = [...valoresBase, ...valoresFicha, usuarioId];
+  const placeholders = cols.map((_, i) => `$${i + 1}`).join(',');
+  const { rows } = await pool.query(
+    `INSERT INTO rrhh_candidatos (${cols.join(', ')}) VALUES (${placeholders}) RETURNING *`,
+    valores
+  );
+  return rows[0];
+}
+// Campos de la ficha extendida compartidos entre candidato y empleado --
+// evita repetir la misma lista larga de columnas/params dos veces.
+const _CAMPOS_FICHA = [
+  ['email', 'email'], ['edad', 'edad'], ['estadoCivil', 'estado_civil'], ['nacionalidad', 'nacionalidad'],
+  ['direccion', 'direccion'], ['numeroCasa', 'numero_casa'], ['tipoSangre', 'tipo_sangre'],
+  ['nivelAcademico', 'nivel_academico'], ['tituloObtenido', 'titulo_obtenido'], ['institucionEducativa', 'institucion_educativa'],
+  ['cursosRealizados', 'cursos_realizados'],
+  ['refLaboral1Empresa', 'ref_laboral1_empresa'], ['refLaboral1Supervisor', 'ref_laboral1_supervisor'], ['refLaboral1Motivo', 'ref_laboral1_motivo'],
+  ['refLaboral2Empresa', 'ref_laboral2_empresa'], ['refLaboral2Supervisor', 'ref_laboral2_supervisor'], ['refLaboral2Motivo', 'ref_laboral2_motivo'],
+  ['refLaboral3Empresa', 'ref_laboral3_empresa'], ['refLaboral3Supervisor', 'ref_laboral3_supervisor'], ['refLaboral3Motivo', 'ref_laboral3_motivo'],
+  ['refPersonal1Nombre', 'ref_personal1_nombre'], ['refPersonal1Telefono', 'ref_personal1_telefono'], ['refPersonal1Parentesco', 'ref_personal1_parentesco'],
+  ['refPersonal2Nombre', 'ref_personal2_nombre'], ['refPersonal2Telefono', 'ref_personal2_telefono'], ['refPersonal2Parentesco', 'ref_personal2_parentesco'],
+  ['refPersonal3Nombre', 'ref_personal3_nombre'], ['refPersonal3Telefono', 'ref_personal3_telefono'], ['refPersonal3Parentesco', 'ref_personal3_parentesco'],
+];
+// Completa/edita la ficha de un candidato ya creado (alta rápida ->
+// solicitud completa). COALESCE conserva lo que ya había si no se envía.
+async function actualizarPerfilCandidato(id, datos) {
+  const d = datos || {};
+  const sets = _CAMPOS_FICHA.map(([, col], i) => `${col} = COALESCE($${i + 2}, ${col})`);
+  sets.push(`puesto_perfil = COALESCE($${_CAMPOS_FICHA.length + 2}, puesto_perfil)`);
+  const params = [id, ..._CAMPOS_FICHA.map(([key]) => d[key]), d.puestoPerfil];
+  const { rows } = await pool.query(
+    `UPDATE rrhh_candidatos SET ${sets.join(', ')} WHERE id = $1 RETURNING *`,
+    params
+  );
+  return rows[0] || null;
+}
+// Misma ficha extendida, ahora sobre un empleado ya existente (contratado
+// directo por Nómina, sin pasar por el pipeline de candidatos).
+async function actualizarPerfilEmpleado(id, datos) {
+  const d = datos || {};
+  const sets = ['telefono = COALESCE($2, telefono)', ..._CAMPOS_FICHA.map(([, col], i) => `${col} = COALESCE($${i + 3}, ${col})`)];
+  const params = [id, d.telefono, ..._CAMPOS_FICHA.map(([key]) => d[key])];
+  const { rows } = await pool.query(
+    `UPDATE empleados SET ${sets.join(', ')} WHERE id = $1 RETURNING *`,
+    params
+  );
+  return rows[0] || null;
+}
+// Trae tambien un resumen de sus evaluaciones (cuestionario de
+// competencias) para que se vea de un vistazo en Reclutamiento quien ya
+// fue evaluado y con que puntaje, sin tener que abrir cada candidato.
+async function listarCandidatos() {
+  const { rows } = await pool.query(`
+    SELECT c.*,
+      (SELECT COUNT(*) FROM rrhh_evaluaciones e WHERE e.candidato_id = c.id)::int AS evaluaciones_count,
+      (SELECT e.puntaje_referencial FROM rrhh_evaluaciones e WHERE e.candidato_id = c.id ORDER BY e.creado_en DESC LIMIT 1) AS ultimo_puntaje
+    FROM rrhh_candidatos c ORDER BY c.creado_en DESC
+  `);
+  return rows;
+}
+// Al pasar a 'fijo', crea el empleado real (si no tenia uno linkeado),
+// arrastrando toda la ficha del candidato, y deja el candidato como
+// historial de como llego. Al pasar a 'prueba' por primera vez, marca
+// fecha_inicio_prueba si no la tenia.
+async function actualizarEtapaCandidato(id, etapa, datosEmpleado) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const { rows } = await cliente.query(`SELECT * FROM rrhh_candidatos WHERE id = $1 FOR UPDATE`, [id]);
+    const cand = rows[0];
+    if (!cand) { await cliente.query('ROLLBACK'); return null; }
+
+    let empleadoId = cand.empleado_id;
+    if (etapa === 'fijo' && !empleadoId) {
+      const d = datosEmpleado || {};
+      const camposBase = ['nombre', 'cedula', 'cargo', 'salario_bruto', 'fecha_ingreso', 'telefono'];
+      const colsFicha = _CAMPOS_FICHA.map(([, col]) => col);
+      const cols = [...camposBase, ...colsFicha];
+      const placeholders = cols.map((_, i) => `$${i + 1}`).join(',');
+      const valoresFicha = _CAMPOS_FICHA.map(([, col]) => cand[col]);
+      const { rows: emp } = await cliente.query(
+        `INSERT INTO empleados (${cols.join(', ')}) VALUES (${placeholders}) RETURNING id`,
+        [cand.nombre, cand.cedula, d.cargo || cand.puesto_aplicado, d.salarioBruto || 0,
+         d.fechaIngreso || cand.fecha_inicio_prueba || new Date().toISOString().slice(0, 10),
+         cand.telefono, ...valoresFicha]
+      );
+      empleadoId = emp[0].id;
+    }
+    const inicioPrueba = (etapa === 'prueba' && !cand.fecha_inicio_prueba) ? new Date().toISOString().slice(0, 10) : cand.fecha_inicio_prueba;
+
+    const { rows: actualizado } = await cliente.query(
+      `UPDATE rrhh_candidatos SET etapa=$2, empleado_id=$3, fecha_inicio_prueba=$4 WHERE id=$1 RETURNING *`,
+      [id, etapa, empleadoId, inicioPrueba]
+    );
+    await cliente.query('COMMIT');
+    return actualizado[0];
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
+}
+
 module.exports = {
   pool,
   init,
+  listarAuditoria,
+  alertasSistema,
+  crearTarea,
+  listarTareas,
+  actualizarEstadoTarea,
+  calcularVacaciones,
+  registrarVacaciones,
+  listarVacaciones,
+  registrarIncidencia,
+  listarIncidencias,
+  listarEmpleadosRRHH,
+  crearCandidato,
+  actualizarPerfilCandidato,
+  actualizarPerfilEmpleado,
+  listarCandidatos,
+  actualizarEtapaCandidato,
+  CUESTIONARIOS_POR_PUESTO,
+  obtenerCuestionario,
+  guardarEvaluacion,
+  listarEvaluaciones,
+  CODIGO_TRABAJO_DEBERES_DERECHOS,
+  referenciaCodigoTrabajo,
+  CODIGO_TRABAJO_REFERENCIA,
   PERMS_POR_ROL,
   permisosEfectivos,
   listarUsuariosActivos,
   listarUsuariosCompleto,
   actualizarUsuario,
+  actualizarVerTodasFacturas,
   buscarUsuarioPorId,
   verificarLogin,
   crearUsuario,
@@ -1611,6 +2331,7 @@ module.exports = {
   siguienteNumeroFactura,
   crearContrato,
   listarContratos,
+  resumenVentasUsuario,
   decidirContrato,
   buscarContratosParaRuta,
   listarRutaSeleccionHoy,
@@ -1618,7 +2339,7 @@ module.exports = {
   quitarDeRutaSeleccion,
   actualizarEstadoRuta,
   editarClienteDeContrato,
-  eliminarContrato,
+  anularContrato,
   editarDatosCobranza,
   crearContratoLegacyCobrador,
   registrarAbonoContrato,

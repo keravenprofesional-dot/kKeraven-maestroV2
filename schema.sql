@@ -544,3 +544,226 @@ BEGIN
   END LOOP;
 END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_productos_codigo ON productos(codigo) WHERE codigo IS NOT NULL;
+
+-- ── Provincia del cliente (para subdividir Cobrador por zona geográfica) ──
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS provincia TEXT;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'clientes_provincia_check') THEN
+    ALTER TABLE clientes ADD CONSTRAINT clientes_provincia_check CHECK (provincia IS NULL OR provincia IN (
+      'Azua','Bahoruco','Barahona','Dajabón','Distrito Nacional','Duarte','El Seibo','Elías Piña',
+      'Espaillat','Hato Mayor','Hermanas Mirabal','Independencia','La Altagracia','La Romana','La Vega',
+      'María Trinidad Sánchez','Monseñor Nouel','Monte Cristi','Monte Plata','Pedernales','Peravia',
+      'Puerto Plata','Samaná','San Cristóbal','San José de Ocoa','San Juan','San Pedro de Macorís',
+      'Sánchez Ramírez','Santiago','Santiago Rodríguez','Santo Domingo','Valverde'
+    ));
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_clientes_provincia ON clientes(provincia);
+
+-- ── Anular factura (antes se borraba de verdad; ahora queda el registro
+-- completo, marcado como anulado, con quién, cuándo y por qué) ──────
+ALTER TABLE contratos ADD COLUMN IF NOT EXISTS anulado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
+ALTER TABLE contratos ADD COLUMN IF NOT EXISTS anulado_en TIMESTAMPTZ;
+ALTER TABLE contratos ADD COLUMN IF NOT EXISTS motivo_anulacion TEXT;
+ALTER TABLE contratos DROP CONSTRAINT IF EXISTS contratos_estado_check;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'contratos_estado_check') THEN
+    ALTER TABLE contratos ADD CONSTRAINT contratos_estado_check CHECK (estado IN ('pendiente','aprobado','rechazado','pendiente_fotos','anulado'));
+  END IF;
+END $$;
+
+-- ── Tareas (nacidas de una alerta de Auditoría, o creadas a mano) ───
+CREATE TABLE IF NOT EXISTS tareas (
+  id            SERIAL PRIMARY KEY,
+  titulo        TEXT NOT NULL,
+  descripcion   TEXT,
+  origen_tipo   TEXT, -- tipo de alerta que la generó, o NULL si es manual
+  asignado_a    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  creado_por    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  fecha_limite  DATE,
+  estado        TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente','en_proceso','completada','descartada')),
+  creado_en     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completado_en TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_tareas_asignado ON tareas(asignado_a);
+CREATE INDEX IF NOT EXISTS idx_tareas_estado ON tareas(estado);
+
+-- ── RECURSOS HUMANOS ─────────────────────────────────────────────────
+-- Incidencias: tardanzas, faltas, amonestaciones, bajo rendimiento, etc.
+-- El "articulo_referencia" es SOLO informativo (ver MANUAL_RRHH_CODIGO
+-- en el frontend) -- nunca decide una sancion por si solo, eso lo
+-- define el encargado de RRHH.
+CREATE TABLE IF NOT EXISTS rrhh_incidencias (
+  id                  SERIAL PRIMARY KEY,
+  empleado_id         INTEGER NOT NULL REFERENCES empleados(id) ON DELETE CASCADE,
+  tipo                TEXT NOT NULL CHECK (tipo IN ('tardanza','falta_justificada','falta_injustificada','amonestacion','bajo_rendimiento','mal_manejo','observacion','evaluacion_desempeno','otro')),
+  fecha               DATE NOT NULL DEFAULT CURRENT_DATE,
+  descripcion         TEXT,
+  articulo_referencia TEXT,
+  registrado_por      INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_rrhh_incidencias_empleado ON rrhh_incidencias(empleado_id);
+
+-- Vacaciones tomadas (los dias acumulados se calculan segun antiguedad,
+-- no se guardan como saldo fijo -- ver calcularVacaciones en db.js).
+CREATE TABLE IF NOT EXISTS rrhh_vacaciones (
+  id             SERIAL PRIMARY KEY,
+  empleado_id    INTEGER NOT NULL REFERENCES empleados(id) ON DELETE CASCADE,
+  fecha_inicio   DATE NOT NULL,
+  fecha_fin      DATE NOT NULL,
+  dias           INTEGER NOT NULL,
+  notas          TEXT,
+  registrado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  creado_en      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_rrhh_vacaciones_empleado ON rrhh_vacaciones(empleado_id);
+
+-- Reclutamiento y periodo de prueba: candidato -> entrevista -> prueba
+-- -> fijo (crea el empleado real) o rechazado/retirado.
+CREATE TABLE IF NOT EXISTS rrhh_candidatos (
+  id                  SERIAL PRIMARY KEY,
+  nombre              TEXT NOT NULL,
+  cedula              TEXT,
+  telefono             TEXT,
+  puesto_aplicado     TEXT,
+  etapa               TEXT NOT NULL DEFAULT 'aplicado' CHECK (etapa IN ('aplicado','entrevista','prueba','fijo','rechazado','retirado')),
+  fecha_inicio_prueba DATE,
+  dias_prueba         INTEGER DEFAULT 60,
+  notas               TEXT,
+  empleado_id         INTEGER REFERENCES empleados(id) ON DELETE SET NULL,
+  registrado_por      INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Alcance de Facturación: por defecto cada usuario (excepto Gerente/
+-- Sub-Gerente, que siempre ven todo) solo ve los contratos que él mismo
+-- registró (promotor_id = su usuario) -- corrige que un promotor podía
+-- ver la facturación de todo el equipo. Gerencia habilita este flag por
+-- usuario puntual (ej. un supervisor que sí necesita ver el Buzón de
+-- todo su equipo para poder aprobar). Ver listarContratos en db.js.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ver_todas_facturas BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- ── RRHH: ficha extendida de personal/candidato (estilo solicitud de
+-- empleo) -- mismos campos en ambas tablas porque un candidato ya los
+-- llena en su aplicación y se conservan al pasar a empleado fijo. Sin
+-- ARS/AFP (eso lo maneja Nómina aparte, no la ficha de RRHH). Cada dato
+-- en su propio campo, sin JSONB ni texto libre para lo que se puede
+-- separar (nombre completo = columna nombre ya existente en ambas tablas).
+ALTER TABLE empleados DROP COLUMN IF EXISTS fecha_nacimiento;
+ALTER TABLE empleados DROP COLUMN IF EXISTS genero;
+ALTER TABLE empleados DROP COLUMN IF EXISTS hijos_dependientes;
+ALTER TABLE empleados DROP COLUMN IF EXISTS contacto_emergencia_nombre;
+ALTER TABLE empleados DROP COLUMN IF EXISTS contacto_emergencia_telefono;
+ALTER TABLE empleados DROP COLUMN IF EXISTS contacto_emergencia_relacion;
+ALTER TABLE empleados DROP COLUMN IF EXISTS experiencia_laboral;
+ALTER TABLE empleados DROP COLUMN IF EXISTS referencias;
+ALTER TABLE empleados DROP COLUMN IF EXISTS ars;
+ALTER TABLE empleados DROP COLUMN IF EXISTS afp;
+ALTER TABLE empleados DROP COLUMN IF EXISTS notas_perfil;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS telefono TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS edad SMALLINT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS estado_civil TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS nacionalidad TEXT DEFAULT 'Dominicana';
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS direccion TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS numero_casa TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS tipo_sangre TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS nivel_academico TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS titulo_obtenido TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS institucion_educativa TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS cursos_realizados TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_laboral1_empresa TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_laboral1_supervisor TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_laboral1_motivo TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_laboral2_empresa TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_laboral2_supervisor TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_laboral2_motivo TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_laboral3_empresa TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_laboral3_supervisor TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_laboral3_motivo TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_personal1_nombre TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_personal1_telefono TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_personal1_parentesco TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_personal2_nombre TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_personal2_telefono TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_personal2_parentesco TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_personal3_nombre TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_personal3_telefono TEXT;
+ALTER TABLE empleados ADD COLUMN IF NOT EXISTS ref_personal3_parentesco TEXT;
+
+ALTER TABLE rrhh_candidatos DROP COLUMN IF EXISTS fecha_nacimiento;
+ALTER TABLE rrhh_candidatos DROP COLUMN IF EXISTS genero;
+ALTER TABLE rrhh_candidatos DROP COLUMN IF EXISTS hijos_dependientes;
+ALTER TABLE rrhh_candidatos DROP COLUMN IF EXISTS contacto_emergencia_nombre;
+ALTER TABLE rrhh_candidatos DROP COLUMN IF EXISTS contacto_emergencia_telefono;
+ALTER TABLE rrhh_candidatos DROP COLUMN IF EXISTS contacto_emergencia_relacion;
+ALTER TABLE rrhh_candidatos DROP COLUMN IF EXISTS experiencia_laboral;
+ALTER TABLE rrhh_candidatos DROP COLUMN IF EXISTS referencias;
+ALTER TABLE rrhh_candidatos DROP COLUMN IF EXISTS notas_perfil;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS edad SMALLINT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS estado_civil TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS nacionalidad TEXT DEFAULT 'Dominicana';
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS direccion TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS numero_casa TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS tipo_sangre TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS nivel_academico TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS titulo_obtenido TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS institucion_educativa TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS cursos_realizados TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_laboral1_empresa TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_laboral1_supervisor TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_laboral1_motivo TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_laboral2_empresa TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_laboral2_supervisor TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_laboral2_motivo TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_laboral3_empresa TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_laboral3_supervisor TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_laboral3_motivo TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_personal1_nombre TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_personal1_telefono TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_personal1_parentesco TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_personal2_nombre TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_personal2_telefono TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_personal2_parentesco TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_personal3_nombre TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_personal3_telefono TEXT;
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS ref_personal3_parentesco TEXT;
+
+-- Ensancha rrhh_incidencias.tipo para admitir observación general y
+-- evaluación de rendimiento (no solo incidentes disciplinarios) --
+-- para bases que ya tenían la tabla creada con el CHECK anterior.
+ALTER TABLE rrhh_incidencias DROP CONSTRAINT IF EXISTS rrhh_incidencias_tipo_check;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rrhh_incidencias_tipo_check') THEN
+    ALTER TABLE rrhh_incidencias ADD CONSTRAINT rrhh_incidencias_tipo_check
+      CHECK (tipo IN ('tardanza','falta_justificada','falta_injustificada','amonestacion','bajo_rendimiento','mal_manejo','observacion','evaluacion_desempeno','otro'));
+  END IF;
+END $$;
+-- Puesto al que aplica, normalizado a los perfiles que tienen
+-- cuestionario de competencias propio (ver CUESTIONARIOS_POR_PUESTO
+-- en db.js). 'otro' cubre cualquier puesto sin cuestionario dedicado.
+ALTER TABLE rrhh_candidatos ADD COLUMN IF NOT EXISTS puesto_perfil TEXT NOT NULL DEFAULT 'otro';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rrhh_candidatos_puesto_perfil_check') THEN
+    ALTER TABLE rrhh_candidatos ADD CONSTRAINT rrhh_candidatos_puesto_perfil_check
+      CHECK (puesto_perfil IN ('vendedor','almacen','secretaria','supervisor','otro'));
+  END IF;
+END $$;
+
+-- Cuestionario de competencias respondido por un candidato -- referencia
+-- de apoyo para RRHH (NO un test psicológico clínico ni una decisión
+-- automática). puntaje_referencial es una suma simple de las respuestas
+-- de opción múltiple, solo orientativa.
+CREATE TABLE IF NOT EXISTS rrhh_evaluaciones (
+  id                  SERIAL PRIMARY KEY,
+  candidato_id        INTEGER NOT NULL REFERENCES rrhh_candidatos(id) ON DELETE CASCADE,
+  puesto_perfil       TEXT NOT NULL,
+  respuestas          JSONB NOT NULL,
+  puntaje_referencial NUMERIC(6,2),
+  notas_evaluador     TEXT,
+  evaluado_por        INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_rrhh_evaluaciones_candidato ON rrhh_evaluaciones(candidato_id);
