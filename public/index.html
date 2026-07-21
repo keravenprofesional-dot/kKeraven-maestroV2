@@ -1010,6 +1010,7 @@ function rDash(){
   var clientes=(new Set(contratos.map(function(c){return c.cedula;}))).size;
 
   var ALL_MODS=[
+    {id:'comunicados',name:'Comunicados',ico:'ti-speakerphone',stat:'Anuncios internos'},
     {id:'contrato',name:'Facturación',ico:'ti-file-text',stat:'Nueva venta'},
     {id:'buzon',name:'Buzón',ico:'ti-inbox',stat:pend+' pendiente'+(pend!==1?'s':'')},
     {id:'cobros',name:'Cobros',ico:'ti-cash',stat:'Ruta activa'},
@@ -4738,7 +4739,7 @@ var _origRBuzon2=window.rBuzon;
 <script>
 
 var _MOD_ICONS={'dash':'🏠','contrato':'🧾','buzon':'📬','cobros':'💰','arqueo':'🧾','almp':'🏭','almm':'🚐','com':'📊','miscom':'💰','users':'👥','cfg':'⚙️','pedidos':'🛍️','cxp':'💳','nomina':'👔','contab':'📒','ccrm':'🤝','clientes':'🗂️','cxc':'📄','rendimiento':'📈','delfac':'🚫','asistente':'🤖','productos':'🏷️','laboratorio':'🧪','ruta':'🗺️','cobrador':'📲','auditoria':'🛡️','rrhh':'🧑‍💼','comunicados':'📢'};
-var _MOD_TITS={'dash':'Panel Principal','contrato':'Facturación','buzon':'Buzón de Aprobación','cobros':'Ruta de Cobro','arqueo':'Arqueo','almp':'Almacén Principal','almm':'Almacén Móvil','com':'Comisiones','miscom':'Cuadre Comisiones','users':'Usuarios','cfg':'Configuración','pedidos':'Portal Pedidos','cxp':'Cuentas por Pagar','nomina':'Nómina','contab':'Contabilidad','ccrm':'CRM','clientes':'Base de Clientes','cxc':'Cuentas por Cobrar','rendimiento':'Rendimiento','delfac':'Anular Factura','asistente':'Asistente IA','productos':'Gestión de Productos','laboratorio':'Laboratorio','ruta':'Ruta con Mapa','cobrador':'Cobrador Automático','auditoria':'Auditoría','rrhh':'Recursos Humanos'};
+var _MOD_TITS={'dash':'Panel Principal','contrato':'Facturación','buzon':'Buzón de Aprobación','cobros':'Ruta de Cobro','arqueo':'Arqueo','almp':'Almacén Principal','almm':'Almacén Móvil','com':'Comisiones','miscom':'Cuadre Comisiones','users':'Usuarios','cfg':'Configuración','pedidos':'Portal Pedidos','cxp':'Cuentas por Pagar','nomina':'Nómina','contab':'Contabilidad','ccrm':'CRM','clientes':'Base de Clientes','cxc':'Cuentas por Cobrar','rendimiento':'Rendimiento','delfac':'Anular Factura','asistente':'Asistente IA','productos':'Gestión de Productos','laboratorio':'Laboratorio','ruta':'Ruta con Mapa','cobrador':'Cobrador Automático','auditoria':'Auditoría','rrhh':'Recursos Humanos','comunicados':'Comunicados'};
 var _STAT_ICO=['💰','📊','👥','✅','⚠️','📦','📈','💳','🏆','🎯','📋','🔄','💎','🌟'];
 function applyModTheme(id){
   var m=document.getElementById('main');if(!m)return;
