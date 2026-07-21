@@ -730,8 +730,13 @@ async function cargarUsuariosLogin(){
   }catch(e){console.error('No se pudo cargar la lista de usuarios:',e);USUARIOS=[];}
 }
 async function cargarUsuariosAdmin(){
-  const lista=await apiFetch('/api/usuarios');
-  USUARIOS=lista.map(mapUsuarioApi);
+  try{
+    const lista=await apiFetch('/api/usuarios');
+    USUARIOS=lista.map(mapUsuarioApi);
+  }catch(e){
+    console.error('No se pudo cargar la lista de usuarios:',e);
+    showToast('No se pudo cargar la lista de usuarios: '+e.message,'err');
+  }
 }
 
 // Convierte un contrato tal como lo devuelve la API a la forma corta
