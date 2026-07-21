@@ -598,16 +598,20 @@ let USUARIOS=[];
 // abajo, viene de /api/login) — esta tabla nunca se usa para dejar
 // pasar o bloquear una accion.
 const PERMS={
-  gerente:    ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','rrhh'],
-  subgerente: ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','rrhh'],
-  coordinador:['dash','contrato','buzon','cobros','arqueo','almp','com','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta'],
-  supervisor: ['dash','contrato','buzon','cobros','almm','cfg','clientes','cxc','miscom','rendimiento','asistente','cobrador','ruta'],
-  almacen:    ['dash','arqueo','almp','almm','cfg','asistente'],
-  promotor:   ['dash','contrato','cfg','asistente'],
+  gerente:    ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','rrhh','comunicados'],
+  subgerente: ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','rrhh','comunicados'],
+  coordinador:['dash','contrato','buzon','cobros','arqueo','almp','com','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','comunicados'],
+  supervisor: ['dash','contrato','buzon','cobros','almm','cfg','clientes','cxc','miscom','rendimiento','asistente','cobrador','ruta','comunicados'],
+  almacen:    ['dash','arqueo','almp','almm','cfg','asistente','comunicados'],
+  promotor:   ['dash','contrato','cfg','asistente','comunicados'],
 };
+// Roles que deben confirmar lectura de un comunicado (debe ser el mismo
+// conjunto que ROLES_CONFIRMAN_COMUNICADO en db.js).
+const ROLES_CONFIRMAN_COM=['supervisor','almacen','promotor'];
 
 const NAV=[
   {id:'dash',     lab:'Panel principal',       ico:'ti-home-2',              sec:'Principal'},
+  {id:'comunicados',lab:'Comunicados',         ico:'ti-speakerphone',        sec:'Principal',bd:true},
   {id:'contrato', lab:'Facturación',     ico:'ti-file-text',           sec:'Operaciones'},
   {id:'buzon',    lab:'Buzón de aprobación',   ico:'ti-inbox',               sec:'Operaciones',bd:true},
   {id:'cobros',   lab:'Ruta de cobro',         ico:'ti-cash',                sec:'Operaciones'},
@@ -650,6 +654,7 @@ const BNLAB={dash:'Inicio',contrato:'Venta',buzon:'Buzón',cobros:'Cobros',com:'
 let ses=null, pag='dash';
 let sesPermisos=[]; // permisos reales del usuario logueado, calculados por el servidor
 let contratos=[],semanas=[],pagos=[],facN=1;
+let comunicados=[];
 let almM={},almP={},movAlm=[],entAlm=[],despachos=[],arqueos=[],solic=[];
 let selP=[],fotos={f:null,r:null},gps=null,tventa='credito';
 let editU=null,expId=null;
@@ -713,6 +718,10 @@ var PRODUCTOS_ADMIN=[];
 async function cargarProductosAdmin(){
   try{ PRODUCTOS_ADMIN = await apiFetch('/api/productos?todos=1'); }
   catch(e){ console.error('No se pudo cargar productos:',e); PRODUCTOS_ADMIN=[]; }
+}
+async function cargarComunicados(){
+  try{ comunicados=await apiFetch('/api/comunicados'); }
+  catch(e){ console.error('No se pudieron cargar los comunicados:',e); comunicados=[]; }
 }
 async function cargarUsuariosLogin(){
   try{
@@ -891,6 +900,7 @@ async function login(){
   await cargarAsientos();
   await cargarEmpleados();
   await cargarNominas();
+  await cargarComunicados();
   await cargar();
   buildNav();buildBotNav();ir('dash');
 }
@@ -909,7 +919,9 @@ function buildNav(){
   NAV.forEach(n=>{
     if(n.sec!==sec){sec=n.sec;h+=`<div class="nav-sec">${sec}</div>`;}
     const ok=p.includes(n.id);
-    const bd=n.bd?contratos.filter(c=>c.status==='pendiente').length:0;
+    let bd=0;
+    if(n.id==='buzon')bd=contratos.filter(c=>c.status==='pendiente').length;
+    else if(n.id==='comunicados'&&ROLES_CONFIRMAN_COM.includes(ses.rol))bd=comunicados.filter(c=>!c.confirmado_por_mi).length;
     h+=`<button class="nav-it${!ok?' off':''}" onclick="irC('${n.id}')">
       <i class="ti ${n.ico}"></i><span style="flex:1">${n.lab}</span>
       ${bd>0?`<span class="nav-bd">${bd}</span>`:''}
@@ -954,6 +966,7 @@ function ir(id){
 function render(id){
   const m=$('main');
   if(id==='dash')m.innerHTML=rDash();
+  else if(id==='comunicados'){m.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i>Cargando comunicados...</div>';cargarComunicados().then(()=>{if(pag==='comunicados')m.innerHTML=rComunicados();});}
   else if(id==='contrato'){m.innerHTML=rContrato();iContrato();}
   else if(id==='buzon')m.innerHTML=rBuzon();
   else if(id==='cobros')m.innerHTML=rCobros();
@@ -1854,6 +1867,103 @@ async function decidir(id,dec){
       setTimeout(function(){if(d.parentNode)d.remove();},30000);
     },400);
   }
+}
+
+// ── COMUNICADOS ────────────────────────────────────────────────────
+function rComunicados(){
+  const puedePublicar=ses&&['gerente','subgerente','coordinador'].includes(ses.rol);
+  const puedeConfirmar=ses&&ROLES_CONFIRMAN_COM.includes(ses.rol);
+  let h='';
+  if(puedePublicar){
+    h+=`<div class="card">
+      <div class="ct"><i class="ti ti-speakerphone" style="color:var(--gold);font-size:18px"></i>Publicar comunicado</div>
+      <div class="cs">Lo verán Supervisor, Almacén y Promotor. Queda registrado que lo publicaste tú.</div>
+      <label class="lbl">Título</label>
+      <input class="linp" id="com_tit" placeholder="Ej. Nueva oferta de temporada" maxlength="120">
+      <label class="lbl">Mensaje</label>
+      <textarea class="linp" id="com_msg" rows="4" placeholder="Detalle del comunicado..." style="resize:vertical"></textarea>
+      <label class="lbl">Se mantiene visible por (días, 1 a 90)</label>
+      <input class="linp" id="com_dias" type="number" min="1" max="90" value="7" style="max-width:120px">
+      <button class="bap" style="margin-top:12px" onclick="publicarComunicado()"><i class="ti ti-send"></i> Publicar</button>
+    </div>`;
+  }
+  const vigentes=comunicados;
+  h+=`<div class="card">
+    <div class="ct"><i class="ti ti-list-details" style="color:var(--gold);font-size:18px"></i>Comunicados vigentes
+      <span style="margin-left:auto;font-size:11px;color:var(--t2);font-weight:400">${vigentes.length}</span></div>`;
+  if(!vigentes.length)h+=`<div class="empty"><i class="ti ti-speakerphone"></i>No hay comunicados vigentes</div>`;
+  vigentes.forEach(c=>{h+=comCard(c,puedePublicar,puedeConfirmar);});
+  return h+'</div>';
+}
+function comCard(c,puedePublicar,puedeConfirmar){
+  const propio=ses&&c.autor_id===ses.id;
+  let accion='';
+  if(puedeConfirmar){
+    accion=c.confirmado_por_mi
+      ?`<div class="ra" style="margin-top:8px"><i class="ti ti-circle-check" style="font-size:16px"></i><div>Ya confirmaste que lo leíste</div></div>`
+      :`<button class="bap" style="margin-top:8px" onclick="confirmarComunicadoUI(${c.id})"><i class="ti ti-circle-check"></i> Confirmar que lo leí</button>`;
+  }
+  if(puedePublicar){
+    accion+=`<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button class="bsm" onclick="verConfirmaciones(${c.id})"><i class="ti ti-users"></i> ${c.total_confirmados} confirmaron</button>
+      ${propio||['gerente','subgerente'].includes(ses.rol)?`<button class="bsm" onclick="desactivarComunicadoUI(${c.id})"><i class="ti ti-x"></i> Cerrar antes de vencer</button>`:''}
+    </div>`;
+  }
+  return `<div class="cc">
+    <div class="cc-hd" style="cursor:default">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="cc-nom">${c.titulo}</span></div>
+        <div class="cc-met">${c.autor_nombre||'—'} · ${fD(c.creado_en)} · vence ${fD(c.vence_en)}</div>
+      </div>
+    </div>
+    <div class="cc-bd" style="display:block">
+      <div style="white-space:pre-wrap;font-size:13px;line-height:1.5">${c.mensaje}</div>
+      ${accion}
+    </div>
+  </div>`;
+}
+async function publicarComunicado(){
+  const titulo=$('com_tit').value.trim(),mensaje=$('com_msg').value.trim(),dias=Number($('com_dias').value);
+  if(!titulo){showToast('Falta el título','err');return;}
+  if(!mensaje){showToast('Falta el mensaje','err');return;}
+  if(!Number.isInteger(dias)||dias<1||dias>90){showToast('Los días deben ser un número entre 1 y 90','err');return;}
+  try{
+    await apiFetch('/api/comunicados',{method:'POST',body:{titulo,mensaje,diasVigencia:dias}});
+  }catch(e){showToast('No se pudo publicar: '+e.message,'err');return;}
+  showToast('Comunicado publicado','ok');
+  await cargarComunicados();
+  if(pag==='comunicados')$('main').innerHTML=rComunicados();
+  buildNav();
+}
+async function confirmarComunicadoUI(id){
+  try{
+    await apiFetch(`/api/comunicados/${id}/confirmar`,{method:'POST'});
+  }catch(e){showToast('No se pudo confirmar: '+e.message,'err');return;}
+  await cargarComunicados();
+  if(pag==='comunicados')$('main').innerHTML=rComunicados();
+  buildNav();buildBotNav();
+}
+async function verConfirmaciones(id){
+  let data;
+  try{ data=await apiFetch(`/api/comunicados/${id}/confirmaciones`); }
+  catch(e){ showToast('No se pudo cargar el detalle: '+e.message,'err'); return; }
+  const filas=(arr,confirmado)=>arr.map(u=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--br);font-size:13px">
+    <span>${u.nombre} <span style="color:var(--t2);font-size:11px">(${rolLabel(u.rol)})</span></span>
+    <span style="color:${confirmado?'var(--green)':'var(--er)'}">${confirmado?fD(u.confirmado_en):'Pendiente'}</span>
+  </div>`).join('')||'<div class="empty" style="padding:12px">Nadie en esta lista</div>';
+  openMdl('Confirmaciones del comunicado',
+    `<div class="sl">Confirmaron (${data.confirmaron.length})</div>${filas(data.confirmaron,true)}
+     <div class="sl" style="margin-top:12px">Faltan (${data.pendientes.length})</div>${filas(data.pendientes,false)}`);
+}
+async function desactivarComunicadoUI(id){
+  if(!confirm('¿Cerrar este comunicado antes de que venza? Ya no se mostrará como vigente.'))return;
+  try{
+    await apiFetch(`/api/comunicados/${id}/desactivar`,{method:'POST'});
+  }catch(e){showToast('No se pudo cerrar: '+e.message,'err');return;}
+  showToast('Comunicado cerrado','ok');
+  await cargarComunicados();
+  if(pag==='comunicados')$('main').innerHTML=rComunicados();
+  buildNav();
 }
 
 // ── COBROS ─────────────────────────────────────────────────────────
@@ -4402,7 +4512,7 @@ const canEdit=function(modId){
 // que es el mismo que ahora SÍ hace cumplir el servidor en cada
 // llamada a la API.
 var PERM_MODS=[
-  {sec:'Principal',mods:[{id:'dash',lab:'Panel principal',ico:'🏠'}]},
+  {sec:'Principal',mods:[{id:'dash',lab:'Panel principal',ico:'🏠'},{id:'comunicados',lab:'Comunicados',ico:'📢'}]},
   {sec:'Operaciones',mods:[{id:'contrato',lab:'Facturación',ico:'📝'},{id:'buzon',lab:'Buzón',ico:'📬'},{id:'cobros',lab:'Cobros',ico:'💰'},{id:'cobrador',lab:'Cobrador',ico:'📲'},{id:'ruta',lab:'Ruta con mapa',ico:'🗺️'}]},
   {sec:'Comercial',mods:[{id:'clientes',lab:'Clientes',ico:'👥'},{id:'cxc',lab:'CxC',ico:'📄'},{id:'pedidos',lab:'Pedidos',ico:'🛍️'},{id:'embajadoras',lab:'Canal Embajadoras',ico:'👑'}]},
   {sec:'Almacén',mods:[{id:'arqueo',lab:'Arqueo',ico:'🧾'},{id:'almp',lab:'Alm. Principal',ico:'🏭'},{id:'almm',lab:'Alm. Móvil',ico:'🚐'},{id:'productos',lab:'Gestión de productos',ico:'🏷️'},{id:'laboratorio',lab:'Laboratorio (ver/armar recetas)',ico:'🧪'},{id:'laboratorio_produccion',lab:'Laboratorio: confirmar producción',ico:'⚗️'}]},
@@ -4627,7 +4737,7 @@ var _origRBuzon2=window.rBuzon;
 
 <script>
 
-var _MOD_ICONS={'dash':'🏠','contrato':'🧾','buzon':'📬','cobros':'💰','arqueo':'🧾','almp':'🏭','almm':'🚐','com':'📊','miscom':'💰','users':'👥','cfg':'⚙️','pedidos':'🛍️','cxp':'💳','nomina':'👔','contab':'📒','ccrm':'🤝','clientes':'🗂️','cxc':'📄','rendimiento':'📈','delfac':'🚫','asistente':'🤖','productos':'🏷️','laboratorio':'🧪','ruta':'🗺️','cobrador':'📲','auditoria':'🛡️','rrhh':'🧑‍💼'};
+var _MOD_ICONS={'dash':'🏠','contrato':'🧾','buzon':'📬','cobros':'💰','arqueo':'🧾','almp':'🏭','almm':'🚐','com':'📊','miscom':'💰','users':'👥','cfg':'⚙️','pedidos':'🛍️','cxp':'💳','nomina':'👔','contab':'📒','ccrm':'🤝','clientes':'🗂️','cxc':'📄','rendimiento':'📈','delfac':'🚫','asistente':'🤖','productos':'🏷️','laboratorio':'🧪','ruta':'🗺️','cobrador':'📲','auditoria':'🛡️','rrhh':'🧑‍💼','comunicados':'📢'};
 var _MOD_TITS={'dash':'Panel Principal','contrato':'Facturación','buzon':'Buzón de Aprobación','cobros':'Ruta de Cobro','arqueo':'Arqueo','almp':'Almacén Principal','almm':'Almacén Móvil','com':'Comisiones','miscom':'Cuadre Comisiones','users':'Usuarios','cfg':'Configuración','pedidos':'Portal Pedidos','cxp':'Cuentas por Pagar','nomina':'Nómina','contab':'Contabilidad','ccrm':'CRM','clientes':'Base de Clientes','cxc':'Cuentas por Cobrar','rendimiento':'Rendimiento','delfac':'Anular Factura','asistente':'Asistente IA','productos':'Gestión de Productos','laboratorio':'Laboratorio','ruta':'Ruta con Mapa','cobrador':'Cobrador Automático','auditoria':'Auditoría','rrhh':'Recursos Humanos'};
 var _STAT_ICO=['💰','📊','👥','✅','⚠️','📦','📈','💳','🏆','🎯','📋','🔄','💎','🌟'];
 function applyModTheme(id){
@@ -6657,16 +6767,6 @@ async function CB_guardarCliente(){
   if(typeof showToast==='function') showToast('Datos de cobranza actualizados ✅');
 }
 function CB_val(id){ var el=document.getElementById(id); return el ? el.value.trim() : ''; }
-async function CB_borrarCliente(){
-  if (CB_editando===null) return;
-  var v = CB_clientes[CB_editando]; if(!v || v._id==null) return;
-  if (!confirm("¿Borrar el contrato "+v.no+" de "+v.nombre+" definitivamente?\nEsto lo elimina de TODO el sistema.")) return;
-  try{ await apiFetch(`/api/contratos/${v._id}`,{method:'DELETE'}); }
-  catch(e){ alert('No se pudo borrar: '+e.message); return; }
-  await cargarContratos();
-  CB_cargar(); CB_pintar(); CB_dlg.close();
-  if(typeof showToast==='function') showToast('Contrato '+v.no+' eliminado');
-}
 
 // ------------------- Respaldos y exportación -------------------
 function CB_exportarJSON(){ CB_descargar("respaldo_cobranza_" + CB_hoyISO() + ".json", JSON.stringify(CB_clientes,null,2), "application/json"); }
@@ -9229,13 +9329,16 @@ CB_cargar = function(){
   CB_ordenar();                        // siempre de mayor a menor por factura
 };
 
-/* CB_guardarCliente() y CB_borrarCliente() (más arriba en el archivo) ya
-   llaman directo a la API (PATCH /cobranza y DELETE), y los 3 importadores
-   de la pestaña Cargar (Excel, fotos con IA, lote JSON/CSV) ya suben todo
-   de verdad via _cobradorSubirLote() -- ya no hace falta un CB_guardar()
-   que sincronice contratos[] a mano. Solo CB_cobrar() (marca de "último
-   cobro enviado por WhatsApp", dato no crítico) sigue usando el
-   CB_guardar() original de arriba (solo localStorage). */
+/* CB_guardarCliente() (más arriba en el archivo) ya llama directo a la API
+   (PATCH /cobranza), y los 3 importadores de la pestaña Cargar (Excel,
+   fotos con IA, lote JSON/CSV) ya suben todo de verdad via
+   _cobradorSubirLote() -- ya no hace falta un CB_guardar() que sincronice
+   contratos[] a mano. Solo CB_cobrar() (marca de "último cobro enviado por
+   WhatsApp", dato no crítico) sigue usando el CB_guardar() original de
+   arriba (solo localStorage). Un contrato nunca se elimina desde acá --
+   la única baja posible es anularlo (POST /api/contratos/:id/anular,
+   solo Gerencia/Sub-Gerencia, desde el Buzón), que lo marca 'anulado'
+   sin borrar el registro ni su historial. */
 
 /* Cobrar / abonar en el Cobrador → pasa por registrarPago() */
 CB_registrarAbono = async function(i){

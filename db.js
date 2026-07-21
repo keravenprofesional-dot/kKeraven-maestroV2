@@ -19,13 +19,17 @@ const pool = new Pool({
 // permisos_custom en la base de datos que sobreescribe esta lista por completo
 // para ese usuario puntual.
 const PERMS_POR_ROL = {
-  gerente:     ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel','auditoria','rrhh'],
-  subgerente:  ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel','auditoria','rrhh'],
-  coordinador: ['dash','contrato','buzon','cobros','arqueo','almp','com','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta'],
-  supervisor:  ['dash','contrato','buzon','cobros','almm','cfg','clientes','cxc','miscom','rendimiento','asistente','cobrador','ruta'],
-  almacen:     ['dash','arqueo','almp','almm','cfg','asistente'],
-  promotor:    ['dash','contrato','cfg','asistente'],
+  gerente:     ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel','auditoria','rrhh','comunicados'],
+  subgerente:  ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel','auditoria','rrhh','comunicados'],
+  coordinador: ['dash','contrato','buzon','cobros','arqueo','almp','com','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','comunicados'],
+  supervisor:  ['dash','contrato','buzon','cobros','almm','cfg','clientes','cxc','miscom','rendimiento','asistente','cobrador','ruta','comunicados'],
+  almacen:     ['dash','arqueo','almp','almm','cfg','asistente','comunicados'],
+  promotor:    ['dash','contrato','cfg','asistente','comunicados'],
 };
+
+// Roles que deben confirmar lectura de un comunicado (los que publican
+// -- gerente/subgerente/coordinador -- nunca aparecen aqui).
+const ROLES_CONFIRMAN_COMUNICADO = ['supervisor', 'almacen', 'promotor'];
 
 async function init() {
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
@@ -1794,6 +1798,65 @@ async function actualizarEstadoTarea(id, estado) {
   return rows[0] || null;
 }
 
+// ── COMUNICADOS ───────────────────────────────────────────────────
+async function crearComunicado({ titulo, mensaje, diasVigencia }, autorId) {
+  const { rows } = await pool.query(
+    `INSERT INTO comunicados (titulo, mensaje, autor_id, vence_en)
+     VALUES ($1, $2, $3, now() + ($4 || ' days')::interval) RETURNING *`,
+    [titulo, mensaje, autorId, diasVigencia]
+  );
+  return rows[0];
+}
+// Vigentes = activos y no vencidos. Trae quien lo publico y si el
+// usuario que consulta ya confirmo (para que el frontend sepa que
+// boton mostrarle).
+async function listarComunicadosVigentes(usuarioId) {
+  const { rows } = await pool.query(
+    `SELECT c.*, u.nombre AS autor_nombre, u.rol AS autor_rol,
+       (SELECT COUNT(*)::int FROM comunicados_confirmaciones cc WHERE cc.comunicado_id = c.id) AS total_confirmados,
+       EXISTS(SELECT 1 FROM comunicados_confirmaciones cc WHERE cc.comunicado_id = c.id AND cc.usuario_id = $1) AS confirmado_por_mi
+     FROM comunicados c
+     LEFT JOIN usuarios u ON u.id = c.autor_id
+     WHERE c.activo = TRUE AND c.vence_en > now()
+     ORDER BY c.creado_en DESC`,
+    [usuarioId]
+  );
+  return rows;
+}
+async function confirmarComunicado(id, usuarioId) {
+  const { rows } = await pool.query(`SELECT id FROM comunicados WHERE id = $1 AND activo = TRUE AND vence_en > now()`, [id]);
+  if (!rows[0]) return null;
+  await pool.query(
+    `INSERT INTO comunicados_confirmaciones (comunicado_id, usuario_id) VALUES ($1, $2)
+     ON CONFLICT (comunicado_id, usuario_id) DO NOTHING`,
+    [id, usuarioId]
+  );
+  return rows[0];
+}
+// Para quien publico: quien ya confirmo y quien de los roles que
+// deben confirmar todavia falta.
+async function listarConfirmacionesComunicado(id) {
+  const [objetivo, confirmaron] = await Promise.all([
+    pool.query(
+      `SELECT id, nombre, rol FROM usuarios WHERE activo = TRUE AND rol = ANY($1::text[]) ORDER BY nombre`,
+      [ROLES_CONFIRMAN_COMUNICADO]
+    ),
+    pool.query(
+      `SELECT cc.usuario_id, u.nombre, u.rol, cc.confirmado_en
+       FROM comunicados_confirmaciones cc JOIN usuarios u ON u.id = cc.usuario_id
+       WHERE cc.comunicado_id = $1 ORDER BY cc.confirmado_en`,
+      [id]
+    ),
+  ]);
+  const confirmadosIds = new Set(confirmaron.rows.map((r) => r.usuario_id));
+  const pendientes = objetivo.rows.filter((u) => !confirmadosIds.has(u.id));
+  return { confirmaron: confirmaron.rows, pendientes };
+}
+async function desactivarComunicado(id) {
+  const { rows } = await pool.query(`UPDATE comunicados SET activo = FALSE WHERE id = $1 RETURNING *`, [id]);
+  return rows[0] || null;
+}
+
 // ── RECURSOS HUMANOS ─────────────────────────────────────────────────
 
 // Referencia (NO decisoria) al Codigo de Trabajo dominicano (Ley 16-92)
@@ -2275,6 +2338,12 @@ module.exports = {
   crearTarea,
   listarTareas,
   actualizarEstadoTarea,
+  ROLES_CONFIRMAN_COMUNICADO,
+  crearComunicado,
+  listarComunicadosVigentes,
+  confirmarComunicado,
+  listarConfirmacionesComunicado,
+  desactivarComunicado,
   calcularVacaciones,
   registrarVacaciones,
   listarVacaciones,

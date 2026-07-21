@@ -377,6 +377,36 @@ app.patch('/api/tareas/:id', requireAuth, h(async (req, res) => {
   res.json(tarea);
 }));
 
+// ── COMUNICADOS ──────────────────────────────────────────────────
+// Publican Gerencia/Sub-Gerencia/Coordinador; deben confirmar lectura
+// Supervisor/Almacén/Promotor. Vigencia elegida por quien publica (1-90 días).
+app.get('/api/comunicados', requireAuth, requirePermiso('comunicados'), h(async (req, res) => {
+  res.json(await db.listarComunicadosVigentes(req.usuario.id));
+}));
+app.post('/api/comunicados', requireAuth, requireRol('gerente', 'subgerente', 'coordinador'), h(async (req, res) => {
+  const { titulo, mensaje, diasVigencia } = req.body || {};
+  if (!titulo || !titulo.trim()) return res.status(400).json({ error: 'Falta el título' });
+  if (!mensaje || !mensaje.trim()) return res.status(400).json({ error: 'Falta el mensaje' });
+  const dias = Number(diasVigencia);
+  if (!Number.isInteger(dias) || dias < 1 || dias > 90) {
+    return res.status(400).json({ error: 'Los días de vigencia deben ser un entero entre 1 y 90' });
+  }
+  res.status(201).json(await db.crearComunicado({ titulo: titulo.trim(), mensaje: mensaje.trim(), diasVigencia: dias }, req.usuario.id));
+}));
+app.post('/api/comunicados/:id/confirmar', requireAuth, requireRol(...db.ROLES_CONFIRMAN_COMUNICADO), h(async (req, res) => {
+  const com = await db.confirmarComunicado(req.params.id, req.usuario.id);
+  if (!com) return res.status(404).json({ error: 'Comunicado no encontrado o ya venció' });
+  res.json({ ok: true });
+}));
+app.get('/api/comunicados/:id/confirmaciones', requireAuth, requireRol('gerente', 'subgerente', 'coordinador'), h(async (req, res) => {
+  res.json(await db.listarConfirmacionesComunicado(req.params.id));
+}));
+app.post('/api/comunicados/:id/desactivar', requireAuth, requireRol('gerente', 'subgerente', 'coordinador'), h(async (req, res) => {
+  const com = await db.desactivarComunicado(req.params.id);
+  if (!com) return res.status(404).json({ error: 'Comunicado no encontrado' });
+  res.json(com);
+}));
+
 app.post('/api/contratos/:id/abonar', requireAuth, requireAnyPermiso('cobros', 'cobrador', 'ruta'), h(async (req, res) => {
   const { monto, via, nota } = req.body || {};
   if (monto == null || Number(monto) < 0) return res.status(400).json({ error: 'Monto inválido' });

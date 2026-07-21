@@ -767,3 +767,32 @@ CREATE TABLE IF NOT EXISTS rrhh_evaluaciones (
   creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_rrhh_evaluaciones_candidato ON rrhh_evaluaciones(candidato_id);
+
+-- ── COMUNICADOS ────────────────────────────────────────────────────
+-- Anuncios internos: Gerencia/Sub-Gerencia/Coordinador publican, y
+-- Supervisor/Almacén/Promotor deben confirmar que lo leyeron. Cada
+-- comunicado se vence solo, segun los dias de vigencia (1 a 90) que
+-- elige quien lo publica -- no requiere tarea programada, el listado
+-- de vigentes simplemente filtra por vence_en > now().
+CREATE TABLE IF NOT EXISTS comunicados (
+  id        SERIAL PRIMARY KEY,
+  titulo    TEXT NOT NULL,
+  mensaje   TEXT NOT NULL,
+  autor_id  INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+  vence_en  TIMESTAMPTZ NOT NULL,
+  activo    BOOLEAN NOT NULL DEFAULT TRUE
+);
+CREATE INDEX IF NOT EXISTS idx_comunicados_vigentes ON comunicados(activo, vence_en);
+
+-- Un registro por cada empleado que confirmó haber leido un comunicado.
+CREATE TABLE IF NOT EXISTS comunicados_confirmaciones (
+  id            SERIAL PRIMARY KEY,
+  comunicado_id INTEGER NOT NULL REFERENCES comunicados(id) ON DELETE CASCADE,
+  usuario_id    INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  confirmado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (comunicado_id, usuario_id)
+);
+CREATE INDEX IF NOT EXISTS idx_comunicados_conf_comunicado ON comunicados_confirmaciones(comunicado_id);
+CREATE INDEX IF NOT EXISTS idx_comunicados_conf_usuario ON comunicados_confirmaciones(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_rrhh_evaluaciones_candidato ON rrhh_evaluaciones(candidato_id);
