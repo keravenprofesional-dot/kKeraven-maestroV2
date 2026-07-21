@@ -4,14 +4,20 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 // Supabase (y la mayoría de la nube) exige SSL; Postgres local/Docker en
 // la misma red no lo necesita. DB_SSL=true lo activa explícitamente
 // cuando DATABASE_URL apunta a un host remoto.
+// max: sin esto, "pg" usa 10 conexiones por defecto -- con varias decenas
+// de usuarios concurrentes eso se agota rápido y toda petición que toque
+// la base (hasta una lectura liviana) queda haciendo cola. Configurable
+// por env var porque el techo real depende del plan de Supabase (revisar
+// Database > Settings > Connection pooling antes de subirlo mucho más).
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  max: Number(process.env.DB_POOL_MAX) || 20,
 });
 
 // Permisos por defecto segun rol (misma tabla que PERMS en el HTML original,

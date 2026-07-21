@@ -25,6 +25,7 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE}
       IA_CIFRADO_SECRET: ${IA_CIFRADO_SECRET}
       DB_SSL: ${DB_SSL:-false}
+      DB_POOL_MAX: ${DB_POOL_MAX:-20}
       PORT: 3000
     depends_on:
       db:
