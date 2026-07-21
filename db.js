@@ -431,13 +431,23 @@ async function decidirContrato(id, decision, comentario, usuarioId, usuarioNombr
   const cliente = await pool.connect();
   try {
     await cliente.query('BEGIN');
+    // FOR UPDATE bloquea la fila hasta el COMMIT/ROLLBACK -- si dos personas
+    // del Buzón (ej. Gerente y Sub-Gerente) deciden el mismo contrato casi al
+    // mismo tiempo, la segunda espera a que la primera termine y encuentra el
+    // estado ya cambiado, en vez de pisar la decisión sin darse cuenta.
+    const { rows: actual } = await cliente.query(`SELECT * FROM contratos WHERE id = $1 FOR UPDATE`, [id]);
+    if (!actual[0]) { await cliente.query('ROLLBACK'); return null; }
+    if (actual[0].estado !== 'pendiente') {
+      await cliente.query('ROLLBACK');
+      return { conflicto: true, estadoActual: actual[0].estado, decididoPor: actual[0].decidido_por };
+    }
+
     const { rows } = await cliente.query(
       `UPDATE contratos SET estado = $2, decidido_por = $3, decidido_en = now()
        WHERE id = $1 RETURNING *`,
       [id, decision, usuarioId]
     );
     const contrato = rows[0];
-    if (!contrato) { await cliente.query('ROLLBACK'); return null; }
 
     if (decision === 'aprobado' && contrato.promotor_nombre && Number(contrato.monto) > 0) {
       const ya = await cliente.query(

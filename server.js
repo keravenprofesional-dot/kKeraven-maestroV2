@@ -38,8 +38,16 @@ app.use(
   })
 );
 
-const limiteLogin = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, standardHeaders: true, legacyHeaders: false });
-const limiteApi = rateLimit({ windowMs: 15 * 60 * 1000, max: 600, standardHeaders: true, legacyHeaders: false });
+// Limites por IP (defensa contra flood/DoS), no contra fuerza bruta de un
+// PIN puntual -- eso ya lo cubre el bloqueo POR CUENTA en verificarLogin()
+// (MAX_INTENTOS fallidos seguidos bloquea esa cuenta, sin importar la IP).
+// Varios promotores/supervisores entrando casi al mismo tiempo desde la
+// misma red de oficina o el mismo NAT comparten IP -- con límites bajos
+// (15 logins / 600 llamadas de API cada 15 min) los primeros entran y el
+// resto queda bloqueado sin haber hecho nada malo. Subido a un techo que
+// sigue frenando un ataque real pero no golpea el uso legítimo concurrente.
+const limiteLogin = rateLimit({ windowMs: 15 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
+const limiteApi = rateLimit({ windowMs: 15 * 60 * 1000, max: 3000, standardHeaders: true, legacyHeaders: false });
 app.use('/api', limiteApi);
 
 function h(fn) {
@@ -318,6 +326,12 @@ app.post('/api/contratos/:id/decidir', requireAuth, requirePermiso('buzon'), h(a
   const usuario = await db.buscarUsuarioPorId(req.session.usuarioId);
   const contrato = await db.decidirContrato(req.params.id, decision, comentario || '', usuario.id, usuario.nombre);
   if (!contrato) return res.status(404).json({ error: 'Contrato no encontrado' });
+  if (contrato.conflicto) {
+    const quien = contrato.decididoPor ? await db.buscarUsuarioPorId(contrato.decididoPor) : null;
+    return res.status(409).json({
+      error: `Este contrato ya fue ${contrato.estadoActual}${quien ? ' por ' + quien.nombre : ''}. Tu decisión no se aplicó.`,
+    });
+  }
   res.json(contrato);
 }));
 
