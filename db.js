@@ -1794,22 +1794,38 @@ async function crearTarea({ titulo, descripcion, origenTipo, asignadoA, fechaLim
   );
   return rows[0];
 }
-async function listarTareas({ soloAbiertas } = {}) {
+// usuario: { id, esAdmin }. Solo gerente/subgerente ven TODAS las tareas
+// (son quienes las crean y hacen seguimiento general); el resto solo ve
+// las que tiene asignadas a sí mismo -- una tarea puede traer información
+// sensible de otra persona/área.
+async function listarTareas({ soloAbiertas } = {}, usuario) {
+  const condiciones = [];
+  const valores = [];
+  if (soloAbiertas) condiciones.push(`t.estado IN ('pendiente','en_proceso')`);
+  if (!usuario.esAdmin) {
+    valores.push(usuario.id);
+    condiciones.push(`t.asignado_a = $${valores.length}`);
+  }
+  const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
   const { rows } = await pool.query(
     `SELECT t.*, ua.nombre AS asignado_a_nombre, uc.nombre AS creado_por_nombre
      FROM tareas t
      LEFT JOIN usuarios ua ON ua.id = t.asignado_a
      LEFT JOIN usuarios uc ON uc.id = t.creado_por
-     ${soloAbiertas ? "WHERE t.estado IN ('pendiente','en_proceso')" : ''}
-     ORDER BY t.fecha_limite NULLS LAST, t.creado_en DESC`
+     ${where}
+     ORDER BY t.fecha_limite NULLS LAST, t.creado_en DESC`,
+    valores
   );
   return rows;
 }
-async function actualizarEstadoTarea(id, estado) {
+// Sin esAdmin, solo el usuario asignado puede cambiar el estado de SU tarea.
+async function actualizarEstadoTarea(id, estado, usuario) {
+  const condicionDueno = usuario.esAdmin ? '' : ` AND asignado_a = $3`;
+  const valores = usuario.esAdmin ? [id, estado] : [id, estado, usuario.id];
   const { rows } = await pool.query(
     `UPDATE tareas SET estado = $2, completado_en = CASE WHEN $2='completada' THEN now() ELSE completado_en END
-     WHERE id = $1 RETURNING *`,
-    [id, estado]
+     WHERE id = $1${condicionDueno} RETURNING *`,
+    valores
   );
   return rows[0] || null;
 }

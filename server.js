@@ -373,8 +373,14 @@ app.get('/api/auditoria', requireAuth, requireRol('gerente', 'subgerente'), h(as
 // Tareas: pueden nacer de una alerta de Auditoría o crearse a mano.
 // Cualquier usuario autenticado ve/actualiza sus propias tareas; solo
 // Gerencia/Sub-Gerencia pueden crear y asignarle una tarea a otro.
+// Gerente/Sub-Gerente ven y administran todas las tareas; el resto solo
+// ve y actualiza las que tiene asignadas a sí mismo (una tarea puede
+// traer información sensible de otra persona/área).
 app.get('/api/tareas', requireAuth, h(async (req, res) => {
-  res.json(await db.listarTareas({ soloAbiertas: req.query.abiertas === '1' }));
+  const usuario = await db.buscarUsuarioPorId(req.session.usuarioId);
+  if (!usuario || !usuario.activo) return res.status(401).json({ error: 'No autenticado' });
+  const esAdmin = ['gerente', 'subgerente'].includes(usuario.rol);
+  res.json(await db.listarTareas({ soloAbiertas: req.query.abiertas === '1' }, { id: usuario.id, esAdmin }));
 }));
 app.post('/api/tareas', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
   const { titulo, descripcion, origenTipo, asignadoA, fechaLimite } = req.body || {};
@@ -386,8 +392,11 @@ app.patch('/api/tareas/:id', requireAuth, h(async (req, res) => {
   if (!['pendiente', 'en_proceso', 'completada', 'descartada'].includes(estado)) {
     return res.status(400).json({ error: 'Estado inválido' });
   }
-  const tarea = await db.actualizarEstadoTarea(req.params.id, estado);
-  if (!tarea) return res.status(404).json({ error: 'Tarea no encontrada' });
+  const usuario = await db.buscarUsuarioPorId(req.session.usuarioId);
+  if (!usuario || !usuario.activo) return res.status(401).json({ error: 'No autenticado' });
+  const esAdmin = ['gerente', 'subgerente'].includes(usuario.rol);
+  const tarea = await db.actualizarEstadoTarea(req.params.id, estado, { id: usuario.id, esAdmin });
+  if (!tarea) return res.status(404).json({ error: 'Tarea no encontrada o no te pertenece' });
   res.json(tarea);
 }));
 
