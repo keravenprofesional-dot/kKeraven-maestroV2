@@ -667,6 +667,12 @@ const COLS=['#A87A2E','#185FA5','#0F6E56','#A32D2D','#5B4E8A','#C05621','#2C7A7B
 
 // ── HELPERS ────────────────────────────────────────────────────────
 const $=id=>document.getElementById(id);
+// Todo el frontend arma pantallas insertando strings directo en innerHTML
+// (sin build step, sin framework) -- cualquier texto libre que venga de un
+// usuario (nombre, notas, mensaje de un comunicado, observaciones, etc.)
+// tiene que pasar por acá antes de interpolarse, o un <script> guardado en
+// ese campo correría en el navegador de todo el que lea esa pantalla.
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fM=n=>'RD$ '+(Math.round(n)||0).toLocaleString('es-DO');
 const fD=d=>d?new Date(d).toLocaleDateString('es-DO',{day:'2-digit',month:'short',year:'numeric'}):'—';
 const now=()=>new Date().toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'});
@@ -870,7 +876,7 @@ async function initLogin(){
   const lu=$('lu');lu.innerHTML='<option value="">Cargando...</option>';
   await cargarUsuariosLogin();
   lu.innerHTML='<option value="">Seleccionar usuario...</option>';
-  USUARIOS.forEach(u=>{lu.innerHTML+=`<option value="${u.id}">${u.n} — ${u.rl}</option>`;});
+  USUARIOS.forEach(u=>{lu.innerHTML+=`<option value="${u.id}">${esc(u.n)} — ${esc(u.rl)}</option>`;});
 }
 async function login(){
   const uid=$('lu').value,pin=$('lpin').value,err=$('lerr');
@@ -1788,22 +1794,22 @@ function ccCard(c){
         <textarea id="cr_${c.id}" placeholder="Motivo del rechazo..."></textarea>
         <button class="bre" onclick="decidir(${c.id},'rechazado')"><i class="ti ti-circle-x" style="font-size:16px"></i>RECHAZAR</button></div>
       </div>`;}
-    else if(c.status==='aprobado')ac=`<div class="ra"><i class="ti ti-circle-check" style="font-size:17px"></i><div><b>Aprobado por ${c.dec.q}</b> — ${c.dec.h}${c.dec.c?' · "'+c.dec.c+'"':''}</div></div>`
+    else if(c.status==='aprobado')ac=`<div class="ra"><i class="ti ti-circle-check" style="font-size:17px"></i><div><b>Aprobado por ${esc(c.dec.q)}</b> — ${c.dec.h}${c.dec.c?' · "'+esc(c.dec.c)+'"':''}</div></div>`
       +(ses&&['gerente','subgerente'].includes(ses.rol)?`<button class="bsm" style="margin-top:8px" onclick="editarContrato(${c.id})"><i class="ti ti-edit"></i> Editar datos del cliente</button>`:'');
-    else ac=`<div class="rr"><i class="ti ti-circle-x" style="font-size:17px"></i><div><b>Rechazado por ${c.dec.q}</b> — ${c.dec.h}${c.dec.c?' · "'+c.dec.c+'"':''}</div></div>`;
+    else ac=`<div class="rr"><i class="ti ti-circle-x" style="font-size:17px"></i><div><b>Rechazado por ${esc(c.dec.q)}</b> — ${c.dec.h}${c.dec.c?' · "'+esc(c.dec.c)+'"':''}</div></div>`;
     body=`<div class="cc-bd">
       <div class="dg">
-        <div><div class="dl">Cédula</div><div class="dv">${c.cedula}</div></div>
-        <div><div class="dl">Teléfono</div><div class="dv">${c.tel1}${c.tel2?' / '+c.tel2:''}</div></div>
-        <div><div class="dl">Institución</div><div class="dv">${c.inst||'—'}</div></div>
-        <div><div class="dl">Referencia</div><div class="dv">${c.ref||'—'}</div></div>
-        <div><div class="dl">Zona</div><div class="dv">${c.zona||'—'}</div></div>
-        <div><div class="dl">Barrio/Sector</div><div class="dv">${c.barrio||'—'}</div></div>
-        <div><div class="dl">Dirección</div><div class="dv">${c.dir||'—'}</div></div>
-        <div><div class="dl">GPS</div><div class="dv" style="font-size:10px">${c.gps||'—'}</div></div>
+        <div><div class="dl">Cédula</div><div class="dv">${esc(c.cedula)}</div></div>
+        <div><div class="dl">Teléfono</div><div class="dv">${esc(c.tel1)}${c.tel2?' / '+esc(c.tel2):''}</div></div>
+        <div><div class="dl">Institución</div><div class="dv">${esc(c.inst||'—')}</div></div>
+        <div><div class="dl">Referencia</div><div class="dv">${esc(c.ref||'—')}</div></div>
+        <div><div class="dl">Zona</div><div class="dv">${esc(c.zona||'—')}</div></div>
+        <div><div class="dl">Barrio/Sector</div><div class="dv">${esc(c.barrio||'—')}</div></div>
+        <div><div class="dl">Dirección</div><div class="dv">${esc(c.dir||'—')}</div></div>
+        <div><div class="dl">GPS</div><div class="dv" style="font-size:10px">${esc(c.gps||'—')}</div></div>
         ${c.descuento>0?`<div><div class="dl">Descuento</div><div class="dv" style="color:var(--er)">- ${fM(c.descuento)}</div></div><div><div class="dl">Neto</div><div class="dv" style="color:var(--green);font-weight:700">${fM(c.neto||c.monto)}</div></div>`:''}
         ${c.tipo==='credito'?`<div><div class="dl">Vence</div><div class="dv">${fD(c.lim)} (${c.plazo}d)</div></div>`:''}
-        ${c.obs?`<div style="grid-column:span 2"><div class="dl">Observaciones</div><div class="dv">${c.obs}</div></div>`:''}
+        ${c.obs?`<div style="grid-column:span 2"><div class="dl">Observaciones</div><div class="dv">${esc(c.obs)}</div></div>`:''}
       </div>
       <div style="margin-bottom:8px"><div class="dl">Productos</div><div style="margin-top:3px">${pills}</div></div>
       <div class="dl">Fotos de cédula</div>${thumbs}${ac}
@@ -1812,8 +1818,8 @@ function ccCard(c){
   return `<div class="cc${isE?' exp':''}">
     <div class="cc-hd" onclick="togE(${c.id})">
       <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="cc-fac">${c.fac}</span><span class="cc-nom">${c.cliente}</span></div>
-        <div class="cc-met">${c.promotor} · ${fD(c.fecha)} · ${fM(c.monto)} · ${c.tipo==='credito'?'Crédito '+c.plazo+'d':'Contado'}</div>
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="cc-fac">${c.fac}</span><span class="cc-nom">${esc(c.cliente)}</span></div>
+        <div class="cc-met">${esc(c.promotor)} · ${fD(c.fecha)} · ${fM(c.monto)} · ${c.tipo==='credito'?'Crédito '+c.plazo+'d':'Contado'}</div>
       </div>
       <span class="cc-st ${stC[c.status]}">${stL[c.status]}</span>
       <i class="ti ti-chevron-${isE?'up':'down'}" style="font-size:14px;color:var(--t2)"></i>
@@ -1918,12 +1924,12 @@ function comCard(c,puedePublicar,puedeConfirmar){
   return `<div class="cc">
     <div class="cc-hd" style="cursor:default">
       <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="cc-nom">${c.titulo}</span></div>
-        <div class="cc-met">${c.autor_nombre||'—'} · ${fD(c.creado_en)} · vence ${fD(c.vence_en)}</div>
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="cc-nom">${esc(c.titulo)}</span></div>
+        <div class="cc-met">${esc(c.autor_nombre)||'—'} · ${fD(c.creado_en)} · vence ${fD(c.vence_en)}</div>
       </div>
     </div>
     <div class="cc-bd" style="display:block">
-      <div style="white-space:pre-wrap;font-size:13px;line-height:1.5">${c.mensaje}</div>
+      <div style="white-space:pre-wrap;font-size:13px;line-height:1.5">${esc(c.mensaje)}</div>
       ${accion}
     </div>
   </div>`;
@@ -1954,7 +1960,7 @@ async function verConfirmaciones(id){
   try{ data=await apiFetch(`/api/comunicados/${id}/confirmaciones`); }
   catch(e){ showToast('No se pudo cargar el detalle: '+e.message,'err'); return; }
   const filas=(arr,confirmado)=>arr.map(u=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--br);font-size:13px">
-    <span>${u.nombre} <span style="color:var(--t2);font-size:11px">(${rolLabel(u.rol)})</span></span>
+    <span>${esc(u.nombre)} <span style="color:var(--t2);font-size:11px">(${rolLabel(u.rol)})</span></span>
     <span style="color:${confirmado?'var(--green)':'var(--er)'}">${confirmado?fD(u.confirmado_en):'Pendiente'}</span>
   </div>`).join('')||'<div class="empty" style="padding:12px">Nadie en esta lista</div>';
   openMdl('Confirmaciones del comunicado',
@@ -1995,11 +2001,11 @@ function rCobros(){
 function cobCard(c){
   const saldo=c.saldo||0,isE=expId===('c'+c.id);let body='';
   if(isE){
-    const hist=(c.abonos||[]).map(a=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--br)"><span>${a.f} — ${a.q}</span><b style="color:var(--green)">${fM(a.m)}</b></div>`).join('');
+    const hist=(c.abonos||[]).map(a=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--br)"><span>${a.f} — ${esc(a.q)}</span><b style="color:var(--green)">${fM(a.m)}</b></div>`).join('');
     body=`<div class="cc-bd">
       <div class="dg">
-        <div><div class="dl">Cédula</div><div class="dv">${c.cedula}</div></div>
-        <div><div class="dl">Teléfono</div><div class="dv">${c.tel1}</div></div>
+        <div><div class="dl">Cédula</div><div class="dv">${esc(c.cedula)}</div></div>
+        <div><div class="dl">Teléfono</div><div class="dv">${esc(c.tel1)}</div></div>
         <div><div class="dl">Monto original</div><div class="dv">${fM(c.monto)}</div></div>
         ${c.descuento>0?`<div><div class="dl">Descuento</div><div class="dv" style="color:var(--er)">- ${fM(c.descuento)}</div></div>
         <div><div class="dl">Neto</div><div class="dv" style="color:var(--green);font-weight:700">${fM(c.neto||c.monto)}</div></div>`:''}
@@ -2036,8 +2042,8 @@ function cobCard(c){
   return `<div class="cobc${isE?' exp':''}">
     <div class="cob-hd" onclick="togCob(${c.id})">
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600">${c.cliente}</div>
-        <div style="font-size:10px;color:var(--t2);margin-top:1px">${c.fac} · ${c.promotor} · ${fD(c.fecha)}</div>
+        <div style="font-size:13px;font-weight:600">${esc(c.cliente)}</div>
+        <div style="font-size:10px;color:var(--t2);margin-top:1px">${c.fac} · ${esc(c.promotor)} · ${fD(c.fecha)}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-size:14px;font-weight:700;color:${saldo>0?'var(--er)':'var(--green)'}">${fM(saldo)}</div>
@@ -2137,7 +2143,7 @@ function apTab(t){
     apiFetch('/api/almacen/entradas').then(lista=>{
       if($('ap_mov').className!=='bg')return; // el usuario ya cambió de pestaña
       if(!lista.length){c.innerHTML=`<div class="empty"><i class="ti ti-history"></i>Sin movimientos</div>`;return;}
-      c.innerHTML=lista.map(e=>`<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><div><b>${fD(e.fecha)}</b><div style="font-size:11px;color:var(--t2)">${e.proveedor} · ${e.registrado_por_nombre||'—'}</div></div><span class="pill" style="background:var(--gbg);border-color:var(--green);color:var(--gdk)">${e.items.length} prods</span></div>${e.items.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--br)"><span>${i.nombre}</span><b>+${i.cantidad}</b></div>`).join('')}</div>`).join('');
+      c.innerHTML=lista.map(e=>`<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><div><b>${fD(e.fecha)}</b><div style="font-size:11px;color:var(--t2)">${esc(e.proveedor)} · ${esc(e.registrado_por_nombre||'—')}</div></div><span class="pill" style="background:var(--gbg);border-color:var(--green);color:var(--gdk)">${e.items.length} prods</span></div>${e.items.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--br)"><span>${esc(i.nombre)}</span><b>+${i.cantidad}</b></div>`).join('')}</div>`).join('');
     }).catch(()=>{c.innerHTML=`<div class="empty"><i class="ti ti-alert-triangle"></i>No se pudo cargar el historial</div>`;});
   }
 }
@@ -2303,7 +2309,7 @@ function cTab(t){
             <div style="font-size:11px;font-weight:700;color:#0277BD;margin-bottom:8px">📋 Datos del contrato</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
               <div><span style="color:var(--t2)">Factura: </span><b>${s.fac||'—'}</b></div>
-              <div><span style="color:var(--t2)">Promotor: </span><b>${s.promotor}</b></div>
+              <div><span style="color:var(--t2)">Promotor: </span><b>${esc(s.promotor)}</b></div>
               <div><span style="color:var(--t2)">Tipo: </span><b>${s.tipo==='credito'?'Crédito':'Contado'}</b></div>
               <div><span style="color:var(--t2)">Venta: </span><b>${fM(s.monto||0)}</b></div>
               <div><span style="color:var(--t2)">Tasa: </span><b>${s.tipo==='credito'?'8%':'16%'}</b></div>
@@ -2426,8 +2432,8 @@ function rUsers(){
       h+=`<div class="uc${yo?' me':''}">
         <div class="uav" style="background:${u.c}">${u.n[0].toUpperCase()}</div>
         <div style="flex:1;min-width:0">
-          <div class="unm">${u.n}${yo?`<span style="font-size:9px;background:var(--gold-p);border:0.5px solid var(--gold);border-radius:100px;padding:1px 5px;color:var(--gold-m)">Tú</span>`:''}</div>
-          <div class="url">${u.rl}</div>
+          <div class="unm">${esc(u.n)}${yo?`<span style="font-size:9px;background:var(--gold-p);border:0.5px solid var(--gold);border-radius:100px;padding:1px 5px;color:var(--gold-m)">Tú</span>`:''}</div>
+          <div class="url">${esc(u.rl)}</div>
           <div class="upin"><i class="ti ti-lock" style="font-size:9px"></i> PIN protegido</div>
         </div>
         <div class="uacts">
@@ -2445,7 +2451,7 @@ function rUsers(){
     h+=`<div class="sl"><i class="ti ti-user-off" style="font-size:11px"></i>Inactivos (${inac.length})</div>`;
     inac.forEach(u=>{h+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 11px;background:#F7F6F3;border:1px solid var(--br);border-radius:var(--r);margin-bottom:5px;opacity:.6">
       <div style="width:28px;height:28px;border-radius:50%;background:${u.c};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff">${u.n[0]}</div>
-      <div style="flex:1"><div style="font-size:12px;font-weight:600">${u.n}</div><div style="font-size:10px;color:var(--t2)">${u.rl}</div></div>
+      <div style="flex:1"><div style="font-size:12px;font-weight:600">${esc(u.n)}</div><div style="font-size:10px;color:var(--t2)">${esc(u.rl)}</div></div>
       <button class="bsm" onclick="reactU(${u.id})"><i class="ti ti-user-check"></i> Reactivar</button>
     </div>`;});
   }
@@ -2972,28 +2978,28 @@ function pedRenderDatos(){
     <div class="ped-sec">✦ Datos Personales</div>
     <div class="ped-field">
       <label class="ped-lbl">Nombre Completo *</label>
-      <input class="ped-inp" id="pd_nm" placeholder="María García Pérez" value="${pedInfo.nombre}" oninput="pedInfo.nombre=this.value.toUpperCase();pedClrErr(this)">
+      <input class="ped-inp" id="pd_nm" placeholder="María García Pérez" value="${esc(pedInfo.nombre)}" oninput="pedInfo.nombre=this.value.toUpperCase();pedClrErr(this)">
       <div class="ped-err" id="pderr_nm"></div>
     </div>
     <div class="ped-field">
       <label class="ped-lbl">Número de Cédula *</label>
-      <input class="ped-inp" id="pd_ce" placeholder="000-0000000-0" maxlength="13" value="${pedInfo.cedula}" oninput="fCed(this);pedInfo.cedula=this.value;pedClrErr(this)">
+      <input class="ped-inp" id="pd_ce" placeholder="000-0000000-0" maxlength="13" value="${esc(pedInfo.cedula)}" oninput="fCed(this);pedInfo.cedula=this.value;pedClrErr(this)">
       <div class="ped-err" id="pderr_ce"></div>
     </div>
     <div class="ped-g2">
       <div class="ped-field">
         <label class="ped-lbl">Tel. Principal *</label>
-        <input class="ped-inp" id="pd_t1" type="tel" placeholder="809-000-0000" maxlength="12" value="${pedInfo.tel1}" oninput="fTel(this);pedInfo.tel1=this.value;pedClrErr(this)">
+        <input class="ped-inp" id="pd_t1" type="tel" placeholder="809-000-0000" maxlength="12" value="${esc(pedInfo.tel1)}" oninput="fTel(this);pedInfo.tel1=this.value;pedClrErr(this)">
         <div class="ped-err" id="pderr_t1"></div>
       </div>
       <div class="ped-field">
         <label class="ped-lbl">2do Teléfono</label>
-        <input class="ped-inp" id="pd_t2" type="tel" placeholder="829-000-0000" maxlength="12" value="${pedInfo.tel2}" oninput="fTel(this);pedInfo.tel2=this.value">
+        <input class="ped-inp" id="pd_t2" type="tel" placeholder="829-000-0000" maxlength="12" value="${esc(pedInfo.tel2)}" oninput="fTel(this);pedInfo.tel2=this.value">
       </div>
     </div>
     <div class="ped-field">
       <label class="ped-lbl">Correo Electrónico</label>
-      <input class="ped-inp" id="pd_em" type="email" placeholder="correo@ejemplo.com" value="${pedInfo.email}" oninput="pedInfo.email=this.value">
+      <input class="ped-inp" id="pd_em" type="email" placeholder="correo@ejemplo.com" value="${esc(pedInfo.email)}" oninput="pedInfo.email=this.value">
     </div>
     <div class="ped-field">
       <label class="ped-lbl">Ciudad *</label>
@@ -3005,12 +3011,12 @@ function pedRenderDatos(){
     </div>
     <div class="ped-field">
       <label class="ped-lbl">Dirección Exacta *</label>
-      <input class="ped-inp" id="pd_di" placeholder="Calle, número, sector..." value="${pedInfo.direccion}" oninput="pedInfo.direccion=this.value.toUpperCase();pedClrErr(this)">
+      <input class="ped-inp" id="pd_di" placeholder="Calle, número, sector..." value="${esc(pedInfo.direccion)}" oninput="pedInfo.direccion=this.value.toUpperCase();pedClrErr(this)">
       <div class="ped-err" id="pderr_di"></div>
     </div>
     <div class="ped-field">
       <label class="ped-lbl">Referencia del Lugar *</label>
-      <input class="ped-inp" id="pd_rf" placeholder="Frente al parque, esq. con la farmacia..." value="${pedInfo.referencia}" oninput="pedInfo.referencia=this.value.toUpperCase();pedClrErr(this)">
+      <input class="ped-inp" id="pd_rf" placeholder="Frente al parque, esq. con la farmacia..." value="${esc(pedInfo.referencia)}" oninput="pedInfo.referencia=this.value.toUpperCase();pedClrErr(this)">
       <div class="ped-err" id="pderr_rf"></div>
     </div>
     <div style="border-top:1px solid rgba(212,175,55,.2);padding-top:14px;margin-top:4px;margin-bottom:14px">
@@ -3018,7 +3024,7 @@ function pedRenderDatos(){
     </div>
     <div class="ped-field" style="margin-bottom:20px">
       <label class="ped-lbl">Nombre de la Parada *</label>
-      <input class="ped-inp" id="pd_pa" placeholder="Ej: Parada Bella Vista, Colmado Don Juan..." value="${pedInfo.parada}" oninput="pedInfo.parada=this.value.toUpperCase();pedClrErr(this)">
+      <input class="ped-inp" id="pd_pa" placeholder="Ej: Parada Bella Vista, Colmado Don Juan..." value="${esc(pedInfo.parada)}" oninput="pedInfo.parada=this.value.toUpperCase();pedClrErr(this)">
       <div class="ped-err" id="pderr_pa"></div>
     </div>
     <button class="ped-btn-r" onclick="pedIrProductos()">Continuar al Catálogo →</button>
@@ -3128,8 +3134,8 @@ function pedRenderPago(){
     } else {
       h+=`<div class="ped-cre-ok">
         <div style="font-size:11px;letter-spacing:2px;color:#2ecc71;font-weight:700;margin-bottom:5px">✓ CRÉDITO AUTORIZADO</div>
-        <div style="font-size:13px;color:#EDEBE6;margin-bottom:3px">${pedCredito.nombre}</div>
-        <div style="font-size:11px;color:#C4C4CC">Código: <strong style="color:#CE9840">${pedCredito.codigo}</strong>${pedCredito.limite?` · Límite: RD$${parseInt(pedCredito.limite).toLocaleString()}`:''}</div>
+        <div style="font-size:13px;color:#EDEBE6;margin-bottom:3px">${esc(pedCredito.nombre)}</div>
+        <div style="font-size:11px;color:#C4C4CC">Código: <strong style="color:#CE9840">${esc(pedCredito.codigo)}</strong>${pedCredito.limite?` · Límite: RD$${parseInt(pedCredito.limite).toLocaleString()}`:''}</div>
         <div class="ped-sec" style="margin:14px 0 10px">✦ Plazo de Pago</div>
         <div class="ped-plazos">${PED_PLAZOS.map(d=>`<button class="ped-plazo${pedPlazo===d?' sel':''}" onclick="pedPlazo=${d};pedRender()">${d}d</button>`).join('')}</div>
         ${pedPlazo?`<div class="ped-venc">
@@ -3302,7 +3308,7 @@ function pedMakeReceiptHTML(){
       </div>
       <div style="flex:1;background:#F7F6F3;border:1px solid #E4E4E9;border-radius:10px;padding:16px">
         <div style="font-size:9px;letter-spacing:3px;color:#12141F;text-transform:uppercase;font-weight:700;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #CE9840">📍 Entrega &amp; Pago</div>
-        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #EDEBE6;font-size:11px;margin-bottom:10px"><span style="color:#8A8A94">Parada</span><span style="color:#080910;font-weight:600">${pedInfo.parada}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #EDEBE6;font-size:11px;margin-bottom:10px"><span style="color:#8A8A94">Parada</span><span style="color:#080910;font-weight:600">${esc(pedInfo.parada)}</span></div>
         <div style="background:${mColor}18;border:1.5px solid ${mColor}55;border-radius:8px;padding:10px 12px">
           <div style="font-size:9px;letter-spacing:2px;color:#8A8A94;text-transform:uppercase;margin-bottom:4px">Método de Pago</div>
           <div style="font-size:13px;font-weight:700;color:${mColor}">${mLabel}</div>
@@ -3327,7 +3333,7 @@ function pedMakeReceiptHTML(){
       </table>
     </div>
     <div style="display:flex;gap:36px;margin-top:16px">
-      <div style="flex:1;text-align:center"><div style="height:38px"></div><div style="border-top:2px solid #12141F;padding-top:8px"><div style="font-size:9px;letter-spacing:2px;color:#8A8A94;text-transform:uppercase">Firma de la Clienta</div><div style="font-size:11px;color:#080910;font-weight:600;margin-top:3px">${pedInfo.nombre}</div></div></div>
+      <div style="flex:1;text-align:center"><div style="height:38px"></div><div style="border-top:2px solid #12141F;padding-top:8px"><div style="font-size:9px;letter-spacing:2px;color:#8A8A94;text-transform:uppercase">Firma de la Clienta</div><div style="font-size:11px;color:#080910;font-weight:600;margin-top:3px">${esc(pedInfo.nombre)}</div></div></div>
       <div style="flex:1;text-align:center"><div style="height:38px"></div><div style="border-top:2px solid #12141F;padding-top:8px"><div style="font-size:9px;letter-spacing:2px;color:#8A8A94;text-transform:uppercase">Autorizado por KERAVEN</div><div style="font-size:11px;color:#080910;font-weight:600;margin-top:3px">___________________</div></div></div>
     </div>
   </div>
@@ -3448,13 +3454,13 @@ async function padTab(t){
       if(isE){
         body=`<div style="padding:11px 13px;border-top:1px solid var(--br)">
           <div class="dg">
-            <div><div class="dl">Cédula</div><div class="dv">${o.cedula}</div></div>
-            <div><div class="dl">Teléfono</div><div class="dv">${o.tel1}</div></div>
-            ${o.email?`<div><div class="dl">Correo</div><div class="dv">${o.email}</div></div>`:''}
-            <div><div class="dl">Ciudad</div><div class="dv">${o.ciudad}</div></div>
-            <div><div class="dl">Parada</div><div class="dv">${o.parada}</div></div>
+            <div><div class="dl">Cédula</div><div class="dv">${esc(o.cedula)}</div></div>
+            <div><div class="dl">Teléfono</div><div class="dv">${esc(o.tel1)}</div></div>
+            ${o.email?`<div><div class="dl">Correo</div><div class="dv">${esc(o.email)}</div></div>`:''}
+            <div><div class="dl">Ciudad</div><div class="dv">${esc(o.ciudad)}</div></div>
+            <div><div class="dl">Parada</div><div class="dv">${esc(o.parada)}</div></div>
             <div><div class="dl">Pago</div><div class="dv">${o.metodo==='transferencia'?'Transferencia':o.metodo==='cash'?'Cash':'Crédito'}${o.plazo?' · '+o.plazo+'d':''}</div></div>
-            ${o.codCli?`<div><div class="dl">Cód. Cliente</div><div class="dv" style="color:var(--gold)">${o.codCli}</div></div>`:''}
+            ${o.codCli?`<div><div class="dl">Cód. Cliente</div><div class="dv" style="color:var(--gold)">${esc(o.codCli)}</div></div>`:''}
           </div>
           <div class="sl" style="margin-top:8px">Productos</div>
           ${o.items.map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--br)">
@@ -3471,8 +3477,8 @@ async function padTab(t){
       return `<div class="aped-ord${isE?' exp':''}">
         <div class="aped-ord-hd" onclick="pedAdmExpId=pedAdmExpId===${o.id}?null:${o.id};padTab('ord')">
           <div style="flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:7px"><span style="font-size:11px;font-weight:600;color:var(--gold)">${o.conduce}</span><span style="font-size:13px;font-weight:600">${o.cliente}</span></div>
-            <div style="font-size:10px;color:var(--t2)">${fD(o.fecha)} · ${o.ciudad} · ${fM(o.total)}</div>
+            <div style="display:flex;align-items:center;gap:7px"><span style="font-size:11px;font-weight:600;color:var(--gold)">${esc(o.conduce)}</span><span style="font-size:13px;font-weight:600">${esc(o.cliente)}</span></div>
+            <div style="font-size:10px;color:var(--t2)">${fD(o.fecha)} · ${esc(o.ciudad)} · ${fM(o.total)}</div>
           </div>
           <span class="cc-st ${stCls}">${stLb}</span>
           <i class="ti ti-chevron-${isE?'up':'down'}" style="font-size:13px;color:var(--t2)"></i>
@@ -3491,8 +3497,8 @@ async function padTab(t){
         <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
           <span style="width:8px;height:8px;border-radius:50%;background:${cli.activo?'var(--green)':'var(--er)'};flex-shrink:0;display:inline-block"></span>
           <div>
-            <div style="font-size:13px;font-weight:600">${cli.nombre}</div>
-            <div style="font-size:10px;color:var(--t2)">${cli.codigo} · ${cli.cedula} · ${cli.ciudad}</div>
+            <div style="font-size:13px;font-weight:600">${esc(cli.nombre)}</div>
+            <div style="font-size:10px;color:var(--t2)">${esc(cli.codigo)} · ${esc(cli.cedula)} · ${esc(cli.ciudad)}</div>
             ${cli.limite?`<div style="font-size:10px;color:var(--gold)">Límite: RD$${parseInt(cli.limite).toLocaleString()}</div>`:''}
           </div>
         </div>
@@ -3507,9 +3513,9 @@ async function padTab(t){
       h+=`<div class="af" style="margin-top:12px">
         <div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:10px"><i class="ti ti-user-plus" style="color:var(--gold)"></i>${pedAdmModo==='nuevo'?'Nueva clienta crédito':'Editar clienta'}</div>
         <div class="g2">
-          <div class="fi sp2"><label>Nombre Completo *</label><input id="pc_nm" value="${pedAdmForm.nombre}" placeholder="María García" oninput="upper(this)"></div>
-          <div class="fi"><label>Cédula *</label><input id="pc_ce" value="${pedAdmForm.cedula}" placeholder="000-0000000-0" maxlength="13" oninput="fCed(this)"></div>
-          <div class="fi"><label>Teléfono *</label><input id="pc_te" value="${pedAdmForm.tel}" placeholder="809-000-0000" maxlength="12" oninput="fTel(this)"></div>
+          <div class="fi sp2"><label>Nombre Completo *</label><input id="pc_nm" value="${esc(pedAdmForm.nombre)}" placeholder="María García" oninput="upper(this)"></div>
+          <div class="fi"><label>Cédula *</label><input id="pc_ce" value="${esc(pedAdmForm.cedula)}" placeholder="000-0000000-0" maxlength="13" oninput="fCed(this)"></div>
+          <div class="fi"><label>Teléfono *</label><input id="pc_te" value="${esc(pedAdmForm.tel)}" placeholder="809-000-0000" maxlength="12" oninput="fTel(this)"></div>
           <div class="fi"><label>Ciudad *</label>
             <select id="pc_ci"><option value="">Seleccionar...</option>
             ${PED_CIUDADES.map(x=>`<option${pedAdmForm.ciudad===x?' selected':''}>${x}</option>`).join('')}</select>
@@ -3652,10 +3658,10 @@ function nomRenderEmps(c){
     return`<div class="card" style="margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <div>
-          <div style="font-size:15px;font-weight:600">${e.nombre}</div>
-          <div style="font-size:11px;color:var(--t2)">${e.cargo||'—'} · ${e.depto||'—'}</div>
-          <div style="font-size:10px;color:var(--t3)">Cód: <strong style="color:var(--gold)">${e.codigo||'—'}</strong>${e.cedula?' · '+e.cedula:''}</div>
-          ${e.cuenta?`<div style="font-size:10px;color:var(--t3)">${e.banco||''} — ${e.cuenta}</div>`:''}
+          <div style="font-size:15px;font-weight:600">${esc(e.nombre)}</div>
+          <div style="font-size:11px;color:var(--t2)">${esc(e.cargo||'—')} · ${esc(e.depto||'—')}</div>
+          <div style="font-size:10px;color:var(--t3)">Cód: <strong style="color:var(--gold)">${esc(e.codigo||'—')}</strong>${e.cedula?' · '+esc(e.cedula):''}</div>
+          ${e.cuenta?`<div style="font-size:10px;color:var(--t3)">${esc(e.banco||'')} — ${esc(e.cuenta)}</div>`:''}
         </div>
         <div style="text-align:right">
           <div style="font-size:16px;font-weight:700;color:var(--gold)">${fM(e.salario)}</div>
@@ -3830,10 +3836,10 @@ async function nomProcesar(){
 function nomVerDetalle(id){
   const n=nominas.find(x=>x.id===id);if(!n)return;
   const filas=n.det.map((d,i)=>`<tr style="background:${i%2===0?'transparent':'#F7F6F3'}">
-    <td class="tr" style="font-size:10px;color:var(--gold)">${d.codigo||'—'}</td>
-    <td style="font-size:12px;font-weight:600">${d.nombre}</td>
-    <td style="font-size:11px;color:var(--t2)">${d.cedula||'—'}</td>
-    <td style="font-size:11px;color:var(--t2)">${d.cuenta?(d.banco+' '+d.cuenta):'—'}</td>
+    <td class="tr" style="font-size:10px;color:var(--gold)">${esc(d.codigo||'—')}</td>
+    <td style="font-size:12px;font-weight:600">${esc(d.nombre)}</td>
+    <td style="font-size:11px;color:var(--t2)">${esc(d.cedula||'—')}</td>
+    <td style="font-size:11px;color:var(--t2)">${d.cuenta?(esc(d.banco)+' '+esc(d.cuenta)):'—'}</td>
     <td class="tr">${fM(d.bruto)}</td>
     <td class="tr" style="color:#C05621">${fM(d.afp)}</td>
     <td class="tr" style="color:var(--blue)">${fM(d.sfs)}</td>
@@ -3968,8 +3974,8 @@ function contRender(){
           ${!asientos.length?`<tr><td colspan="6" style="text-align:center;padding:22px;color:var(--t3)">Sin asientos contables</td></tr>`:''}
           ${asientos.map(a=>`<tr>
             <td style="font-size:11px;color:var(--t2)">${fD(a.fecha)}</td>
-            <td>${a.desc}</td>
-            <td style="font-size:11px;color:var(--t2)">${a.cuenta}</td>
+            <td>${esc(a.desc)}</td>
+            <td style="font-size:11px;color:var(--t2)">${esc(a.cuenta)}</td>
             <td><span class="pill" style="background:var(--bbg);border-color:var(--blue);color:var(--bdk)">${a.tipo}</span></td>
             <td class="tr" style="color:var(--green);font-weight:600">${a.debe?fM(a.debe):''}</td>
             <td class="tr" style="color:var(--er);font-weight:600">${a.haber?fM(a.haber):''}</td>
@@ -4067,7 +4073,7 @@ function rCRMBody(){
           <div class="fi"><label>Vendedor asignado</label>
             <select id="crm_vend_${cl.id}" onchange="crmActualizar(${cl.id})">
               <option value="">Sin asignar</option>
-              ${usuariosSel.map(u=>`<option value="${u.id}"${cl.vendedorId===u.id?' selected':''}>${u.n}</option>`).join('')}
+              ${usuariosSel.map(u=>`<option value="${u.id}"${cl.vendedorId===u.id?' selected':''}>${esc(u.n)}</option>`).join('')}
             </select></div>
         </div>
         <div class="sl">Historial de compras (${compras.length})</div>
@@ -4076,7 +4082,7 @@ function rCRMBody(){
         </div>`).join(''):`<div style="font-size:12px;color:var(--t3);padding:4px 0">Sin compras registradas todavía.</div>`}
         <div class="sl" style="margin-top:10px">Notas de contacto</div>
         ${hist.map(h=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--br)22">
-          <span style="color:var(--t3);margin-right:8px">${fD(h.fecha)}</span>${h.texto}
+          <span style="color:var(--t3);margin-right:8px">${fD(h.fecha)}</span>${esc(h.texto)}
         </div>`).join('')}
         ${!hist.length?`<div style="font-size:12px;color:var(--t3);padding:4px 0">Sin notas de contacto.</div>`:''}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
@@ -4090,8 +4096,8 @@ function rCRMBody(){
     return`<div class="cc${isE?' exp':''}">
       <div class="cc-hd" onclick="crmToggle(${cl.id})">
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600">${cl.nombre}</div>
-          <div style="font-size:10px;color:var(--t2)">${cl.tel||''} · ${cl.cedula||''}${cl.vendedor?' · '+cl.vendedor:''}${cl.seguimiento?` · <span style="color:${vencido?'var(--er)':'var(--t2)'}">Seguimiento: ${fD(cl.seguimiento)}</span>`:''}</div>
+          <div style="font-size:13px;font-weight:600">${esc(cl.nombre)}</div>
+          <div style="font-size:10px;color:var(--t2)">${esc(cl.tel||'')} · ${esc(cl.cedula||'')}${cl.vendedor?' · '+esc(cl.vendedor):''}${cl.seguimiento?` · <span style="color:${vencido?'var(--er)':'var(--t2)'}">Seguimiento: ${fD(cl.seguimiento)}</span>`:''}</div>
         </div>
         <span class="pill" style="background:${et.c}22;border-color:${et.c}55;color:${et.c}">${et.lab}</span>
         <span class="pill">${cl.tipo||'General'}</span>
@@ -4140,7 +4146,7 @@ function crmAbrirNuevo(){
           </select>
         </div>
         <div class="fi"><label>Vendedor asignado</label>
-          <select id="cn_vd"><option value="">Sin asignar</option>${USUARIOS.filter(u=>u.on).map(u=>`<option value="${u.id}">${u.n}</option>`).join('')}</select>
+          <select id="cn_vd"><option value="">Sin asignar</option>${USUARIOS.filter(u=>u.on).map(u=>`<option value="${u.id}">${esc(u.n)}</option>`).join('')}</select>
         </div>
         <div class="fi"><label>Próximo seguimiento</label><input type="date" id="cn_sg"></div>
         <div class="fi"><label>Dirección / Notas</label><textarea id="cn_nt" style="resize:none;min-height:52px" placeholder="Dirección, observaciones..."></textarea></div>
@@ -4184,7 +4190,7 @@ function rPagar(){
   if(venc.length){
     h+=`<div style="padding:10px 12px;background:var(--rbg);border:1px solid var(--er);border-radius:var(--r);font-size:12px;color:var(--rdk);margin-bottom:10px">
       <b><i class="ti ti-alert-triangle"></i> ${venc.length} pago(s) vencido(s):</b>
-      ${venc.map(v=>`<div style="margin-top:3px;font-weight:500">${v.proveedor} — ${fM(v.monto)} (venció ${fD(v.vence)})</div>`).join('')}
+      ${venc.map(v=>`<div style="margin-top:3px;font-weight:500">${esc(v.proveedor)} — ${fM(v.monto)} (venció ${fD(v.vence)})</div>`).join('')}
     </div>`;
   }
   pagar.forEach(p=>{
@@ -4197,8 +4203,8 @@ function rPagar(){
       const hist=(p.abonos||[]).map(a=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--br)">${fD(a.fecha)}<b style="color:var(--green)">${fM(a.monto)}</b></div>`).join('');
       body=`<div class="cc-bd">
         <div class="dg">
-          <div><div class="dl">Proveedor</div><div class="dv">${p.proveedor}</div></div>
-          <div><div class="dl">Concepto</div><div class="dv">${p.concepto||'—'}</div></div>
+          <div><div class="dl">Proveedor</div><div class="dv">${esc(p.proveedor)}</div></div>
+          <div><div class="dl">Concepto</div><div class="dv">${esc(p.concepto||'—')}</div></div>
           <div><div class="dl">Monto</div><div class="dv">${fM(p.monto)}</div></div>
           <div><div class="dl">Vencimiento</div><div class="dv" style="${vencida?'color:var(--er);font-weight:600':''}">${fD(p.vence)}</div></div>
         </div>
@@ -4214,8 +4220,8 @@ function rPagar(){
     h+=`<div class="cobc${isE?' exp':''}">
       <div class="cob-hd" onclick="pagToggle(${p.id})" style="border-left:3px solid ${vencida?'var(--er)':p.estado==='pagado'?'var(--green)':'var(--gold)'}">
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600">${p.proveedor}</div>
-          <div style="font-size:10px;color:var(--t2)">${p.concepto||''}${p.vence?' · Vence: '+fD(p.vence):''}${vencida?' ⚠️':''}</div>
+          <div style="font-size:13px;font-weight:600">${esc(p.proveedor)}</div>
+          <div style="font-size:10px;color:var(--t2)">${esc(p.concepto||'')}${p.vence?' · Vence: '+fD(p.vence):''}${vencida?' ⚠️':''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div style="font-size:14px;font-weight:700;color:${p.estado==='pagado'?'var(--green)':'var(--er)'}">${fM(Number(p.monto||0)-saldo)}</div>
@@ -5644,11 +5650,11 @@ function rClientes(){
       var cxC=contratos.filter(function(x){return x.cedula===c.cedula;});
       var total=cxC.filter(function(x){return x.status==='aprobado';}).reduce(function(s,x){return s+Number(x.monto||0);},0);
       var pend=cxC.filter(function(x){return x.status==='aprobado';}).reduce(function(s,x){return s+(Number(x.neto||x.monto||0)-Number(x.saldo||0));},0);
-      return'<tr style="cursor:pointer" onclick="cliDetalle(this.dataset.c)" data-c="'+c.cedula+'">'+
-        '<td style="font-weight:600">'+c.cliente+'</td>'+
-        '<td style="font-size:11px;color:var(--t2)">'+c.cedula+'</td>'+
-        '<td style="font-size:12px">'+(c.tel1||'—')+'</td>'+
-        '<td style="font-size:11px;color:var(--t2)">'+(c.inst||'—')+'</td>'+
+      return'<tr style="cursor:pointer" onclick="cliDetalle(this.dataset.c)" data-c="'+esc(c.cedula)+'">'+
+        '<td style="font-weight:600">'+esc(c.cliente)+'</td>'+
+        '<td style="font-size:11px;color:var(--t2)">'+esc(c.cedula)+'</td>'+
+        '<td style="font-size:12px">'+esc(c.tel1||'—')+'</td>'+
+        '<td style="font-size:11px;color:var(--t2)">'+esc(c.inst||'—')+'</td>'+
         '<td class="tr" style="font-weight:600">'+cxC.length+'</td>'+
         '<td class="tr">'+fM(total)+'</td>'+
         '<td class="tr" style="font-weight:700;color:'+(pend>0?'var(--er)':'var(--green)')+'">'+fM(pend)+'</td>'+
@@ -5665,21 +5671,21 @@ function cliDetalle(ced){
   var cxC=contratos.filter(function(c){return c.cedula===ced;});
   if(!cxC.length)return;
   var c0=cxC[0];
-  openMdl('Cliente: '+c0.cliente,
+  openMdl('Cliente: '+esc(c0.cliente),
     '<div class="dg" style="margin-bottom:14px">'+
-      '<div><div class="dl">Nombre</div><div class="dv" style="font-weight:700">'+c0.cliente+'</div></div>'+
-      '<div><div class="dl">Cédula</div><div class="dv">'+c0.cedula+'</div></div>'+
-      '<div><div class="dl">Teléfono 1</div><div class="dv">'+(c0.tel1||'—')+'</div></div>'+
-      '<div><div class="dl">Teléfono 2</div><div class="dv">'+(c0.tel2||'—')+'</div></div>'+
-      '<div><div class="dl">Institución</div><div class="dv">'+(c0.inst||'—')+'</div></div>'+
-      '<div><div class="dl">Email</div><div class="dv">'+(c0.email||'—')+'</div></div>'+
+      '<div><div class="dl">Nombre</div><div class="dv" style="font-weight:700">'+esc(c0.cliente)+'</div></div>'+
+      '<div><div class="dl">Cédula</div><div class="dv">'+esc(c0.cedula)+'</div></div>'+
+      '<div><div class="dl">Teléfono 1</div><div class="dv">'+esc(c0.tel1||'—')+'</div></div>'+
+      '<div><div class="dl">Teléfono 2</div><div class="dv">'+esc(c0.tel2||'—')+'</div></div>'+
+      '<div><div class="dl">Institución</div><div class="dv">'+esc(c0.inst||'—')+'</div></div>'+
+      '<div><div class="dl">Email</div><div class="dv">'+esc(c0.email||'—')+'</div></div>'+
     '</div>'+
     '<div class="sl">Historial ('+cxC.length+' contratos)</div>'+
     '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Factura</th><th>Fecha</th><th>Promotor</th><th class="tr">Monto</th><th>Estado</th></tr></thead><tbody>'+
     cxC.map(function(c){return'<tr>'+
-      '<td style="font-weight:700;color:var(--gold)">'+c.fac+'</td>'+
+      '<td style="font-weight:700;color:var(--gold)">'+esc(c.fac)+'</td>'+
       '<td style="font-size:11px">'+fD(c.fecha)+'</td>'+
-      '<td style="font-size:11px">'+(c.promotor||'—')+'</td>'+
+      '<td style="font-size:11px">'+esc(c.promotor||'—')+'</td>'+
       '<td class="tr">'+fM(c.monto)+'</td>'+
       '<td><span class="'+(c.status==='aprobado'?'sta':c.status==='rechazado'?'str':'stp')+'">'+c.status+'</span></td>'+
     '</tr>';}).join('')+
@@ -5858,10 +5864,10 @@ function rAuditoria(){
       var col=_AUDIT_NIVEL_COLOR[a.nivel]||_AUDIT_NIVEL_COLOR.info;
       return '<div style="background:'+col.bg+';border:1.5px solid '+col.bd+';border-radius:10px;padding:12px 15px;margin-bottom:10px">'
         +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'
-        +'<b style="color:'+col.tx+'">'+a.mensaje+'</b>'
+        +'<b style="color:'+col.tx+'">'+esc(a.mensaje)+'</b>'
         +'<button class="bsm" style="flex-shrink:0" onclick="auditAsignarTareaDesdeAlerta('+ai+')">📋 Asignar tarea</button>'
         +'</div>'
-        +(a.detalle&&a.detalle.length?'<div style="font-size:11px;color:'+col.tx+';margin-top:6px;opacity:.85">'+a.detalle.slice(0,8).join(', ')+(a.detalle.length>8?' y '+(a.detalle.length-8)+' más...':'')+'</div>':'')
+        +(a.detalle&&a.detalle.length?'<div style="font-size:11px;color:'+col.tx+';margin-top:6px;opacity:.85">'+a.detalle.slice(0,8).map(esc).join(', ')+(a.detalle.length>8?' y '+(a.detalle.length-8)+' más...':'')+'</div>':'')
         +'</div>';
     }).join('');
   }
@@ -5876,8 +5882,8 @@ function rAuditoria(){
     h+='<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Tarea</th><th>Asignado a</th><th>Fecha límite</th><th>Estado</th><th>Acción</th></tr></thead><tbody>'
       +tareasAbiertas.map(function(t){
         var venc=t.fecha_limite && new Date(t.fecha_limite)<new Date(hoy());
-        return '<tr><td style="font-weight:600">'+t.titulo+(t.descripcion?'<div style="font-size:11px;color:var(--t3)">'+t.descripcion+'</div>':'')+'</td>'
-          +'<td>'+(t.asignado_a_nombre||'—')+'</td>'
+        return '<tr><td style="font-weight:600">'+esc(t.titulo)+(t.descripcion?'<div style="font-size:11px;color:var(--t3)">'+esc(t.descripcion)+'</div>':'')+'</td>'
+          +'<td>'+esc(t.asignado_a_nombre||'—')+'</td>'
           +'<td style="color:'+(venc?'var(--er)':'inherit')+'">'+(t.fecha_limite?fD(t.fecha_limite):'—')+'</td>'
           +'<td>'+(t.estado==='pendiente'?'⏳ Pendiente':'🔧 En proceso')+'</td>'
           +'<td style="white-space:nowrap"><button class="bsm" onclick="auditCambiarEstadoTarea('+t.id+',\'en_proceso\')">En proceso</button> '
@@ -5894,8 +5900,8 @@ function rAuditoria(){
     h+='<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Tipo</th><th>Factura</th><th>Usuario</th><th>Detalle</th><th>Fecha</th></tr></thead><tbody>'
       +AUDIT_EVENTOS.map(function(e){
         var t=_AUDIT_TIPO_LBL[e.tipo]||{ico:'📋',lbl:e.tipo};
-        return '<tr><td>'+t.ico+' '+t.lbl+'</td><td style="font-weight:700;color:var(--gold)">'+(e.referencia||'—')+'</td>'
-          +'<td>'+(e.usuario||'—')+'</td><td style="max-width:260px">'+(e.detalle||'')+'</td>'
+        return '<tr><td>'+t.ico+' '+t.lbl+'</td><td style="font-weight:700;color:var(--gold)">'+esc(e.referencia||'—')+'</td>'
+          +'<td>'+esc(e.usuario||'—')+'</td><td style="max-width:260px">'+esc(e.detalle||'')+'</td>'
           +'<td style="font-size:11px;white-space:nowrap">'+(e.fecha?new Date(e.fecha).toLocaleString('es-DO'):'—')+'</td></tr>';
       }).join('')
       +'</tbody></table></div>';
@@ -6100,7 +6106,7 @@ function _rrhhPersonalHtml(){
   return '<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nombre</th><th>Cargo</th><th class="tr">Tardanzas (90d)</th><th class="tr">Faltas injust. (90d)</th><th class="tr">Amonest. (1a)</th><th>Acción</th></tr></thead><tbody>'
     +activos.map(function(e){
       var alerta=Number(e.faltas_90d)>0||Number(e.amonestaciones_1a)>0;
-      return '<tr'+(alerta?' style="background:var(--rbg)"':'')+'><td style="font-weight:600">'+e.nombre+'</td><td>'+(e.cargo||'—')+'</td>'
+      return '<tr'+(alerta?' style="background:var(--rbg)"':'')+'><td style="font-weight:600">'+esc(e.nombre)+'</td><td>'+esc(e.cargo||'—')+'</td>'
         +'<td class="tr">'+(e.tardanzas_90d||0)+'</td>'
         +'<td class="tr" style="color:'+(Number(e.faltas_90d)>0?'var(--er)':'inherit')+'">'+(e.faltas_90d||0)+'</td>'
         +'<td class="tr" style="color:'+(Number(e.amonestaciones_1a)>0?'var(--er)':'inherit')+'">'+(e.amonestaciones_1a||0)+'</td>'
@@ -6118,7 +6124,7 @@ function _rrhhReclutamientoHtml(){
       var resultado=c.evaluaciones_count>0
         ? '<span class="pill" style="background:var(--gbg);border-color:var(--green);color:var(--gdk)">'+c.ultimo_puntaje+' pts'+(c.evaluaciones_count>1?' ('+c.evaluaciones_count+')':'')+'</span>'
         : '<span class="pill" style="background:var(--rbg);border-color:var(--er);color:var(--rdk)">Sin aplicar</span>';
-      return '<tr><td style="font-weight:600">'+c.nombre+'</td><td>'+(c.puesto_aplicado||'—')+'</td>'
+      return '<tr><td style="font-weight:600">'+esc(c.nombre)+'</td><td>'+esc(c.puesto_aplicado||'—')+'</td>'
         +'<td><span class="pill">'+(_RRHH_PUESTO_LBL[c.puesto_perfil]||c.puesto_perfil||'Otro')+'</span></td>'
         +'<td>'+resultado+'</td>'
         +'<td><span class="pill">'+(_RRHH_ETAPA_LBL[c.etapa]||c.etapa)+'</span></td>'
@@ -6155,7 +6161,7 @@ async function rrhhAbrirEmpleado(id){
   }
   ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:680px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden;max-height:92vh;display:flex;flex-direction:column">'
     +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">'
-    +'<div><b>'+emp.nombre+'</b><div style="font-size:11px;color:var(--t3)">'+(emp.cargo||'—')+'</div></div>'
+    +'<div><b>'+esc(emp.nombre)+'</b><div style="font-size:11px;color:var(--t3)">'+esc(emp.cargo||'—')+'</div></div>'
     +'<button class="bs" onclick="document.getElementById(\'rrhh_emp_ov\').remove()">Cerrar</button>'
     +'</div>'
     +'<div style="padding:18px 20px;overflow-y:auto" id="rrhh_emp_body"><div class="empty"><i class="ti ti-loader-2"></i>Cargando...</div></div>'
@@ -6181,7 +6187,7 @@ async function rrhhAbrirEmpleado(id){
       +'</div>';
     h+=hist.length
       ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Desde</th><th>Hasta</th><th>Días</th><th>Notas</th></tr></thead><tbody>'
-        +hist.map(function(v){return '<tr><td>'+fD(v.fecha_inicio)+'</td><td>'+fD(v.fecha_fin)+'</td><td>'+v.dias+'</td><td style="font-size:11px">'+(v.notas||'—')+'</td></tr>';}).join('')
+        +hist.map(function(v){return '<tr><td>'+fD(v.fecha_inicio)+'</td><td>'+fD(v.fecha_fin)+'</td><td>'+v.dias+'</td><td style="font-size:11px">'+esc(v.notas||'—')+'</td></tr>';}).join('')
         +'</tbody></table></div>'
       : '<div class="empty" style="padding:14px"><p>Sin vacaciones registradas</p></div>';
     h+='</div>';
@@ -6191,7 +6197,7 @@ async function rrhhAbrirEmpleado(id){
       +'<div class="cs">Cada tardanza, falta, amonestación, observación o evaluación de rendimiento queda aquí con fecha, motivo y quién la registró.</div>';
     h+=inc.length
       ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Referencia</th><th>Registrado por</th></tr></thead><tbody>'
-        +inc.map(function(i){return '<tr><td>'+fD(i.fecha)+'</td><td>'+(_RRHH_TIPO_LBL[i.tipo]||i.tipo)+'</td><td style="font-size:11px;max-width:200px">'+(i.descripcion||'—')+'</td><td style="font-size:11px">'+(i.articulo_referencia||'—')+'</td><td style="font-size:11px">'+(i.registrado_por_nombre||'—')+'</td></tr>';}).join('')
+        +inc.map(function(i){return '<tr><td>'+fD(i.fecha)+'</td><td>'+(_RRHH_TIPO_LBL[i.tipo]||i.tipo)+'</td><td style="font-size:11px;max-width:200px">'+esc(i.descripcion||'—')+'</td><td style="font-size:11px">'+esc(i.articulo_referencia||'—')+'</td><td style="font-size:11px">'+esc(i.registrado_por_nombre||'—')+'</td></tr>';}).join('')
         +'</tbody></table></div>'
       : '<div class="empty" style="padding:14px"><p>Sin registros todavía</p></div>';
     h+='</div>';
@@ -6334,36 +6340,36 @@ function _fichaCampos(prefix,d){
     +'<div class="fi"><label>Estado civil</label><select id="'+prefix+'_ec"><option value="">Sin especificar</option>'
       +['Soltero/a','Casado/a','Unión libre','Divorciado/a','Viudo/a'].map(function(o){return '<option'+(d.estado_civil===o?' selected':'')+'>'+o+'</option>';}).join('')
     +'</select></div>'
-    +'<div class="fi"><label>Nacionalidad</label><input id="'+prefix+'_nac" value="'+(d.nacionalidad||'Dominicana')+'"></div>'
+    +'<div class="fi"><label>Nacionalidad</label><input id="'+prefix+'_nac" value="'+esc(d.nacionalidad||'Dominicana')+'"></div>'
     +'<div class="fi"><label>Tipo de sangre</label><select id="'+prefix+'_sang"><option value="">Sin especificar</option>'
       +['O+','O-','A+','A-','B+','B-','AB+','AB-'].map(function(o){return '<option'+(d.tipo_sangre===o?' selected':'')+'>'+o+'</option>';}).join('')
     +'</select></div>'
-    +'<div class="fi sp2"><label>Dirección</label><input id="'+prefix+'_dir" value="'+(d.direccion||'')+'"></div>'
-    +'<div class="fi"><label>Número de casa</label><input id="'+prefix+'_ncasa" value="'+(d.numero_casa||'')+'"></div>'
+    +'<div class="fi sp2"><label>Dirección</label><input id="'+prefix+'_dir" value="'+esc(d.direccion||'')+'"></div>'
+    +'<div class="fi"><label>Número de casa</label><input id="'+prefix+'_ncasa" value="'+esc(d.numero_casa||'')+'"></div>'
     +'</div>'
     +'<div class="sl">Información académica</div>'
     +'<div class="g3">'
     +'<div class="fi"><label>Nivel académico</label><select id="'+prefix+'_niv"><option value="">Sin especificar</option>'
       +['Primario','Secundario','Técnico','Universitario','Postgrado'].map(function(o){return '<option'+(d.nivel_academico===o?' selected':'')+'>'+o+'</option>';}).join('')
     +'</select></div>'
-    +'<div class="fi"><label>Título obtenido</label><input id="'+prefix+'_tit" value="'+(d.titulo_obtenido||'')+'"></div>'
-    +'<div class="fi"><label>Institución</label><input id="'+prefix+'_inst" value="'+(d.institucion_educativa||'')+'"></div>'
+    +'<div class="fi"><label>Título obtenido</label><input id="'+prefix+'_tit" value="'+esc(d.titulo_obtenido||'')+'"></div>'
+    +'<div class="fi"><label>Institución</label><input id="'+prefix+'_inst" value="'+esc(d.institucion_educativa||'')+'"></div>'
     +'</div>'
-    +'<div class="fi"><label>Cursos realizados</label><textarea id="'+prefix+'_cursos" rows="2">'+(d.cursos_realizados||'')+'</textarea></div>'
+    +'<div class="fi"><label>Cursos realizados</label><textarea id="'+prefix+'_cursos" rows="2">'+esc(d.cursos_realizados||'')+'</textarea></div>'
     +'<div class="sl">Referencias laborales (últimos 3 lugares donde trabajó)</div>'
     +[1,2,3].map(function(n){
       return '<div class="g3" style="margin-bottom:6px">'
-        +'<div class="fi"><label>Empresa '+n+'</label><input id="'+prefix+'_rl'+n+'e" value="'+(d['ref_laboral'+n+'_empresa']||'')+'"></div>'
-        +'<div class="fi"><label>Supervisor '+n+'</label><input id="'+prefix+'_rl'+n+'s" value="'+(d['ref_laboral'+n+'_supervisor']||'')+'"></div>'
-        +'<div class="fi"><label>Motivo de salida '+n+'</label><input id="'+prefix+'_rl'+n+'m" value="'+(d['ref_laboral'+n+'_motivo']||'')+'"></div>'
+        +'<div class="fi"><label>Empresa '+n+'</label><input id="'+prefix+'_rl'+n+'e" value="'+esc(d['ref_laboral'+n+'_empresa']||'')+'"></div>'
+        +'<div class="fi"><label>Supervisor '+n+'</label><input id="'+prefix+'_rl'+n+'s" value="'+esc(d['ref_laboral'+n+'_supervisor']||'')+'"></div>'
+        +'<div class="fi"><label>Motivo de salida '+n+'</label><input id="'+prefix+'_rl'+n+'m" value="'+esc(d['ref_laboral'+n+'_motivo']||'')+'"></div>'
         +'</div>';
     }).join('')
     +'<div class="sl">Referencias personales (3 personas)</div>'
     +[1,2,3].map(function(n){
       return '<div class="g3" style="margin-bottom:6px">'
-        +'<div class="fi"><label>Nombre '+n+'</label><input id="'+prefix+'_rp'+n+'n" value="'+(d['ref_personal'+n+'_nombre']||'')+'"></div>'
-        +'<div class="fi"><label>Teléfono '+n+'</label><input id="'+prefix+'_rp'+n+'t" oninput="fTel(this)" value="'+(d['ref_personal'+n+'_telefono']||'')+'"></div>'
-        +'<div class="fi"><label>Parentesco '+n+'</label><input id="'+prefix+'_rp'+n+'p" value="'+(d['ref_personal'+n+'_parentesco']||'')+'"></div>'
+        +'<div class="fi"><label>Nombre '+n+'</label><input id="'+prefix+'_rp'+n+'n" value="'+esc(d['ref_personal'+n+'_nombre']||'')+'"></div>'
+        +'<div class="fi"><label>Teléfono '+n+'</label><input id="'+prefix+'_rp'+n+'t" oninput="fTel(this)" value="'+esc(d['ref_personal'+n+'_telefono']||'')+'"></div>'
+        +'<div class="fi"><label>Parentesco '+n+'</label><input id="'+prefix+'_rp'+n+'p" value="'+esc(d['ref_personal'+n+'_parentesco']||'')+'"></div>'
         +'</div>';
     }).join('');
 }
@@ -6396,7 +6402,7 @@ function rrhhModalFichaCandidato(id){
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto';
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:640px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
-    +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Ficha completa — '+c.nombre+'</div>'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Ficha completa — '+esc(c.nombre)+'</div>'
     +'<div style="padding:18px 20px;max-height:70vh;overflow-y:auto">'+_fichaCampos('rf',c)+'</div>'
     +'<div style="padding:14px 20px;border-top:1px solid var(--br);display:flex;justify-content:flex-end;gap:8px">'
     +'<button class="bs" onclick="document.getElementById(\'rrhh_ficha_ov\').remove()">Cancelar</button>'
@@ -6427,7 +6433,7 @@ async function rrhhModalCuestionario(candidatoId){
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto';
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:600px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
-    +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Cuestionario de competencias — '+c.nombre+'</div>'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Cuestionario de competencias — '+esc(c.nombre)+'</div>'
     +'<div style="padding:18px 20px;max-height:75vh;overflow-y:auto" id="rrhh_cuest_body"><div class="empty"><i class="ti ti-loader-2"></i>Cargando...</div></div>'
     +'</div>';
   document.body.appendChild(ov);
@@ -6441,8 +6447,8 @@ async function rrhhModalCuestionario(candidatoId){
       h+='<div class="sl">Evaluaciones previas</div>'
         +evaluaciones.map(function(ev){
           return '<div style="padding:8px 0;border-bottom:1px solid var(--br);font-size:11.5px">'
-            +'<b>Puntaje referencial: '+ev.puntaje_referencial+'</b> · '+(ev.evaluado_por_nombre||'—')+' · '+new Date(ev.creado_en).toLocaleDateString('es-DO')
-            +(ev.notas_evaluador?'<div style="color:var(--t3);margin-top:2px">'+ev.notas_evaluador+'</div>':'')+'</div>';
+            +'<b>Puntaje referencial: '+ev.puntaje_referencial+'</b> · '+esc(ev.evaluado_por_nombre||'—')+' · '+new Date(ev.creado_en).toLocaleDateString('es-DO')
+            +(ev.notas_evaluador?'<div style="color:var(--t3);margin-top:2px">'+esc(ev.notas_evaluador)+'</div>':'')+'</div>';
         }).join('');
     }
     h+='<div class="sl" style="margin-top:12px">'+plantilla.titulo+' -- nueva evaluación</div>';
@@ -6483,11 +6489,11 @@ function rrhhModalEtapaCandidato(id){
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   var opciones=Object.keys(_RRHH_ETAPA_LBL).map(function(e){return '<option value="'+e+'"'+(e===c.etapa?' selected':'')+'>'+_RRHH_ETAPA_LBL[e]+'</option>';}).join('');
   ov.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:420px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
-    +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">'+c.nombre+' — actualizar etapa</div>'
+    +'<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">'+esc(c.nombre)+' — actualizar etapa</div>'
     +'<div style="padding:18px 20px">'
     +'<div class="fi"><label>Etapa</label><select id="rrhh_etapa_sel" onchange="_rrhhToggleFijo()">'+opciones+'</select></div>'
     +'<div id="rrhh_etapa_fijo" style="display:none;margin-top:10px">'
-    +'<div class="fi"><label>Cargo</label><input id="rrhh_etapa_cargo" value="'+(c.puesto_aplicado||'')+'"></div>'
+    +'<div class="fi"><label>Cargo</label><input id="rrhh_etapa_cargo" value="'+esc(c.puesto_aplicado||'')+'"></div>'
     +'<div class="g2" style="margin-top:10px"><div class="fi"><label>Salario bruto</label><input id="rrhh_etapa_sal" type="number" min="0"></div>'
     +'<div class="fi"><label>Fecha de ingreso</label><input id="rrhh_etapa_ingreso" type="date" value="'+hoy()+'"></div></div>'
     +'<div style="font-size:11px;color:var(--t3);margin-top:6px">Al pasar a "Empleado fijo" se crea el registro en Nómina automáticamente.</div>'
@@ -6931,10 +6937,10 @@ function CB_verReporte(tipo){
     const i = CB_clientes.indexOf(c);
     sumaMonto+=c.monto; sumaPagado+=(c.monto-c.saldo); sumaSaldo+=c.saldo;
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${c.no}</td><td><b>${c.nombre}</b></td><td>${c.tel||"—"}</td>
+    tr.innerHTML = `<td>${c.no}</td><td><b>${esc(c.nombre)}</b></td><td>${esc(c.tel||"—")}</td>
       <td>${CB_fmt(c.monto)}</td><td class="verde">${CB_fmt(c.monto-c.saldo)}</td><td class="rojo">${CB_fmt(c.saldo)}</td>
       <td>${CB_fechaBonita(c.limite)}</td><td>${CB_diasAtraso(c)>0?CB_diasAtraso(c)+" días":"—"}</td>
-      <td style="max-width:240px">${c.notas||""}</td>
+      <td style="max-width:240px">${esc(c.notas||"")}</td>
       <td>${c.saldo>0?`<button class="principal btn-mini" onclick="CB_cobrar(${i})">📲 Cobrar</button>`:""}</td>`;
     cuerpo.appendChild(tr);
   });
@@ -6962,7 +6968,7 @@ function CB_pintarProgramar(){
     if (c.saldo<=0) return;
     const tr = document.createElement("tr");
     tr.innerHTML = `<td><input type="checkbox" class="sel-cliente" value="${c.no}"></td>
-      <td>${c.no}</td><td><b>${c.nombre}</b></td><td>${c.tel||"—"}</td><td>${CB_fmt(c.saldo)}</td><td>${CB_diasAtraso(c)>0?CB_diasAtraso(c)+" días":"al día"}</td>`;
+      <td>${c.no}</td><td><b>${esc(c.nombre)}</b></td><td>${esc(c.tel||"—")}</td><td>${CB_fmt(c.saldo)}</td><td>${CB_diasAtraso(c)>0?CB_diasAtraso(c)+" días":"al día"}</td>`;
     cuerpo.appendChild(tr);
   });
   const f = document.getElementById("cb-prog-fecha");
@@ -7061,16 +7067,16 @@ function CB_pintar(){
     tr.className = est;
     tr.innerHTML = `
       <td>${c.no}</td>
-      <td><b>${c.nombre}</b></td>
-      <td>${c.provincia||"—"}</td>
-      <td>${c.tel||"—"}${c.tel2?"<br>"+c.tel2:""}</td>
+      <td><b>${esc(c.nombre)}</b></td>
+      <td>${esc(c.provincia||"—")}</td>
+      <td>${esc(c.tel||"—")}${c.tel2?"<br>"+esc(c.tel2):""}</td>
       <td>${CB_fmt(c.monto)}</td>
       <td class="rojo"><b>${c.saldo>0? CB_fmt(c.saldo) : "0 ✅"}</b></td>
       <td>${CB_fechaBonita(c.limite)}</td>
       <td>${dias>0? dias+" días":"—"}</td>
       <td class="estado-${est}">${est==="aldia"?"AL DÍA":est.toUpperCase()}</td>
       <td>${c.promesa? (c.promesa===CB_hoyISO()? "<span class='chip'>📅 HOY</span>" : CB_fechaBonita(c.promesa)) : "—"}</td>
-      <td style="max-width:220px">${c.notas||""}${c.ultimoCobro?`<br><span class='chip'>último cobro: ${CB_fechaBonita(c.ultimoCobro)}</span>`:""}</td>
+      <td style="max-width:220px">${esc(c.notas||"")}${c.ultimoCobro?`<br><span class='chip'>último cobro: ${CB_fechaBonita(c.ultimoCobro)}</span>`:""}</td>
       <td style="white-space:nowrap">
         <button class="principal btn-mini" onclick="CB_cobrar(${i})">📲 Cobrar</button>
         <button class="btn-mini" onclick="CB_registrarAbono(${i})">💵 Abono</button>
@@ -7819,9 +7825,9 @@ function rProductosAdmin(){
   activos.forEach(function(p){ var k=p.categoria||'Otros'; (cats[k]=cats[k]||[]).push(p); });
   var body = '<div style="display:flex;gap:8px;margin-bottom:14px"><button class="bg" onclick="prodAbrirNuevo()"><i class="ti ti-plus"></i> Nuevo producto</button></div>';
   Object.keys(cats).sort().forEach(function(cat){
-    body += '<div class="sl">'+cat+'</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Código</th><th>Producto</th><th class="tr">Precio referencia</th><th>Acciones</th></tr></thead><tbody>'
+    body += '<div class="sl">'+esc(cat)+'</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Código</th><th>Producto</th><th class="tr">Precio referencia</th><th>Acciones</th></tr></thead><tbody>'
       + cats[cat].map(function(p){
-          return '<tr><td><span class="pill">'+(p.codigo||'—')+'</span></td><td style="font-weight:600">'+p.nombre+'</td><td class="tr">'+fM(Number(p.precio_referencia)||0)+'</td>'
+          return '<tr><td><span class="pill">'+esc(p.codigo||'—')+'</span></td><td style="font-weight:600">'+esc(p.nombre)+'</td><td class="tr">'+fM(Number(p.precio_referencia)||0)+'</td>'
             + '<td><button class="bsm" onclick="prodAbrirEdicion('+p.id+')"><i class="ti ti-edit"></i></button> '
             + '<button class="bsm" style="color:var(--er)" onclick="prodDesactivar('+p.id+')"><i class="ti ti-trash"></i></button></td></tr>';
         }).join('')
@@ -7831,7 +7837,7 @@ function rProductosAdmin(){
   if(inactivos.length){
     body += '<details style="margin-top:14px"><summary style="cursor:pointer">🗄️ Desactivados ('+inactivos.length+')</summary>'
       + '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Producto</th><th class="tr">Precio</th><th>Acciones</th></tr></thead><tbody>'
-      + inactivos.map(function(p){ return '<tr style="opacity:.6"><td>'+p.nombre+'</td><td class="tr">'+fM(Number(p.precio_referencia)||0)+'</td>'
+      + inactivos.map(function(p){ return '<tr style="opacity:.6"><td>'+esc(p.nombre)+'</td><td class="tr">'+fM(Number(p.precio_referencia)||0)+'</td>'
         + '<td><button class="bsm" onclick="prodReactivar('+p.id+')"><i class="ti ti-rotate"></i> Reactivar</button></td></tr>'; }).join('')
       + '</tbody></table></div></details>';
   }
@@ -7865,11 +7871,11 @@ function _prodModal(titulo, nombre, categoria, precio, codigo){
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   ov.innerHTML=
     '<div style="background:#fff;border-radius:16px;width:100%;max-width:420px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
-    + '<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">'+titulo+'</div>'
+    + '<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">'+esc(titulo)+'</div>'
     + '<div style="padding:18px 20px">'
-    +   '<div class="fi"><label>Nombre del producto *</label><input id="pd_nm" value="'+(nombre||'').replace(/"/g,'&quot;')+'"></div>'
-    +   '<div class="fi" style="margin-top:10px"><label>Código<span style="font-weight:400;text-transform:none;color:var(--t3)"> (ej: SHA-009, MASC-009 -- vacío = automático)</span></label><input id="pd_cod" value="'+(codigo||'').replace(/"/g,'&quot;')+'" placeholder="Se genera automático si lo dejas vacío" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>'
-    +   '<div class="fi" style="margin-top:10px"><label>Categoría</label><input id="pd_cat" value="'+(categoria||'').replace(/"/g,'&quot;')+'" placeholder="Ej: Duo Kit 10 oz, Tratamientos..."></div>'
+    +   '<div class="fi"><label>Nombre del producto *</label><input id="pd_nm" value="'+esc(nombre)+'"></div>'
+    +   '<div class="fi" style="margin-top:10px"><label>Código<span style="font-weight:400;text-transform:none;color:var(--t3)"> (ej: SHA-009, MASC-009 -- vacío = automático)</span></label><input id="pd_cod" value="'+esc(codigo)+'" placeholder="Se genera automático si lo dejas vacío" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>'
+    +   '<div class="fi" style="margin-top:10px"><label>Categoría</label><input id="pd_cat" value="'+esc(categoria)+'" placeholder="Ej: Duo Kit 10 oz, Tratamientos..."></div>'
     +   '<div class="fi" style="margin-top:10px"><label>Precio de referencia RD$</label><input id="pd_pr" type="number" step="0.01" value="'+(precio||0)+'"></div>'
     + '</div>'
     + '<div style="padding:14px 20px;border-top:1px solid var(--br);display:flex;justify-content:flex-end;gap:8px">'
@@ -8056,7 +8062,7 @@ function _labAlmFilasHTML(lista){
   if(!lista.length) return '<tr><td colspan="4" style="text-align:center;color:var(--t3);padding:20px">Sin resultados</td></tr>';
   return lista.map(function(m){
     var dias=_labDiasPara(m.proximo_vencimiento);
-    return '<tr><td style="font-weight:600">'+m.nombre
+    return '<tr><td style="font-weight:600">'+esc(m.nombre)
       + (m.bajo_minimo?' <span class="pill" style="background:#FFF3E0;border-color:#E65100;color:#E65100;font-size:9px">bajo mínimo</span>':'')
       + (dias!=null&&dias<=60?' <span class="pill" style="background:'+(dias<0?'#FFEBEE':'#FFF3E0')+';border-color:'+(dias<0?'#C62828':'#E65100')+';color:'+(dias<0?'#C62828':'#E65100')+';font-size:9px">'+(dias<0?'vencido':dias+'d para vencer')+'</span>':'')
       + '</td>'
@@ -8083,8 +8089,8 @@ function labAlmacenHTML(){
   if(bajoMinimo.length || porVencer.length){
     h += '<details style="background:#FFF3E0;border:1.5px solid #E65100;border-radius:10px;padding:10px 15px;margin-bottom:14px;font-size:12px;color:#7F3D00">';
     h += '<summary style="cursor:pointer;font-weight:700">⚠️ '+bajoMinimo.length+' bajo el mínimo · ⏳ '+porVencer.length+' por vencer (60 días)</summary>';
-    if(bajoMinimo.length) h += '<div style="margin-top:8px">⚠️ <b>Bajo el mínimo:</b> '+bajoMinimo.map(function(m){return m.nombre+' ('+Number(m.stock).toLocaleString('es-DO',{maximumFractionDigits:2})+' '+labUnidadLbl(m.unidad)+')';}).join(', ')+'</div>';
-    if(porVencer.length) h += '<div style="margin-top:6px">⏳ <b>Por vencer:</b> '+porVencer.map(function(m){var d=_labDiasPara(m.proximo_vencimiento);return m.nombre+' ('+(d<0?'vencido':d+'d')+')';}).join(', ')+'</div>';
+    if(bajoMinimo.length) h += '<div style="margin-top:8px">⚠️ <b>Bajo el mínimo:</b> '+bajoMinimo.map(function(m){return esc(m.nombre)+' ('+Number(m.stock).toLocaleString('es-DO',{maximumFractionDigits:2})+' '+labUnidadLbl(m.unidad)+')';}).join(', ')+'</div>';
+    if(porVencer.length) h += '<div style="margin-top:6px">⏳ <b>Por vencer:</b> '+porVencer.map(function(m){var d=_labDiasPara(m.proximo_vencimiento);return esc(m.nombre)+' ('+(d<0?'vencido':d+'d')+')';}).join(', ')+'</div>';
     h += '</details>';
   }
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">';
@@ -8092,7 +8098,7 @@ function labAlmacenHTML(){
     var n=(cats[par[0]]||[]).length;
     return '<button class="tab-btn'+(par[0]===_labAlmCat?' act':'')+'" onclick="labAlmCat(\''+par[0]+'\')">'+par[1]+' ('+n+')</button>';
   }).join('')+'</div>';
-  h += '<input type="search" placeholder="🔍 Buscar en '+(LAB_CATS.find(function(p){return p[0]===_labAlmCat;})||['',''])[1]+'..." value="'+(_labAlmQ||'').replace(/"/g,'&quot;')+'" oninput="labAlmBuscar(this.value)" style="flex:1;min-width:180px;padding:8px 12px;border:1.5px solid var(--br2);border-radius:8px;font-size:13px">';
+  h += '<input type="search" placeholder="🔍 Buscar en '+(LAB_CATS.find(function(p){return p[0]===_labAlmCat;})||['',''])[1]+'..." value="'+esc(_labAlmQ)+'" oninput="labAlmBuscar(this.value)" style="flex:1;min-width:180px;padding:8px 12px;border:1.5px solid var(--br2);border-radius:8px;font-size:13px">';
   h += '</div>';
   h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Materia prima</th><th class="tr">Stock</th><th class="tr">Costo/unidad</th><th>Acciones</th></tr></thead><tbody id="lab_alm_tbody">'
     + _labAlmFilasHTML(_labAlmFiltradas())
@@ -8101,7 +8107,7 @@ function labAlmacenHTML(){
   if(inactivos.length){
     h += '<details style="margin-top:14px"><summary style="cursor:pointer">🗄️ Desactivadas ('+inactivos.length+')</summary>'
       + '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Materia prima</th><th class="tr">Stock</th><th>Acciones</th></tr></thead><tbody>'
-      + inactivos.map(function(m){ return '<tr style="opacity:.6"><td>'+m.nombre+'</td><td class="tr">'+Number(m.stock).toFixed(2)+' '+labUnidadLbl(m.unidad)+'</td>'
+      + inactivos.map(function(m){ return '<tr style="opacity:.6"><td>'+esc(m.nombre)+'</td><td class="tr">'+Number(m.stock).toFixed(2)+' '+labUnidadLbl(m.unidad)+'</td>'
         + '<td><button class="bsm" onclick="labMpReactivar('+m.id+')"><i class="ti ti-rotate"></i> Reactivar</button></td></tr>'; }).join('')
       + '</tbody></table></div></details>';
   }
@@ -8132,7 +8138,7 @@ function _labMpModal(titulo,nombre,tipo,unidad,costo,stockMinimo){
     '<div style="background:#fff;border-radius:16px;width:100%;max-width:420px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
     + '<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">'+titulo+'</div>'
     + '<div style="padding:18px 20px">'
-    +   '<div class="fi"><label>Nombre *</label><input id="lmp_nm" value="'+(nombre||'').replace(/"/g,'&quot;')+'"></div>'
+    +   '<div class="fi"><label>Nombre *</label><input id="lmp_nm" value="'+esc(nombre)+'"></div>'
     +   '<div class="g2" style="margin-top:10px">'
     +     '<div class="fi"><label>Tipo</label><select id="lmp_tipo">'
     +       '<option value="quimico"'+(tipo==='quimico'?' selected':'')+'>Químico</option>'
@@ -8194,7 +8200,7 @@ function labMpAbrirEntrada(id){
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   ov.innerHTML=
     '<div style="background:#fff;border-radius:16px;width:100%;max-width:380px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
-    + '<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Entrada — '+m.nombre+'</div>'
+    + '<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Entrada — '+esc(m.nombre)+'</div>'
     + '<div style="padding:18px 20px">'
     +   '<div class="cs" style="margin-bottom:10px">Stock actual: <b>'+Number(m.stock).toLocaleString('es-DO',{maximumFractionDigits:3})+' '+labUnidadLbl(m.unidad)+'</b></div>'
     +   '<div class="fi"><label>Cantidad que entra ('+labUnidadLbl(m.unidad)+') *</label><input id="le_cant" type="number" step="0.001"></div>'
@@ -8247,7 +8253,7 @@ async function labMpVerHistorial(id){
       + '</tbody></table></div>';
   ov.innerHTML=
     '<div style="background:#fff;border-radius:16px;width:100%;max-width:640px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">'
-    + '<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Historial de compras — '+m.nombre+'</div>'
+    + '<div style="padding:16px 20px;border-bottom:1px solid var(--br);font-weight:800">Historial de compras — '+esc(m.nombre)+'</div>'
     + '<div style="padding:18px 20px;max-height:60vh;overflow-y:auto">'+filas+'</div>'
     + '<div style="padding:14px 20px;border-top:1px solid var(--br);display:flex;justify-content:flex-end">'
     +   '<button class="bs" onclick="document.getElementById(\'lab_hist_modal_ov\').remove()">Cerrar</button>'
@@ -8260,7 +8266,7 @@ function labRecetasHTML(){
   var activos = (typeof PRODUCTOS_ADMIN!=='undefined'?PRODUCTOS_ADMIN:[]).filter(function(p){return p.activo;});
   var h = '<div class="fi"><label>Elige un producto para ver/crear su receta</label>'
     + '<select id="lab_rec_prod_sel" onchange="labRecetaSeleccionar(parseInt(this.value)||0)"><option value="">Seleccionar...</option>'
-    + activos.map(function(p){ return '<option value="'+p.id+'"'+(_labRecetaEditando&&_labRecetaEditando.productoId===p.id?' selected':'')+'>'+p.nombre+'</option>'; }).join('')
+    + activos.map(function(p){ return '<option value="'+p.id+'"'+(_labRecetaEditando&&_labRecetaEditando.productoId===p.id?' selected':'')+'>'+esc(p.nombre)+'</option>'; }).join('')
     + '</select></div>'
     + '<div id="lab_receta_editor" style="margin-top:14px">'+(_labRecetaEditando?labRecetaEditorHTML():'')+'</div>';
   return h;
@@ -8290,7 +8296,7 @@ function labRecetaEditorHTML(){
     return '<div class="g2" style="margin-bottom:6px">'
       + '<div class="fi"><label>Materia prima'+(esEmpaque?' <span class="pill" style="font-size:9px;background:#EDE7F6;border-color:#5E35B1;color:#5E35B1">empaque</span>':'')+'</label><select onchange="labRecetaItemCambiar('+i+',\'materiaPrimaId\',parseInt(this.value)||null)">'
       +   '<option value="">Seleccionar...</option>'
-      +   LAB_MATERIAS.filter(function(m){return m.activo;}).map(function(m){return '<option value="'+m.id+'"'+(m.id===it.materiaPrimaId?' selected':'')+'>'+(m.tipo==='empaque'?'📦 ':'')+m.nombre+' ('+labUnidadLbl(m.unidad)+')</option>';}).join('')
+      +   LAB_MATERIAS.filter(function(m){return m.activo;}).map(function(m){return '<option value="'+m.id+'"'+(m.id===it.materiaPrimaId?' selected':'')+'>'+(m.tipo==='empaque'?'📦 ':'')+esc(m.nombre)+' ('+labUnidadLbl(m.unidad)+')</option>';}).join('')
       + '</select></div>'
       + '<div style="display:flex;gap:6px;align-items:end">'
       +   '<div class="fi" style="flex:1"><label>Cantidad'+(mp?' ('+labUnidadLbl(mp.unidad)+(esEmpaque?' por unidad terminada':' por lote')+')':'')+'</label><input type="number" step="0.001" value="'+(it.cantidad||'')+'" oninput="labRecetaItemCambiar('+i+',\'cantidad\',parseFloat(this.value)||0)"></div>'
@@ -8298,7 +8304,7 @@ function labRecetaEditorHTML(){
       + '</div></div>';
   }).join('');
   return '<div class="card">'
-    + '<div class="ct" style="font-size:14px">'+e.productoNombre+'</div>'
+    + '<div class="ct" style="font-size:14px">'+esc(e.productoNombre)+'</div>'
     + '<div class="g2">'
     +   '<div class="fi"><label>Contenido por unidad vendida *</label><input type="number" step="0.001" value="'+e.contenidoPorUnidad+'" oninput="_labRecetaEditando.contenidoPorUnidad=parseFloat(this.value)||0"></div>'
     +   '<div class="fi"><label>Unidad</label><select onchange="_labRecetaEditando.contenidoUnidad=this.value">'
@@ -8309,7 +8315,7 @@ function labRecetaEditorHTML(){
     + '<div class="sl" style="margin-top:12px">Ingredientes y empaque</div>'
     + itemsHTML
     + '<button class="bsm" onclick="labRecetaItemAgregar()"><i class="ti ti-plus"></i> Agregar ingrediente o empaque</button>'
-    + '<div class="fi" style="margin-top:12px"><label>Notas / modo de preparación</label><textarea oninput="_labRecetaEditando.notas=this.value">'+(e.notas||'')+'</textarea></div>'
+    + '<div class="fi" style="margin-top:12px"><label>Notas / modo de preparación</label><textarea oninput="_labRecetaEditando.notas=this.value">'+esc(e.notas||'')+'</textarea></div>'
     + (e.calculo?labRecetaResumenHTML(e.calculo, e.precioReferencia):'<div class="cs" style="margin-top:10px">Guarda la receta para ver el cálculo de peso, unidades y costo.</div>')
     + '<div style="margin-top:14px"><button class="bg" onclick="labRecetaGuardar()">Guardar receta</button></div>'
     + '</div>';
@@ -8403,7 +8409,7 @@ function labProduccionPreview(recetaId){
   (r.items||[]).forEach(function(it){
     var mp=LAB_MATERIAS.find(function(m){return m.id===it.materiaPrimaId;});
     var necesario=Number(it.cantidad)*lotes;
-    if(mp && necesario>Number(mp.stock)) faltantes.push(mp.nombre+': faltan '+(necesario-Number(mp.stock)).toFixed(3)+' '+labUnidadLbl(mp.unidad));
+    if(mp && necesario>Number(mp.stock)) faltantes.push(esc(mp.nombre)+': faltan '+(necesario-Number(mp.stock)).toFixed(3)+' '+labUnidadLbl(mp.unidad));
   });
   var unidades = r.calculo.unidadesPorLote*lotes;
   var costoTot = r.calculo.costoTotalLote*lotes;
@@ -8871,7 +8877,7 @@ function rtCheckLlegada(){
   if(!p || !RT.yo){ box.innerHTML=''; return; }
   var d=rtDist(RT.yo, p.co);
   box.innerHTML = (d<=60)
-    ? '<div class="llegaste">✅ ¡Llegaste donde <b>'+p.c.cliente+'</b>! ('+rtKm(d)+')</div>'
+    ? '<div class="llegaste">✅ ¡Llegaste donde <b>'+esc(p.c.cliente)+'</b>! ('+rtKm(d)+')</div>'
     : '';
 }
 
@@ -8928,12 +8934,12 @@ function rtNext(){
     +   (d!==null ? '<div style="margin-left:auto;font-size:15px;font-weight:900">'+rtKm(d)+'</div>' : '')
     + '</div>'
     + '<div class="next-body">'
-    +   '<div class="next-nom">'+c.cliente+'</div>'
+    +   '<div class="next-nom">'+esc(c.cliente)+'</div>'
     +   '<div class="next-dat">'
-    +     (c.dir? '📍 '+c.dir+'<br>':'')
-    +     (c.ref? '🏠 '+c.ref+'<br>':'')
-    +     (c.inst?'🏢 '+c.inst+'<br>':'')
-    +     (c.tel1?'📞 '+c.tel1:'')
+    +     (c.dir? '📍 '+esc(c.dir)+'<br>':'')
+    +     (c.ref? '🏠 '+esc(c.ref)+'<br>':'')
+    +     (c.inst?'🏢 '+esc(c.inst)+'<br>':'')
+    +     (c.tel1?'📞 '+esc(c.tel1):'')
     +   '</div>'
     +   '<div class="next-deuda">'+fM(c.saldo)+'</div>'
     +   '<div style="font-size:11px;color:var(--t3);margin-bottom:4px">debe · vence '+fD(c.lim||c.fecha)+'</div>'
@@ -8971,8 +8977,8 @@ function rtLista(){
     html += '<div class="stop"'+(i===0?' style="border-color:#0277BD;border-width:2px"':'')+'>'
          +  '<div class="stop-n">'+(i+1)+'</div>'
          +  '<div style="flex:1;min-width:0">'
-         +    '<div class="stop-nom">'+c.cliente+'</div>'
-         +    '<div class="stop-sub">'+c.fac+' · debe '+fM(c.saldo)+(c.ref?' · '+c.ref:'')+'</div>'
+         +    '<div class="stop-nom">'+esc(c.cliente)+'</div>'
+         +    '<div class="stop-sub">'+c.fac+' · debe '+fM(c.saldo)+(c.ref?' · '+esc(c.ref):'')+'</div>'
          +  '</div>'
          +  '<div class="stop-km">'+rtKm(p.dist)+'</div>'
          +  '</div>';
@@ -9018,8 +9024,8 @@ function rtMapaPintar(){
     var ic = L.divIcon({ className:'', html:'<div class="'+cls+'">'+(i+1)+'</div>',
                          iconSize:[i===0?38:30, i===0?38:30], iconAnchor:[i===0?19:15, i===0?19:15] });
     L.marker([p.co.lat,p.co.lng], {icon:ic})
-      .bindPopup('<b>'+(i+1)+'. '+c.cliente+'</b><br>'+c.fac+'<br>Debe: <b>'+fM(c.saldo)+'</b>'
-        +(c.ref?'<br>'+c.ref:'')+'<br><a href="https://www.google.com/maps/dir/?api=1&destination='
+      .bindPopup('<b>'+(i+1)+'. '+esc(c.cliente)+'</b><br>'+c.fac+'<br>Debe: <b>'+fM(c.saldo)+'</b>'
+        +(c.ref?'<br>'+esc(c.ref):'')+'<br><a href="https://www.google.com/maps/dir/?api=1&destination='
         +p.co.lat+','+p.co.lng+'&travelmode=driving" target="_blank">🧭 Cómo llegar</a>')
       .addTo(RT.capaMarcas);
     pts.push([p.co.lat,p.co.lng]);
@@ -9029,7 +9035,7 @@ function rtMapaPintar(){
   RT.hechasInfo.forEach(function(r){
     if(r.gps_lat==null || r.gps_lng==null) return;
     var ic=L.divIcon({className:'',html:'<div class="pin done">✓</div>',iconSize:[30,30],iconAnchor:[15,15]});
-    L.marker([Number(r.gps_lat),Number(r.gps_lng)],{icon:ic}).bindPopup('<b>'+r.cliente_nombre+'</b><br>Visitada ✓').addTo(RT.capaMarcas);
+    L.marker([Number(r.gps_lat),Number(r.gps_lng)],{icon:ic}).bindPopup('<b>'+esc(r.cliente_nombre)+'</b><br>Visitada ✓').addTo(RT.capaMarcas);
   });
 
   if(pts.length>1){
@@ -9537,11 +9543,11 @@ rClientes = function(){
        var apr=g.cts.filter(function(x){ return x.status==='aprobado'; });
        var fact=apr.reduce(function(s,x){ return s+(Number(x.monto)||0); },0);
        var debe=apr.reduce(function(s,x){ return s+(Number(x.saldo)||0); },0);
-       return '<tr style="cursor:pointer" onclick="cliDetalle(this.dataset.k)" data-k="'+g.key+'">'
-         + '<td style="font-weight:600">'+(c.cliente||'—')+'</td>'
-         + '<td style="font-size:11px;color:var(--t2)">'+(c.cedula||'<span style="color:#E65100">sin cédula</span>')+'</td>'
-         + '<td style="font-size:12px">'+(c.tel1||'—')+'</td>'
-         + '<td style="font-size:11px;color:var(--t2)">'+(c.inst||'—')+'</td>'
+       return '<tr style="cursor:pointer" onclick="cliDetalle(this.dataset.k)" data-k="'+esc(g.key)+'">'
+         + '<td style="font-weight:600">'+esc(c.cliente||'—')+'</td>'
+         + '<td style="font-size:11px;color:var(--t2)">'+(c.cedula?esc(c.cedula):'<span style="color:#E65100">sin cédula</span>')+'</td>'
+         + '<td style="font-size:12px">'+esc(c.tel1||'—')+'</td>'
+         + '<td style="font-size:11px;color:var(--t2)">'+esc(c.inst||'—')+'</td>'
          + '<td>'+canalPill(c.canal)+'</td>'
          + '<td class="tr" style="font-weight:600">'+g.cts.length+'</td>'
          + '<td class="tr">'+fM(fact)+'</td>'
@@ -9559,11 +9565,11 @@ cliDetalle = function(key){
   var c0=cts[0];
   openMdl('Cliente: '+c0.cliente,
     '<div class="dg" style="margin-bottom:14px">'
-    + '<div><div class="dl">Nombre</div><div class="dv" style="font-weight:700">'+(c0.cliente||'—')+'</div></div>'
-    + '<div><div class="dl">Cédula</div><div class="dv">'+(c0.cedula||'—')+'</div></div>'
-    + '<div><div class="dl">Teléfono 1</div><div class="dv">'+(c0.tel1||'—')+'</div></div>'
-    + '<div><div class="dl">Teléfono 2</div><div class="dv">'+(c0.tel2||'—')+'</div></div>'
-    + '<div><div class="dl">Trabaja en</div><div class="dv">'+(c0.inst||'—')+'</div></div>'
+    + '<div><div class="dl">Nombre</div><div class="dv" style="font-weight:700">'+esc(c0.cliente||'—')+'</div></div>'
+    + '<div><div class="dl">Cédula</div><div class="dv">'+esc(c0.cedula||'—')+'</div></div>'
+    + '<div><div class="dl">Teléfono 1</div><div class="dv">'+esc(c0.tel1||'—')+'</div></div>'
+    + '<div><div class="dl">Teléfono 2</div><div class="dv">'+esc(c0.tel2||'—')+'</div></div>'
+    + '<div><div class="dl">Trabaja en</div><div class="dv">'+esc(c0.inst||'—')+'</div></div>'
     + '<div><div class="dl">Canal</div><div class="dv">'+canalNombre(c0.canal)+'</div></div>'
     + '</div>'
     + '<div class="sl">Facturas ('+cts.length+')</div>'
@@ -9571,7 +9577,7 @@ cliDetalle = function(key){
     + cts.map(function(c){
         return '<tr><td style="font-weight:700;color:var(--gold)">'+c.fac+'</td>'
           + '<td style="font-size:11px">'+fD(c.fecha)+'</td>'
-          + '<td style="font-size:11px">'+(c.promotor||'—')+'</td>'
+          + '<td style="font-size:11px">'+esc(c.promotor||'—')+'</td>'
           + '<td class="tr">'+fM(c.monto)+'</td>'
           + '<td class="tr" style="font-weight:700;color:'+((c.saldo||0)>0?'var(--er)':'var(--green)')+'">'+fM(c.saldo||0)+'</td>'
           + '<td><span class="'+(c.status==='aprobado'?'sta':c.status==='rechazado'?'str':'stp')+'">'+c.status+'</span></td></tr>';
@@ -9820,8 +9826,8 @@ rCXC = function(){
            var vencido = c.lim && c.lim < hoy();
            return '<tr>'
             + '<td style="font-weight:700;color:var(--gold)">'+c.fac+'</td>'
-            + '<td style="font-weight:600">'+(c.cliente||'—')+'</td>'
-            + '<td style="font-size:11px">'+(c.promotor||'<span style="color:#E65100">sin asignar</span>')+'</td>'
+            + '<td style="font-weight:600">'+esc(c.cliente||'—')+'</td>'
+            + '<td style="font-size:11px">'+(c.promotor?esc(c.promotor):'<span style="color:#E65100">sin asignar</span>')+'</td>'
             + '<td>'+canalPill(c.canal)+'</td>'
             + '<td style="font-size:11px'+(vencido?';color:#C62828;font-weight:700':'')+'">'
             +   (c.lim? fD(c.lim)+(vencido?' ⚠':'') : '—')+'</td>'
