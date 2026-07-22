@@ -179,6 +179,7 @@ app.patch('/api/usuarios/:id', requireAuth, requireRol('gerente', 'subgerente'),
 app.post('/api/usuarios', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
   const { nombre, rol, rolLabel, pin, color } = req.body || {};
   if (!nombre || !rol || !pin) return res.status(400).json({ error: 'Faltan datos obligatorios' });
+  if (!/^\d{6}$/.test(String(pin))) return res.status(400).json({ error: 'El PIN debe ser de 6 dígitos numéricos' });
   const nuevo = await db.crearUsuario({ nombre, rol, rolLabel, pin, color });
   res.status(201).json(nuevo);
 }));
@@ -201,6 +202,7 @@ app.patch('/api/usuarios/:id/ver-todas-facturas', requireAuth, requireRol('geren
 app.patch('/api/usuarios/:id/pin', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
   const { pin } = req.body || {};
   if (!pin) return res.status(400).json({ error: 'Falta el nuevo PIN' });
+  if (!/^\d{6}$/.test(String(pin))) return res.status(400).json({ error: 'El PIN debe ser de 6 dígitos numéricos' });
   await db.cambiarPinUsuario(req.params.id, pin);
   res.json({ ok: true });
 }));
