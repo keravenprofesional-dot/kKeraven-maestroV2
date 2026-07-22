@@ -51,7 +51,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F7F6F3;color:#1A1A1
 .lk-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
   background:linear-gradient(180deg,var(--gold),var(--silver))}
 .lk-head{text-align:center;padding:32px 32px 8px;background:linear-gradient(160deg,rgba(28,27,31,.03),transparent 60%)}
-.lk-logo-real{width:auto;height:64px;margin:0 auto 12px;display:block;filter:drop-shadow(0 4px 14px rgba(24,23,23,.18))}
+.lk-logo-real{width:auto;height:132px;max-width:280px;object-fit:contain;margin:0 auto 12px;display:block;filter:drop-shadow(0 4px 14px rgba(24,23,23,.18));opacity:0;transition:opacity .25s}
+.lk-logo-real.on{opacity:1}
 .lk-sub{font-size:10px;letter-spacing:.2em;color:var(--t2);margin-top:3px;text-transform:uppercase}
 .lk-body{padding:20px 32px 32px}
 .lbl{display:block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin-bottom:5px;margin-top:13px}
@@ -93,7 +94,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F7F6F3;color:#1A1A1
 .topbar::before{content:'';position:absolute;left:0;top:0;right:0;height:2px;
   background:linear-gradient(180deg,var(--gold),var(--silver))}
 .ham{background:none;border:none;font-size:22px;cursor:pointer;color:var(--t2);padding:4px}
-.tb-logo-real{height:26px;width:auto;flex-shrink:0}
+.tb-logo-real{height:44px;width:auto;max-width:140px;object-fit:contain;flex-shrink:0;opacity:0;transition:opacity .25s}
+.tb-logo-real.on{opacity:1}
 .tb-title{font-size:16px;font-weight:700;flex:1;color:var(--tx)}
 .tb-av{
   width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
@@ -124,7 +126,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F7F6F3;color:#1A1A1
 }
 .sb-top::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;
   background:radial-gradient(circle,var(--gold-p),transparent 70%);border-radius:50%}
-.sb-logo-real{height:34px;width:auto;display:block}
+.sb-logo-real{height:56px;width:auto;max-width:180px;object-fit:contain;display:block;opacity:0;transition:opacity .25s}
+.sb-logo-real.on{opacity:1}
 .sb-sub2{font-size:8.5px;letter-spacing:.2em;color:var(--gold-m);text-transform:uppercase;margin-top:6px;font-weight:700}
 .sb-x{background:none;border:none;color:var(--t3);font-size:18px;cursor:pointer;
   position:absolute;top:14px;right:14px}
@@ -510,8 +513,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F7F6F3;color:#1A1A1
 <div id="login">
   <div class="lk-card" style="margin:16px">
     <div class="lk-head">
-      <img src="/img/logo-keraven.png" alt="KERAVEN Profesional" class="lk-logo-real">
-      <div class="lk-sub">Sistema Operativo Profesional</div>
+      <img src="/img/logo-keraven.png" alt="Logo" class="lk-logo-real" id="lk-logo">
+      <div class="lk-sub" id="lk-nombre-empresa">Sistema Operativo Profesional</div>
     </div>
     <div class="lk-body">
       <label class="lbl">Usuario</label>
@@ -537,14 +540,14 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F7F6F3;color:#1A1A1
   <div class="topbar" id="topbar">
     <button class="ham" onclick="abrirMenu()"><i class="ti ti-menu-2"></i></button>
     <button class="ham" id="btn_back" onclick="volverAtras()" title="Volver atrás" style="display:none"><i class="ti ti-arrow-left"></i></button>
-    <img src="/img/logo-keraven.png" alt="KERAVEN" class="tb-logo-real">
+    <img src="/img/logo-keraven.png" alt="Logo" class="tb-logo-real" id="tb-logo">
     <div class="tb-title" id="tbtit">Panel principal</div>
     <div class="tb-av" id="tbav">?</div>
   </div>
   <div id="ov" onclick="cerrarMenu()"></div>
   <div class="sidebar" id="sb">
     <div class="sb-top">
-      <div><img src="/img/logo-keraven.png" alt="KERAVEN" class="sb-logo-real"><span class="sb-sub2">Sistema Profesional</span></div>
+      <div><img src="/img/logo-keraven.png" alt="Logo" class="sb-logo-real" id="sb-logo"><span class="sb-sub2" id="sb-nombre-empresa">Sistema Profesional</span></div>
       <button class="sb-x" onclick="cerrarMenu()"><i class="ti ti-x"></i></button>
     </div>
     <div class="sb-us">
@@ -653,6 +656,10 @@ const BNLAB={dash:'Inicio',contrato:'Venta',buzon:'Buzón',cobros:'Cobros',com:'
 // ── ESTADO ─────────────────────────────────────────────────────────
 let ses=null, pag='dash';
 let sesPermisos=[]; // permisos reales del usuario logueado, calculados por el servidor
+// Identidad de la empresa (nombre, RNC, logo, cuentas, modulos activos).
+// configEmpresaPublica se llena ANTES de iniciar sesion (logo del login);
+// configEmpresa (completo) solo se llena despues de autenticar.
+let configEmpresa=null, configEmpresaPublica=null;
 let contratos=[],semanas=[],pagos=[],facN=1;
 let comunicados=[];
 let almM={},almP={},movAlm=[],entAlm=[],despachos=[],arqueos=[],solic=[];
@@ -868,6 +875,56 @@ async function cargar(){
   if(d){facN=d.facN||1;movAlm=d.movAlm||[];despachos=d.despachos||[];arqueos=d.arqueos||[];solic=d.solic||[];}
 }
 
+// ── IDENTIDAD DE LA EMPRESA ──────────────────────────────────────────
+// Publica (sin sesion): solo nombre y logo, para pintar el login.
+async function cargarConfigEmpresaPublica(){
+  try{ configEmpresaPublica=await apiFetch('/api/config/empresa/publica'); }
+  catch(e){ configEmpresaPublica=null; }
+  aplicarIdentidadEmpresa();
+}
+// Completa (con sesion): la usan Configuracion, reportes, WhatsApp, Sarah.
+async function cargarConfigEmpresa(){
+  try{ configEmpresa=await apiFetch('/api/config/empresa'); }
+  catch(e){ configEmpresa=null; }
+  aplicarIdentidadEmpresa();
+}
+function nombreEmpresaActual(){
+  const c=configEmpresa||configEmpresaPublica;
+  return (c&&c.nombre_comercial)?c.nombre_comercial:'';
+}
+function logoEmpresaActual(){
+  const c=configEmpresa||configEmpresaPublica;
+  return (c&&c.logo_base64)?c.logo_base64:'/img/logo-keraven.png';
+}
+function telefonoEmpresaTxt(){
+  const c=configEmpresa;
+  return (c&&c.telefono)?(' ☎️ '+c.telefono):'';
+}
+function nombreArchivoEmpresa(){
+  const n=nombreEmpresaActual();
+  return n?n.toUpperCase().replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'EMPRESA':'KERAVEN';
+}
+function cuentasEmpresaTxt(){
+  const c=configEmpresa;
+  const lista=(c&&Array.isArray(c.cuentas_bancarias))?c.cuentas_bancarias:[];
+  if(!lista.length)return'';
+  return lista.map(cu=>(cu.banco||'')+' cta. '+(cu.tipo||'')+' '+(cu.numero||'')).filter(Boolean).join(' · ')
+    +(c.razon_social||c.nombre_comercial?(' · a nombre de '+(c.razon_social||c.nombre_comercial)):'');
+}
+function aplicarIdentidadEmpresa(){
+  const nombre=nombreEmpresaActual(),logo=logoEmpresaActual();
+  ['lk-logo','tb-logo','sb-logo'].forEach(id=>{
+    const el=$(id);if(!el)return;
+    el.classList.remove('on');
+    el.onload=()=>el.classList.add('on');
+    el.onerror=()=>el.classList.add('on'); // no dejar el logo invisible si la imagen falla
+    el.src=logo;
+    if(el.complete)el.classList.add('on'); // ya estaba en cache del navegador
+  });
+  const lkN=$('lk-nombre-empresa');if(lkN)lkN.textContent=nombre||'Sistema Operativo Profesional';
+  const sbN=$('sb-nombre-empresa');if(sbN)sbN.textContent=nombre||'Sistema Profesional';
+}
+
 // ── LOGIN ──────────────────────────────────────────────────────────
 // El PIN ya NO se compara acá — solo se manda al servidor (/api/login)
 // y el servidor decide si es correcto. El navegador nunca vuelve a ver
@@ -900,19 +957,17 @@ async function login(){
   $('tbav').textContent=u.n[0];$('tbav').style.background=u.c;
   $('sbav').textContent=u.n[0];$('sbav').style.background=u.c;
   $('sbnm').textContent=u.n;$('sbrl').textContent=u.rl;
-  await cargarProductos();
-  await cargarContratos();
-  await cargarMiCuadre();
-  await cargarStock();
-  await cargarComisionesSemanas();
-  await cargarComisionesPagos();
-  await cargarCuentasPorPagar();
-  await cargarCrm();
-  await cargarAsientos();
-  await cargarEmpleados();
-  await cargarNominas();
-  await cargarComunicados();
-  await cargar();
+  // Antes se hacian 13 llamadas al backend en serie (un await tras otro),
+  // cada una esperando el viaje de red completo de la anterior aunque no
+  // dependen entre si -- eso era la demora real al entrar. Ahora corren
+  // todas en paralelo; cada cargarX() ya atrapa su propio error, asi que
+  // ninguna hace fallar a las demas.
+  await Promise.all([
+    cargarProductos(), cargarContratos(), cargarMiCuadre(), cargarStock(),
+    cargarComisionesSemanas(), cargarComisionesPagos(), cargarCuentasPorPagar(),
+    cargarCrm(), cargarAsientos(), cargarEmpleados(), cargarNominas(),
+    cargarComunicados(), cargar(), cargarConfigEmpresa(),
+  ]);
   buildNav();buildBotNav();ir('dash');
 }
 async function logout(){
@@ -1849,8 +1904,8 @@ async function decidir(id,dec){
   if(dec==='aprobado'&&c.tel1){
     var wa='1'+c.tel1.replace(/\D/g,'');
     var fechaFmt=fD(c.fecha);
-    var waTxt='Hola '+c.cliente+', KERAVEN Profesional le informa que su pedido '+c.fac+' por '+fM(c.monto)+(c.descuento>0?' con descuento de '+fM(c.descuento)+', neto '+fM(c.neto||c.monto):'')
-      +' fue APROBADO el '+fechaFmt+'. Su promotor '+c.promotor+' le estará visitando. Gracias por preferir KERAVEN. ☎️ 809-935-2191';
+    var waTxt='Hola '+c.cliente+', '+(nombreEmpresaActual()||'nuestra empresa')+' le informa que su pedido '+c.fac+' por '+fM(c.monto)+(c.descuento>0?' con descuento de '+fM(c.descuento)+', neto '+fM(c.neto||c.monto):'')
+      +' fue APROBADO el '+fechaFmt+'. Su promotor '+c.promotor+' le estará visitando. Gracias por preferir '+(nombreEmpresaActual()||'nuestra empresa')+telefonoEmpresaTxt();
     // Store auto-messages for display
     c._waMsgPend=waTxt;
     c._waTel=wa;
@@ -2607,9 +2662,106 @@ async function restaurarRespaldo(archivo){
 }
 
 // ── CONFIGURACIÓN ──────────────────────────────────────────────────
+// ── DATOS DE LA EMPRESA ───────────────────────────────────────────
+let _cfgCuentasTmp=[],_cfgEmpLogoNuevo=null;
+function rCfgCuentasHTML(){
+  if(!_cfgCuentasTmp.length)return'<div style="font-size:12px;color:var(--t2)">Sin cuentas agregadas.</div>';
+  return _cfgCuentasTmp.map((cu,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+    <input style="flex:1" placeholder="Banco" value="${esc(cu.banco||'')}" onchange="_cfgCuentasTmp[${i}].banco=this.value">
+    <input style="width:130px" placeholder="Tipo (corriente/ahorro)" value="${esc(cu.tipo||'')}" onchange="_cfgCuentasTmp[${i}].tipo=this.value">
+    <input style="flex:1" placeholder="Número" value="${esc(cu.numero||'')}" onchange="_cfgCuentasTmp[${i}].numero=this.value">
+    <button class="bs" style="color:var(--er)" onclick="cfgEmpresaQuitarCuenta(${i})" title="Quitar"><i class="ti ti-trash"></i></button>
+  </div>`).join('');
+}
+function cfgEmpresaAgregarCuenta(){_cfgCuentasTmp.push({banco:'',tipo:'',numero:''});const el=$('cfgEmpCuentas');if(el)el.innerHTML=rCfgCuentasHTML();}
+function cfgEmpresaQuitarCuenta(i){_cfgCuentasTmp.splice(i,1);const el=$('cfgEmpCuentas');if(el)el.innerHTML=rCfgCuentasHTML();}
+function cfgEmpresaLogoCambio(ev){
+  const file=ev.target.files&&ev.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      const max=320;let w=img.width,h=img.height;
+      if(w>max||h>max){const ratio=Math.min(max/w,max/h);w=Math.round(w*ratio);h=Math.round(h*ratio);}
+      const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      _cfgEmpLogoNuevo=canvas.toDataURL('image/webp',0.85);
+      if(!_cfgEmpLogoNuevo.startsWith('data:image/webp'))_cfgEmpLogoNuevo=canvas.toDataURL('image/png');
+      const prev=$('cfgEmpLogoPreview');if(prev)prev.src=_cfgEmpLogoNuevo;
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+async function cfgEmpresaGuardar(){
+  const err=$('cfgEmpErr');err.textContent='';err.style.color='var(--er)';
+  const payload={
+    nombreComercial:$('cfgEmpNombre').value.trim(),
+    razonSocial:$('cfgEmpRazon').value.trim(),
+    rnc:$('cfgEmpRnc').value.trim(),
+    actividadEconomica:$('cfgEmpActividad').value.trim(),
+    direccion:$('cfgEmpDireccion').value.trim(),
+    telefono:$('cfgEmpTel1').value.trim(),
+    telefono2:$('cfgEmpTel2').value.trim(),
+    email:$('cfgEmpEmail').value.trim(),
+    sitioWeb:$('cfgEmpWeb').value.trim(),
+    cuentasBancarias:_cfgCuentasTmp.filter(c=>c.banco||c.numero),
+  };
+  if(_cfgEmpLogoNuevo)payload.logoBase64=_cfgEmpLogoNuevo;
+  try{
+    configEmpresa=await apiFetch('/api/config/empresa',{method:'PUT',body:payload});
+    _cfgEmpLogoNuevo=null;
+    aplicarIdentidadEmpresa();
+    err.style.color='var(--green)';err.textContent='Datos guardados.';
+  }catch(e){err.textContent=e.message||'No se pudo guardar';}
+}
+function rEmpresaConfigHTML(){
+  const c=configEmpresa||{};
+  _cfgCuentasTmp=Array.isArray(c.cuentas_bancarias)?c.cuentas_bancarias.map(x=>({...x})):[];
+  const logo=c.logo_base64||'/img/logo-keraven.png';
+  return `<div class="card">
+    <div class="ct"><i class="ti ti-building-skyscraper" style="color:var(--gold);font-size:18px"></i>Datos de la Empresa</div>
+    <div class="cs">Esta información aparece en el login, reportes (PDF/Excel) y mensajes de WhatsApp del sistema.</div>
+    <div style="display:flex;gap:16px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+      <img id="cfgEmpLogoPreview" src="${logo}" style="width:72px;height:72px;object-fit:contain;border:1px solid var(--br);border-radius:12px;background:#fff">
+      <div>
+        <input type="file" id="cfgEmpLogoFile" accept="image/png,image/jpeg,image/webp" onchange="cfgEmpresaLogoCambio(event)" style="display:none">
+        <button class="bs" onclick="document.getElementById('cfgEmpLogoFile').click()"><i class="ti ti-upload"></i> Cambiar logo</button>
+        <div style="font-size:11px;color:var(--t2);margin-top:4px">PNG/JPG/WEBP</div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="fi"><label>Nombre comercial</label><input id="cfgEmpNombre" value="${esc(c.nombre_comercial||'')}" placeholder="Como te conocen tus clientes"></div>
+      <div class="fi"><label>Razón social</label><input id="cfgEmpRazon" value="${esc(c.razon_social||'')}" placeholder="Nombre legal registrado"></div>
+    </div>
+    <div class="g2">
+      <div class="fi"><label>RNC</label><input id="cfgEmpRnc" value="${esc(c.rnc||'')}" placeholder="000-00000-0"></div>
+      <div class="fi"><label>Actividad económica</label><input id="cfgEmpActividad" value="${esc(c.actividad_economica||'')}" placeholder="Ej. Distribución de productos capilares"></div>
+    </div>
+    <div class="fi"><label>Dirección</label><input id="cfgEmpDireccion" value="${esc(c.direccion||'')}"></div>
+    <div class="g2">
+      <div class="fi"><label>Teléfono</label><input id="cfgEmpTel1" value="${esc(c.telefono||'')}" placeholder="809-000-0000"></div>
+      <div class="fi"><label>Teléfono 2 (opcional)</label><input id="cfgEmpTel2" value="${esc(c.telefono2||'')}"></div>
+    </div>
+    <div class="g2">
+      <div class="fi"><label>Email</label><input id="cfgEmpEmail" type="email" value="${esc(c.email||'')}"></div>
+      <div class="fi"><label>Sitio web (opcional)</label><input id="cfgEmpWeb" value="${esc(c.sitio_web||'')}"></div>
+    </div>
+    <div style="margin-top:10px">
+      <label class="lbl">Cuentas bancarias</label>
+      <div id="cfgEmpCuentas" style="margin-top:6px">${rCfgCuentasHTML()}</div>
+      <button class="bs" onclick="cfgEmpresaAgregarCuenta()" style="margin-top:4px"><i class="ti ti-plus"></i> Agregar cuenta</button>
+    </div>
+    <div class="em" id="cfgEmpErr" style="margin-top:8px"></div>
+    <div class="actions" style="margin-top:10px">
+      <div></div>
+      <button class="bg" onclick="cfgEmpresaGuardar()"><i class="ti ti-device-floppy"></i> Guardar datos de la empresa</button>
+    </div>
+  </div>`;
+}
 function rCfg(){
   const cfg=localStorage.getItem('k_fb')||'';
-  return (ses&&['gerente','subgerente'].includes(ses.rol)?rSarahConfigHTML()+rRespaldoHTML():'')+`<div class="card">
+  return (ses&&['gerente','subgerente'].includes(ses.rol)?rEmpresaConfigHTML()+rSarahConfigHTML()+rRespaldoHTML():'')+`<div class="card">
     <div class="ct"><i class="ti ti-settings" style="color:var(--gold);font-size:18px"></i>Configuración
       <span class="pill" style="margin-left:auto;background:${cfg?'var(--gbg)':'var(--gold-p)'};border-color:${cfg?'var(--green)':'var(--gold)'};color:${cfg?'var(--gdk)':'var(--gold-m)'}">${cfg?'Firebase activo':'Sin sync'}</span></div>
     <div class="cs">Sincronización en tiempo real entre dispositivos. Gratis con Firebase.</div>
@@ -2750,7 +2902,7 @@ function _repHTML(data,cols,nom,modTit){
     // ── Fila 1: Empresa ──────────────────────────────────────────
     '<tr><td colspan="'+nc+'" style="background:'+C.hdr1+';color:#FFFFFF'+
       ';font-size:22pt;font-weight:bold;text-align:center;padding:20px 24px'+
-      ';font-family:Calibri,Arial;letter-spacing:4px">✦ KERAVEN PROFESIONAL</td></tr>',
+      ';font-family:Calibri,Arial;letter-spacing:4px">✦ '+esc(nombreEmpresaActual()||'MI EMPRESA')+'</td></tr>',
 
     // ── Fila 2: Subtítulo ─────────────────────────────────────────
     '<tr><td colspan="'+nc+'" style="background:'+C.hdr2+';color:#E1F5FE'+
@@ -2784,7 +2936,7 @@ function _repHTML(data,cols,nom,modTit){
     '<tr><td colspan="'+nc+'" style="background:'+C.foot+';color:'+C.footTxt+
       ';font-size:10pt;text-align:center;padding:10px;font-family:Calibri,Arial'+
       ';border-top:3px solid '+C.accent+'">'+
-      '✦ KERAVEN PROFESIONAL © '+new Date().getFullYear()+
+      '✦ '+esc(nombreEmpresaActual()||'MI EMPRESA')+' © '+new Date().getFullYear()+
       ' &nbsp;|&nbsp; '+modLabel+' &nbsp;|&nbsp; '+dia+' &nbsp;|&nbsp; Documento Confidencial</td></tr>',
 
     '</table>'].join('\n');
@@ -2798,7 +2950,7 @@ function repWord(data,cols,nom,modTit){
   var blob=new Blob(['﻿'+r.html],{type:'application/msword;charset=UTF-8'});
   var a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='KERAVEN_'+nom+'_'+r.ahora.toISOString().split('T')[0]+'.doc';
+  a.download=nombreArchivoEmpresa()+'_'+nom+'_'+r.ahora.toISOString().split('T')[0]+'.doc';
   document.body.appendChild(a);a.click();
   document.body.removeChild(a);
   setTimeout(function(){URL.revokeObjectURL(a.href);},5000);
@@ -2810,7 +2962,7 @@ function repExcelReal(data,cols,nom,modTit){
   ws['!cols']=cols.map(function(){return {wch:16};});
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, (modTit||nom).replace(/[\\\/*?:\[\]]/g,'').slice(0,31) || 'Reporte');
-  XLSX.writeFile(wb, 'KERAVEN_'+nom+'_'+hoy()+'.xlsx');
+  XLSX.writeFile(wb, nombreArchivoEmpresa()+'_'+nom+'_'+hoy()+'.xlsx');
 }
 /* PDF real via jsPDF + autoTable, cargados solo cuando hacen falta. */
 async function repPDF(data,cols,nom,modTit){
@@ -2823,14 +2975,14 @@ async function repPDF(data,cols,nom,modTit){
   var doc=new jsPDFCtor({orientation:cols.length>6?'landscape':'portrait',unit:'pt',format:'a4'});
   var modLabel=modTit||nom;
   var usr=ses&&ses.n?ses.n:'Sistema';
-  doc.setFontSize(16); doc.setTextColor(2,119,189); doc.text('KERAVEN PROFESIONAL', 40, 36);
+  doc.setFontSize(16); doc.setTextColor(2,119,189); doc.text(nombreEmpresaActual()||'MI EMPRESA', 40, 36);
   doc.setFontSize(11); doc.setTextColor(60,60,60); doc.text(modLabel+'  -  '+hoy()+'  -  '+usr, 40, 54);
   doc.autoTable({
     startY:66, head:[cols], body:data.map(function(row){return row.map(function(c){return c==null?'':String(c);});}),
     styles:{fontSize:8,cellPadding:5}, headStyles:{fillColor:[1,87,155],textColor:255,fontStyle:'bold'},
     alternateRowStyles:{fillColor:[227,242,253]}, margin:{left:40,right:40},
   });
-  doc.save('KERAVEN_'+nom+'_'+hoy()+'.pdf');
+  doc.save(nombreArchivoEmpresa()+'_'+nom+'_'+hoy()+'.pdf');
   if(btn){btn.disabled=false;btn.textContent='📕 PDF (.pdf)';}
 }
 /* Modal: el usuario elige en que formato quiere el reporte. */
@@ -2871,10 +3023,11 @@ async function init(){
   if(location.search.includes('pedidos')||location.hash==='#pedidos'){
     document.getElementById('login').style.display='none';
     document.getElementById('app').style.display='none';
+    await cargarConfigEmpresaPublica();
     initPedidos();
     return;
   }
-  await initLogin();
+  await Promise.all([initLogin(), cargarConfigEmpresaPublica()]);
   const fb=localStorage.getItem('k_fb');
   if(fb){try{iFB(JSON.parse(fb));}catch(e){}}
 }
@@ -2902,7 +3055,11 @@ function pedGetCat(p){
   return'Otros';
 }
 
-const WA_PED = '18099352191';
+function waPedActual(){
+  const c=configEmpresaPublica;
+  if(c&&c.telefono){const d=c.telefono.replace(/\D/g,'');if(d)return'1'+d;}
+  return'18099352191';
+}
 const PED_PLAZOS = [7,15,20,25,30,35,40,45,50,55,60];
 const PED_CIUDADES = ['Santo Domingo','Santiago','San Pedro de Macorís','La Romana',
   'San Francisco de Macorís','La Vega','Puerto Plata','Higüey','Moca','Barahona','Azua','Bonao','Otra'];
@@ -3385,7 +3542,7 @@ async function pedEnviarWA(){
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a');a.href=url;a.download=`KERAVEN-${pedConduce}.pdf`;a.click();
       setTimeout(()=>URL.revokeObjectURL(url),5000);
-      setTimeout(()=>window.open(`https://wa.me/${WA_PED}`,'_blank'),1200);
+      setTimeout(()=>window.open(`https://wa.me/${waPedActual()}`,'_blank'),1200);
     }
     pedEnviado=true;
   }catch(e){pedErrEnvio='No se pudo generar el PDF. Intenta de nuevo.';}
@@ -4762,9 +4919,9 @@ function applyModTheme(id){
       '<div style="font-size:40px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.15))">'+(_MOD_ICONS[id]||'📋')+'</div>'+
       '<div><div style="font-size:22px;font-weight:900;letter-spacing:.01em;'+
         'background:linear-gradient(90deg,var(--gold),var(--tx));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">'+(_MOD_TITS[id]||id)+'</div>'+
-      '<div style="font-size:10px;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;margin-top:3px;font-weight:700">KERAVEN Profesional</div></div>'+
+      '<div style="font-size:10px;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;margin-top:3px;font-weight:700">'+esc(nombreEmpresaActual()||'Sistema Profesional')+'</div></div>'+
     '</div>'+
-    '<img src="/img/logo-keraven.png" alt="KERAVEN" class="mod-hero-logo">';
+    '<img src="'+logoEmpresaActual()+'" alt="Logo" class="mod-hero-logo">';
     m.insertBefore(h,m.firstChild);
   }
   setTimeout(function(){m.querySelectorAll('.sg .st').forEach(function(c,i){if(!c.querySelector('.st-ic')){var ic=document.createElement('div');ic.className='st-ic';ic.textContent=_STAT_ICO[i%_STAT_ICO.length];c.insertBefore(ic,c.firstChild);}});},30);
@@ -5968,7 +6125,7 @@ async function descargarManualUsuario(){
   var modulos=Object.keys(MANUAL_MODULOS).filter(function(id){return misPermisos.includes(id);});
 
   doc.setFont('helvetica','bold'); doc.setFontSize(20);
-  doc.text('Manual de Usuario — KERAVEN Profesional', margen, y); y+=26;
+  doc.text('Manual de Usuario — '+(nombreEmpresaActual()||'Mi Empresa'), margen, y); y+=26;
   doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(90);
   doc.text('Usuario: '+(ses&&ses.n?ses.n:'—')+'  ·  Rol: '+(ses&&ses.rl?ses.rl:'—'), margen, y); y+=16;
   doc.text('Generado: '+new Date().toLocaleString('es-DO'), margen, y); y+=30;
@@ -6617,7 +6774,15 @@ function CB_decode(s){
 }
 
 function rCobrador(){
-  return '<div id="cbroot">'+CB_decode(CB_HTML_B64)+'</div>';
+  var html=CB_decode(CB_HTML_B64);
+  var nom=nombreEmpresaActual();
+  if(nom)html=html.replace('Cobrador Keraven','Cobrador '+esc(nom));
+  var cuentasTxt=cuentasEmpresaTxt();
+  if(cuentasTxt)html=html.replace(
+    'Banreservas cta. corriente 9608962997 · Banco Popular cta. ahorro 840986442 · a nombre de José Augusto Durán García',
+    esc(cuentasTxt)
+  );
+  return '<div id="cbroot">'+html+'</div>';
 }
 
 function cob_init(){
@@ -6639,10 +6804,13 @@ function cob_init(){
 }
 
 
-const CUENTAS = "Banreservas cta. corriente 9608962997 o Banco Popular cta. de ahorro 840986442, a nombre de José Augusto Durán García";
-const PLANTILLA_DEFECTO =
-"Hola {nombre} 👋, le saludamos de KERAVEN PROFESIONAL. Le recordamos que su contrato No. {contrato} tiene un saldo pendiente de RD${saldo}, con fecha límite {limite} ({dias} días de atraso). " +
-"Puede pagar por depósito o transferencia a: " + CUENTAS + ". Favor enviar aquí el comprobante. ¡Gracias!";
+// CUENTAS y la plantilla se arman en el momento (no como const fija) porque
+// dependen de configEmpresa, que se carga despues de iniciar sesion.
+function plantillaCobroDefecto(){
+  var cuentas=cuentasEmpresaTxt()||'(configura tus cuentas bancarias en Configuración → Datos de la Empresa)';
+  return "Hola {nombre} 👋, le saludamos de "+(nombreEmpresaActual()||'nuestra empresa')+". Le recordamos que su contrato No. {contrato} tiene un saldo pendiente de RD${saldo}, con fecha límite {limite} ({dias} días de atraso). " +
+    "Puede pagar por depósito o transferencia a: " + cuentas + ". Favor enviar aquí el comprobante. ¡Gracias!";
+}
 
 const CB_DATOS_INICIALES = [
  {no:"0666", nombre:"Juliana Castillo", tel:"8296133611", tel2:"8097455232", monto:4900, saldo:3000, limite:"2026-06-30", promesa:"2026-07-10", notas:"Acuerdo: último abono 10/07. Abonó ~1,900. REVISAR teléfono."},
@@ -6663,7 +6831,7 @@ function CB_cargar(){
   try { CB_clientes = JSON.parse(localStorage.getItem("cobrador_clientes")) || null; } catch(e){ CB_clientes = null; }
   if (!CB_clientes) { CB_clientes = CB_DATOS_INICIALES; CB_guardar(); }
   CB_ordenar();
-  document.getElementById("cb-plantilla").value = localStorage.getItem("cobrador_plantilla") || PLANTILLA_DEFECTO;
+  document.getElementById("cb-plantilla").value = localStorage.getItem("cobrador_plantilla") || plantillaCobroDefecto();
   document.getElementById("cb-clave-api").value = localStorage.getItem("cobrador_api") || "";
 }
 function CB_ordenar(){
@@ -8524,9 +8692,9 @@ async function labImportarExcel(ev){
   position:relative;overflow:hidden;
 }
 .mod-hero-logo{
-  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  height:38px;width:auto;z-index:0;opacity:.9;
-  filter:drop-shadow(0 2px 6px rgba(0,0,0,.1));
+  position:absolute;top:50%;right:20px;transform:translateY(-50%);
+  height:56px;width:auto;max-width:140px;object-fit:contain;z-index:0;opacity:.95;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.15));
   pointer-events:none;
 }
 @media(max-width:640px){.mod-hero-logo{display:none}}

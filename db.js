@@ -1502,6 +1502,61 @@ async function listarConfigIA() {
   return rows;
 }
 
+// ── IDENTIDAD DE LA EMPRESA ──────────────────────────────────────────
+// Fila unica (id=1). obtenerConfigEmpresa() siempre devuelve algo (la
+// fila la crea schema.sql en el primer arranque) -- nunca null.
+async function obtenerConfigEmpresa() {
+  const { rows } = await pool.query(`SELECT * FROM config_empresa WHERE id = 1`);
+  return rows[0];
+}
+
+// Version reducida para la pantalla de login y el Portal de Pedidos publico
+// (ambos se usan antes de autenticar) -- nunca expone RNC, direccion ni
+// cuentas bancarias. El telefono si se expone: el portal de pedidos lo
+// necesita como contacto de WhatsApp para clientas.
+async function obtenerConfigEmpresaPublica() {
+  const { rows } = await pool.query(
+    `SELECT nombre_comercial, logo_base64, telefono FROM config_empresa WHERE id = 1`
+  );
+  return rows[0] || { nombre_comercial: null, logo_base64: null, telefono: null };
+}
+
+async function guardarConfigEmpresa(datos) {
+  const {
+    nombreComercial, razonSocial, rnc, direccion, telefono, telefono2,
+    email, sitioWeb, actividadEconomica, logoBase64, cuentasBancarias,
+    modulosActivos, onboardingCompletado,
+  } = datos;
+  const { rows } = await pool.query(
+    `UPDATE config_empresa SET
+       nombre_comercial      = COALESCE($1, nombre_comercial),
+       razon_social          = COALESCE($2, razon_social),
+       rnc                   = COALESCE($3, rnc),
+       direccion             = COALESCE($4, direccion),
+       telefono              = COALESCE($5, telefono),
+       telefono2             = COALESCE($6, telefono2),
+       email                 = COALESCE($7, email),
+       sitio_web             = COALESCE($8, sitio_web),
+       actividad_economica   = COALESCE($9, actividad_economica),
+       logo_base64           = COALESCE($10, logo_base64),
+       cuentas_bancarias     = COALESCE($11::jsonb, cuentas_bancarias),
+       modulos_activos       = COALESCE($12::jsonb, modulos_activos),
+       onboarding_completado = COALESCE($13, onboarding_completado),
+       actualizado_en        = now()
+     WHERE id = 1
+     RETURNING *`,
+    [
+      nombreComercial ?? null, razonSocial ?? null, rnc ?? null, direccion ?? null,
+      telefono ?? null, telefono2 ?? null, email ?? null, sitioWeb ?? null,
+      actividadEconomica ?? null, logoBase64 ?? null,
+      Array.isArray(cuentasBancarias) ? JSON.stringify(cuentasBancarias) : null,
+      Array.isArray(modulosActivos) ? JSON.stringify(modulosActivos) : null,
+      typeof onboardingCompletado === 'boolean' ? onboardingCompletado : null,
+    ]
+  );
+  return rows[0];
+}
+
 // Uso interno del proxy de chat -- la única función que sí descifra,
 // y su resultado nunca sale del servidor hacia el cliente.
 async function _iaProveedorActivo() {
@@ -2428,6 +2483,9 @@ module.exports = {
   listarConfigIA,
   llamarIA,
   leerCedulaConIA,
+  obtenerConfigEmpresa,
+  obtenerConfigEmpresaPublica,
+  guardarConfigEmpresa,
   resolverCliente,
   siguienteNumeroFactura,
   crearContrato,

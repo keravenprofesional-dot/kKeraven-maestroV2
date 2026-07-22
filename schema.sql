@@ -795,4 +795,31 @@ CREATE TABLE IF NOT EXISTS comunicados_confirmaciones (
 );
 CREATE INDEX IF NOT EXISTS idx_comunicados_conf_comunicado ON comunicados_confirmaciones(comunicado_id);
 CREATE INDEX IF NOT EXISTS idx_comunicados_conf_usuario ON comunicados_confirmaciones(usuario_id);
+
+-- ── IDENTIDAD DE LA EMPRESA ────────────────────────────────────────
+-- Fila unica (id fijo en 1) con los datos de identidad del negocio:
+-- nombre, RNC, direccion, contacto, cuentas bancarias y que modulos
+-- tiene activos segun su actividad economica. Se lee en el login (logo
+-- y nombre), en reportes/PDF/WhatsApp, y define que items del menu se
+-- muestran (ver modulos_activos). onboarding_completado controla si el
+-- asistente de primer uso debe aparecer.
+CREATE TABLE IF NOT EXISTS config_empresa (
+  id                     INTEGER PRIMARY KEY DEFAULT 1,
+  nombre_comercial       TEXT,
+  razon_social           TEXT,
+  rnc                    TEXT,
+  direccion              TEXT,
+  telefono               TEXT,
+  telefono2              TEXT,
+  email                  TEXT,
+  sitio_web              TEXT,
+  actividad_economica    TEXT,
+  logo_base64            TEXT,
+  cuentas_bancarias      JSONB NOT NULL DEFAULT '[]',
+  modulos_activos        JSONB NOT NULL DEFAULT '[]',
+  onboarding_completado  BOOLEAN NOT NULL DEFAULT FALSE,
+  actualizado_en         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT config_empresa_fila_unica CHECK (id = 1)
+);
+INSERT INTO config_empresa (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 CREATE INDEX IF NOT EXISTS idx_rrhh_evaluaciones_candidato ON rrhh_evaluaciones(candidato_id);

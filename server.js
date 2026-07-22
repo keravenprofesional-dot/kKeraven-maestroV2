@@ -20,7 +20,12 @@ app.set('trust proxy', 1);
 // es trabajo pendiente para cuando el frontend este migrado (Etapa 3) y
 // se pueda armar una politica que no rompa nada.
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.json({ limit: '200kb' }));
+// 2mb (antes 200kb) para que el logo de la empresa (Configuracion > Datos
+// de la Empresa) quepa -- este es el parser GLOBAL: un express.json() con
+// limite propio en una ruta especifica (ver /api/ia/leer-cedula) no sirve
+// de nada si el body ya se rechazo aca primero (body-parser no vuelve a
+// leer el stream una segunda vez).
+app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(
@@ -758,6 +763,31 @@ app.post('/api/ia/config', requireAuth, requireRol('gerente', 'subgerente'), h(a
 app.post('/api/ia/config/:proveedor/desactivar', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
   await db.desactivarClaveIA(req.params.proveedor);
   res.json({ ok: true });
+}));
+
+// ── IDENTIDAD DE LA EMPRESA ──────────────────────────────────────────
+// /publica es lo unico que se puede pedir SIN sesion (login necesita
+// mostrar el logo y el nombre antes de autenticar) -- nunca incluye
+// RNC, direccion, telefonos ni cuentas bancarias.
+app.get('/api/config/empresa/publica', h(async (req, res) => {
+  res.json(await db.obtenerConfigEmpresaPublica());
+}));
+app.get('/api/config/empresa', requireAuth, h(async (req, res) => {
+  res.json(await db.obtenerConfigEmpresa());
+}));
+// El limite para el logo lo da el parser JSON global (2mb, ver arriba).
+app.put('/api/config/empresa', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+  const b = req.body || {};
+  if (b.cuentasBancarias !== undefined && !Array.isArray(b.cuentasBancarias)) {
+    return res.status(400).json({ error: 'cuentasBancarias debe ser una lista' });
+  }
+  if (b.modulosActivos !== undefined && !Array.isArray(b.modulosActivos)) {
+    return res.status(400).json({ error: 'modulosActivos debe ser una lista' });
+  }
+  if (b.logoBase64 && !/^data:image\/(png|jpe?g|webp);base64,/.test(b.logoBase64)) {
+    return res.status(400).json({ error: 'Logo invalido' });
+  }
+  res.json(await db.guardarConfigEmpresa(b));
 }));
 
 app.post('/api/ia/chat', requireAuth, h(async (req, res) => {
