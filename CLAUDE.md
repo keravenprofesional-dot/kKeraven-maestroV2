@@ -92,7 +92,7 @@ imperativo ("Corrige...", "Agrega...").
 
 - Modificar el esquema de la base de datos (`schema.sql`, `ALTER TABLE`, índices, constraints, FKs).
 - Tocar autenticación, sesiones, o el sistema de permisos (`requireAuth`, `requireRol`, `requirePermiso`, `requireAnyPermiso`, `PERMS_POR_ROL`, `permisos_custom`).
-- Cambiar el modelo de roles/alcance (gerente/subgerente/coordinador/supervisor/almacen/promotor).
+- Cambiar el modelo de roles/alcance (gerente/subgerente/coordinador/supervisor/almacen/promotor/maestro).
 - Modificar `docker-compose.yml`, `Dockerfile`, puertos (`8086:3000`), volúmenes o variables de entorno.
 - Cambiar el destino de `DATABASE_URL` (Supabase ↔ Postgres local) — la migración está en curso y no debe revertirse ni completarse sin confirmarlo.
 - Borrar o alterar contratos, comisiones, nómina, RRHH o comunicados ya registrados.
@@ -160,8 +160,11 @@ de otro).
 Ver la tabla completa en `PROJECT.md`. Resumen: `gerente`/`subgerente`
 (control total, salvo que solo gerente anula factura), `coordinador` (amplio,
 sin Usuarios/Auditoría/RRHH), `supervisor` (buzón/cobros/comisiones/ruta),
-`almacen` (inventario), `promotor` (registra sus propios contratos). La
-fuente de verdad es `PERMS_POR_ROL` en `db.js`, nunca una copia de esta tabla.
+`almacen` (inventario), `promotor` (registra sus propios contratos),
+`maestro` (soporte técnico: usuarios/permisos/configuración/auditoría/
+backups, se suma por encima de Gerente sin quitarle nada, nunca ve datos de
+negocio). La fuente de verdad es `PERMS_POR_ROL` en `db.js`, nunca una copia
+de esta tabla.
 
 ---
 

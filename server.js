@@ -4,6 +4,7 @@ require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
@@ -14,12 +15,28 @@ const backup = require('./backup');
 const app = express();
 app.set('trust proxy', 1);
 
-// CSP desactivada por ahora: el frontend actual (public/index.html) es un
-// archivo unico con <style>/<script> inline masivos y sin infraestructura
-// de nonces, y carga librerias desde jsdelivr/cdnjs/unpkg. Hardenizar CSP
-// es trabajo pendiente para cuando el frontend este migrado (Etapa 3) y
-// se pueda armar una politica que no rompa nada.
-app.use(helmet({ contentSecurityPolicy: false }));
+// CSP minima real (antes estaba completamente desactivada): el frontend
+// sigue siendo un archivo unico con <style>/<script> inline masivos y sin
+// infraestructura de nonces (por eso 'unsafe-inline'), pero esto igual
+// reduce el radio de impacto de un XSS futuro -- ya no podria exfiltrar
+// datos a CUALQUIER origen externo, solo interactuar con los dominios de
+// esta lista. Los origenes de abajo son EXACTAMENTE los que el frontend
+// ya usa (CDNs de librerias + OpenStreetMap/Nominatim para el mapa).
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://unpkg.com'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://unpkg.com'],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org'],
+      fontSrc: ["'self'", 'data:', 'https://cdn.jsdelivr.net'],
+      connectSrc: ["'self'", 'https://nominatim.openstreetmap.org'],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'self'"],
+    },
+  },
+}));
+app.use(compression());
 // 2mb (antes 200kb) para que el logo de la empresa (Configuracion > Datos
 // de la Empresa) quepa -- este es el parser GLOBAL: un express.json() con
 // limite propio en una ruta especifica (ver /api/ia/leer-cedula) no sirve
@@ -115,17 +132,47 @@ function requireRol(...roles) {
   };
 }
 
+// Cambiar el propio PIN es una accion que CUALQUIER usuario autenticado
+// debe poder hacer, sin importar su rol -- ya no depende del permiso
+// 'users' (que ahora es exclusivo de Maestro). Cambiar el PIN de otra
+// persona si sigue exigiendo el rol 'maestro'.
+function requireMaestroOPropioPin(req, res, next) {
+  (async () => {
+    const usuario = await db.buscarUsuarioPorId(req.session.usuarioId);
+    if (!usuario || !usuario.activo) return res.status(401).json({ error: 'No autenticado' });
+    const esUnoMismo = String(req.params.id) === String(usuario.id);
+    if (usuario.rol !== 'maestro' && !esUnoMismo) return res.status(403).json({ error: 'Rol sin autorización' });
+    req.usuario = usuario;
+    next();
+  })().catch(next);
+}
+
+// Igual que requireAnyPermiso, pero ademas deja pasar si el rol del
+// usuario esta en `roles` -- para rutas donde un rol tecnico (ej.
+// 'maestro') necesita entrar sin que se le otorgue el permiso de negocio
+// completo (ej. 'cobrador') que normalmente exige esa ruta.
+function requireAnyPermisoORol(modulos, roles) {
+  return async (req, res, next) => {
+    const usuario = req.usuario || await db.buscarUsuarioPorId(req.session.usuarioId);
+    if (!usuario || !usuario.activo) return res.status(401).json({ error: 'No autenticado' });
+    const permisos = db.permisosEfectivos(usuario);
+    const ok = modulos.some((m) => permisos.includes(m)) || roles.includes(usuario.rol);
+    if (!ok) return res.status(403).json({ error: 'Sin permiso para este módulo' });
+    req.usuario = usuario;
+    next();
+  };
+}
+
 // ── LOGIN ─────────────────────────────────────────────────────────
-// Lista de usuarios activos para el selector del login (no incluye pin_hash).
-app.get('/api/usuarios-login', h(async (req, res) => {
-  res.json(await db.listarUsuariosActivos());
-}));
-
+// Ya NO hay un selector publico de usuarios (exponia nombre/rol de todos
+// los usuarios activos a cualquiera que abriera la pagina, sin login).
+// Cada quien escribe su propio `usuario` (ver generarUsuarioLogin en
+// db.js -- estandarizado, ej. "JDuran").
 app.post('/api/login', limiteLogin, h(async (req, res) => {
-  const { usuarioId, pin } = req.body || {};
-  if (!usuarioId || !pin) return res.status(400).json({ error: 'Falta usuario o PIN' });
+  const { usuario, pin } = req.body || {};
+  if (!usuario || !pin) return res.status(400).json({ error: 'Falta usuario o PIN' });
 
-  const resultado = await db.verificarLogin(usuarioId, pin);
+  const resultado = await db.verificarLogin(usuario, pin);
   if (!resultado.ok) {
     if (resultado.motivo === 'bloqueado') {
       return res.status(429).json({ error: 'Usuario bloqueado temporalmente por intentos fallidos', bloqueado_hasta: resultado.bloqueado_hasta });
@@ -152,15 +199,29 @@ app.post('/api/logout', (req, res) => {
 app.post('/api/verificar-pin', requireAuth, limiteLogin, h(async (req, res) => {
   const { pin } = req.body || {};
   if (!pin) return res.status(400).json({ error: 'Falta el PIN' });
-  const resultado = await db.verificarLogin(req.session.usuarioId, pin);
+  const resultado = await db.verificarLoginPorId(req.session.usuarioId, pin);
   if (!resultado.ok) {
     if (resultado.motivo === 'bloqueado') {
       return res.status(429).json({ error: 'Demasiados intentos. Cuenta bloqueada temporalmente.' });
     }
     return res.status(401).json({ error: 'PIN incorrecto' });
   }
+  // Marca la sesion como "PIN reverificado" por 5 minutos -- las rutas
+  // destructivas (anular factura, restaurar backup) exigen esto en el
+  // servidor, no solo confian en que el frontend haya llamado aca antes.
+  req.session.pinVerificadoHasta = Date.now() + 5 * 60 * 1000;
   res.json({ ok: true });
 }));
+
+// Exige que /api/verificar-pin se haya llamado con exito en los ultimos 5
+// minutos EN ESTA MISMA SESION -- sin esto, la "doble verificacion de PIN"
+// del frontend era solo friccion de UX: una sesion secuestrada podia anular
+// facturas o restaurar backups sin el PIN, llamando la ruta directo.
+function requirePinReciente(req, res, next) {
+  const vigente = req.session.pinVerificadoHasta && Date.now() < req.session.pinVerificadoHasta;
+  if (!vigente) return res.status(403).json({ error: 'Reverifica tu PIN antes de continuar (expiro o no se ha confirmado).' });
+  next();
+}
 
 app.get('/api/session', requireAuth, h(async (req, res) => {
   const usuario = await db.buscarUsuarioPorId(req.session.usuarioId);
@@ -169,19 +230,34 @@ app.get('/api/session', requireAuth, h(async (req, res) => {
   res.json({ usuario: usuarioSinHash, permisos: db.permisosEfectivos(usuario) });
 }));
 
-// ── USUARIOS (administración — solo gerente/subgerente) ─────────────
-app.get('/api/usuarios', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+// ── USUARIOS (administración — EXCLUSIVA de maestro/soporte tecnico.
+// Gerente/Sub-Gerente ya no crean cuentas, ponen PIN ajeno ni asignan
+// roles -- pedido explicito. Cambiar el PROPIO PIN sigue siendo de
+// cualquiera, ver requireMaestroOPropioPin mas abajo) ──────────────
+app.get('/api/usuarios', requireAuth, requireRol('maestro'), h(async (req, res) => {
   res.json(await db.listarUsuariosCompleto());
 }));
 
-app.patch('/api/usuarios/:id', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+app.patch('/api/usuarios/:id', requireAuth, requireRol('maestro'), h(async (req, res) => {
   const { nombre, rol, rolLabel } = req.body || {};
-  const actualizado = await db.actualizarUsuario(req.params.id, { nombre, rol, rolLabel });
+  let { usuario } = req.body || {};
+  if (usuario !== undefined && usuario !== null && String(usuario).trim()) {
+    usuario = String(usuario).trim();
+    if (!/^[A-Za-z][A-Za-z0-9]{2,20}$/.test(usuario)) {
+      return res.status(400).json({ error: 'El usuario debe empezar con una letra y tener entre 3 y 21 caracteres (letras/números, sin espacios).' });
+    }
+    if (!(await db.usuarioLoginDisponible(usuario, req.params.id))) {
+      return res.status(409).json({ error: 'Ese usuario ya está en uso por otra cuenta.' });
+    }
+  } else {
+    usuario = null;
+  }
+  const actualizado = await db.actualizarUsuario(req.params.id, { nombre, rol, rolLabel, usuario }, req.usuario.id);
   if (!actualizado) return res.status(404).json({ error: 'Usuario no encontrado' });
   res.json(actualizado);
 }));
 
-app.post('/api/usuarios', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+app.post('/api/usuarios', requireAuth, requireRol('maestro'), h(async (req, res) => {
   const { nombre, rol, rolLabel, pin, color } = req.body || {};
   if (!nombre || !rol || !pin) return res.status(400).json({ error: 'Faltan datos obligatorios' });
   if (!/^\d{6}$/.test(String(pin))) return res.status(400).json({ error: 'El PIN debe ser de 6 dígitos numéricos' });
@@ -189,35 +265,38 @@ app.post('/api/usuarios', requireAuth, requireRol('gerente', 'subgerente'), h(as
   res.status(201).json(nuevo);
 }));
 
-app.patch('/api/usuarios/:id/permisos', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+app.patch('/api/usuarios/:id/permisos', requireAuth, requireRol('maestro'), h(async (req, res) => {
   const { permisos } = req.body || {}; // array de modulos, o null para volver al default del rol
-  await db.actualizarPermisosUsuario(req.params.id, permisos);
+  await db.actualizarPermisosUsuario(req.params.id, permisos, req.usuario.id);
   res.json({ ok: true });
 }));
 
 // Alcance de Facturación: por defecto cada usuario (salvo Gerente/
 // Sub-Gerente) solo ve lo que él mismo registró. Esto habilita ver la
-// facturación de todo el equipo -- exclusivo de quien Gerencia decida.
-app.patch('/api/usuarios/:id/ver-todas-facturas', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+// facturación de todo el equipo -- exclusivo de quien Maestro decida.
+app.patch('/api/usuarios/:id/ver-todas-facturas', requireAuth, requireRol('maestro'), h(async (req, res) => {
   const { valor } = req.body || {};
   await db.actualizarVerTodasFacturas(req.params.id, !!valor);
   res.json({ ok: true });
 }));
 
-app.patch('/api/usuarios/:id/pin', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+// requireMaestroOPropioPin: cambiar el PIN de OTRA persona exige ser
+// Maestro; cambiar el PROPIO PIN lo puede hacer cualquiera autenticado
+// (no depende del permiso 'users').
+app.patch('/api/usuarios/:id/pin', requireAuth, requireMaestroOPropioPin, h(async (req, res) => {
   const { pin } = req.body || {};
   if (!pin) return res.status(400).json({ error: 'Falta el nuevo PIN' });
   if (!/^\d{6}$/.test(String(pin))) return res.status(400).json({ error: 'El PIN debe ser de 6 dígitos numéricos' });
-  await db.cambiarPinUsuario(req.params.id, pin);
+  await db.cambiarPinUsuario(req.params.id, pin, req.usuario.id);
   res.json({ ok: true });
 }));
 
-app.post('/api/usuarios/:id/desactivar', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
-  await db.desactivarUsuario(req.params.id);
+app.post('/api/usuarios/:id/desactivar', requireAuth, requireRol('maestro'), h(async (req, res) => {
+  await db.desactivarUsuario(req.params.id, req.usuario.id);
   res.json({ ok: true });
 }));
-app.post('/api/usuarios/:id/reactivar', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
-  await db.reactivarUsuario(req.params.id);
+app.post('/api/usuarios/:id/reactivar', requireAuth, requireRol('maestro'), h(async (req, res) => {
+  await db.reactivarUsuario(req.params.id, req.usuario.id);
   res.json({ ok: true });
 }));
 
@@ -318,10 +397,30 @@ app.get('/api/contratos/mi-cuadre', requireAuth, requirePermiso('contrato'), h(a
   res.json(await db.resumenVentasUsuario(req.usuario.id));
 }));
 
+// Antes solo se comprobaba "truthy" (un monto negativo, una cedula "x" o
+// un telefono de un digito pasaban igual) -- el frontend si validaba bien,
+// pero cualquier cliente HTTP directo se lo podia saltar. Estas reglas
+// repiten en el servidor lo minimo indispensable: formato de cedula/
+// telefono dominicano y que el monto sea un numero positivo real.
 app.post('/api/contratos', requireAuth, requirePermiso('contrato'), requirePermisoSi(esImportacionExcel, 'excel'), h(async (req, res) => {
   const datos = req.body || {};
   if (!datos.nombre || !datos.cedula || !datos.telefono1 || !datos.monto || !datos.tipoVenta) {
     return res.status(400).json({ error: 'Faltan datos obligatorios del contrato' });
+  }
+  const cedulaDigitos = String(datos.cedula).replace(/\D/g, '');
+  if (cedulaDigitos.length !== 11) {
+    return res.status(400).json({ error: 'La cédula debe tener 11 dígitos (000-0000000-0)' });
+  }
+  const telDigitos = String(datos.telefono1).replace(/\D/g, '');
+  if (telDigitos.length !== 10) {
+    return res.status(400).json({ error: 'El teléfono debe tener 10 dígitos' });
+  }
+  const monto = Number(datos.monto);
+  if (!Number.isFinite(monto) || monto <= 0) {
+    return res.status(400).json({ error: 'El monto debe ser un número mayor a 0' });
+  }
+  if (!['credito', 'contado'].includes(datos.tipoVenta)) {
+    return res.status(400).json({ error: 'Tipo de venta inválido' });
   }
   const contrato = await db.crearContrato(datos, req.usuario ? req.usuario.id : req.session.usuarioId);
   res.status(201).json(contrato);
@@ -357,12 +456,16 @@ app.patch('/api/contratos/:id/cliente', requireAuth, requireRol('gerente', 'subg
   res.json(contrato);
 }));
 
-// Eliminar factura -- accion irreversible, exclusiva Gerente/Sub-Gerente.
-// El frontend ya revalida el PIN por separado (/api/verificar-pin)
-// antes de llamar a esto; el requireRol de aca es la segunda capa.
-// Ya no se borra la factura -- queda el registro completo, marcado
-// como anulado, con quien, cuando y por que (ver anularContrato en db.js).
-app.post('/api/contratos/:id/anular', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+// Eliminar factura -- accion irreversible, exclusiva de quien tenga el
+// permiso 'delfac' (solo Gerente en PERMS_POR_ROL -- Sub-Gerente queda
+// afuera a proposito, ver PROJECT.md). Antes se exigia requireRol('gerente',
+// 'subgerente') por error, lo cual permitia a Sub-Gerente anular facturas.
+// requirePinReciente exige que /api/verificar-pin se haya llamado con exito
+// en los ultimos 5 minutos DE VERDAD (antes solo lo pedia el frontend, sin
+// que el servidor lo comprobara). Ya no se borra la factura -- queda el
+// registro completo, marcado como anulado, con quien, cuando y por que
+// (ver anularContrato en db.js).
+app.post('/api/contratos/:id/anular', requireAuth, requirePermiso('delfac'), requirePinReciente, h(async (req, res) => {
   const { motivo } = req.body || {};
   if (!motivo || !motivo.trim()) return res.status(400).json({ error: 'El motivo de la anulación es obligatorio' });
   const resultado = await db.anularContrato(req.params.id, req.usuario.id, motivo.trim());
@@ -372,7 +475,7 @@ app.post('/api/contratos/:id/anular', requireAuth, requireRol('gerente', 'subger
 
 // Auditoría: linea de tiempo de anulaciones/decisiones/abonos, y
 // alertas calculadas contra los datos reales. Solo Gerencia.
-app.get('/api/auditoria', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+app.get('/api/auditoria', requireAuth, requireRol('gerente', 'subgerente', 'maestro'), h(async (req, res) => {
   const [eventos, alertas] = await Promise.all([db.listarAuditoria(), db.alertasSistema()]);
   res.json({ eventos, alertas });
 }));
@@ -735,33 +838,35 @@ app.post('/api/rrhh/evaluaciones', requireAuth, requireRol('gerente', 'subgerent
 // Exclusivo Gerente/Sub-Gerente -- restaurar sobrescribe TODOS los datos
 // actuales con los del respaldo elegido (acción irreversible salvo por
 // el respaldo de seguridad automático que se crea justo antes).
-app.get('/api/backups', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+app.get('/api/backups', requireAuth, requireRol('gerente', 'subgerente', 'maestro'), h(async (req, res) => {
   res.json(await backup.listarBackups());
 }));
-app.post('/api/backups', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+app.post('/api/backups', requireAuth, requireRol('gerente', 'subgerente', 'maestro'), h(async (req, res) => {
   const { etiqueta } = req.body || {};
-  res.status(201).json(await backup.crearBackup(etiqueta));
+  res.status(201).json(await backup.crearBackup(etiqueta, req.usuario.id));
 }));
-app.post('/api/backups/:archivo/restaurar', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
-  const resultado = await backup.restaurarBackup(req.params.archivo);
+// requirePinReciente: restaurar sobrescribe TODOS los datos actuales, exige
+// PIN reverificado en el servidor (no solo en el frontend, ver mas arriba).
+app.post('/api/backups/:archivo/restaurar', requireAuth, requireRol('gerente', 'subgerente', 'maestro'), requirePinReciente, h(async (req, res) => {
+  const resultado = await backup.restaurarBackup(req.params.archivo, req.usuario.id);
   res.json(resultado);
 }));
 
 // ── IA (Sarah) — la clave del negocio vive cifrada en el servidor,
 // nunca en el navegador (Etapa 6). Cualquier usuario autenticado puede
-// chatear con Sarah; solo Gerente/Sub-Gerente administra las claves.
-app.get('/api/ia/config', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+// chatear con Sarah; solo Gerente/Sub-Gerente/Maestro administra las claves.
+app.get('/api/ia/config', requireAuth, requireRol('gerente', 'subgerente', 'maestro'), h(async (req, res) => {
   res.json(await db.listarConfigIA());
 }));
-app.post('/api/ia/config', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+app.post('/api/ia/config', requireAuth, requireRol('gerente', 'subgerente', 'maestro'), h(async (req, res) => {
   const { proveedor, apiKey } = req.body || {};
-  if (!['openai', 'gemini', 'claude'].includes(proveedor) || !apiKey) {
+  if (!['openai', 'gemini', 'claude', 'huggingface'].includes(proveedor) || !apiKey) {
     return res.status(400).json({ error: 'Proveedor o clave inválidos' });
   }
-  res.json(await db.guardarClaveIA(proveedor, apiKey));
+  res.json(await db.guardarClaveIA(proveedor, apiKey, req.usuario.id));
 }));
-app.post('/api/ia/config/:proveedor/desactivar', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
-  await db.desactivarClaveIA(req.params.proveedor);
+app.post('/api/ia/config/:proveedor/desactivar', requireAuth, requireRol('gerente', 'subgerente', 'maestro'), h(async (req, res) => {
+  await db.desactivarClaveIA(req.params.proveedor, req.usuario.id);
   res.json({ ok: true });
 }));
 
@@ -772,11 +877,18 @@ app.post('/api/ia/config/:proveedor/desactivar', requireAuth, requireRol('gerent
 app.get('/api/config/empresa/publica', h(async (req, res) => {
   res.json(await db.obtenerConfigEmpresaPublica());
 }));
-app.get('/api/config/empresa', requireAuth, h(async (req, res) => {
+// Version completa (RNC, direccion, cuentas bancarias) -- restringida a los
+// roles que de verdad manejan pagos/cobros (gerente/subgerente/coordinador/
+// supervisor, los mismos que tienen el permiso 'cobrador') mas Maestro, que
+// necesita leerla para poder configurarla aunque no tenga 'cobrador' (no es
+// un permiso de negocio, no se le otorga). Antes cualquier autenticado la
+// veia (incluido Almacen/Promotor), exponiendo cuentas bancarias reales sin
+// necesidad operativa.
+app.get('/api/config/empresa', requireAuth, requireAnyPermisoORol(['cobrador'], ['maestro']), h(async (req, res) => {
   res.json(await db.obtenerConfigEmpresa());
 }));
 // El limite para el logo lo da el parser JSON global (2mb, ver arriba).
-app.put('/api/config/empresa', requireAuth, requireRol('gerente', 'subgerente'), h(async (req, res) => {
+app.put('/api/config/empresa', requireAuth, requireRol('gerente', 'subgerente', 'maestro'), h(async (req, res) => {
   const b = req.body || {};
   if (b.cuentasBancarias !== undefined && !Array.isArray(b.cuentasBancarias)) {
     return res.status(400).json({ error: 'cuentasBancarias debe ser una lista' });
@@ -787,7 +899,7 @@ app.put('/api/config/empresa', requireAuth, requireRol('gerente', 'subgerente'),
   if (b.logoBase64 && !/^data:image\/(png|jpe?g|webp);base64,/.test(b.logoBase64)) {
     return res.status(400).json({ error: 'Logo invalido' });
   }
-  res.json(await db.guardarConfigEmpresa(b));
+  res.json(await db.guardarConfigEmpresa(b, req.usuario.id));
 }));
 
 app.post('/api/ia/chat', requireAuth, h(async (req, res) => {

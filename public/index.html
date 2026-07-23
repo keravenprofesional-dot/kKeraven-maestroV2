@@ -4,10 +4,17 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>KERAVEN Maestro v2</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#12141F">
+<link rel="icon" href="/img/icon-192.png">
+<link rel="apple-touch-icon" href="/img/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KERPLUS">
+<!-- Version fija (antes @latest -- un cambio del proveedor podia romper
+     todos los iconos del sistema de un dia para otro sin ningun aviso). -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.45.0/tabler-icons.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 /* ═══ RESET + BASE ══════════════════════════════════════════════ */
 *{margin:0;padding:0;box-sizing:border-box}
@@ -19,9 +26,15 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F7F6F3;color:#1A1A1
   /* Dorado exacto muestreado del logo real (Downloads/KERAVEN, línea Golden Black).
      "Negro" de marca = azul-negro (marino oscuro), no negro neutro. */
   --gold:#CE9840;--gold-l:#E2B959;--gold-m:#A87A2E;--gold-p:rgba(206,152,64,.1);
+  /* --gold-txt: mismo dorado de marca pero oscurecido para TEXTO real (el
+     --gold normal da 2.4:1 de contraste sobre el fondo, bajo el minimo
+     WCAG AA de 4.5:1 -- se nota sobre todo con sol directo en la calle).
+     --gold sigue igual para bordes/iconos/fondos, donde el contraste de
+     texto no aplica. */
+  --gold-txt:#8C6423;
   --red:#12141F;--red2:#080910;--red3:#262A3D;
   --silver:#C4C4CC;--silver-l:#E4E4E9;--silver-d:#8A8A94;
-  --tx:#1A1A1E;--t2:#5A5862;--t3:#8E8C96;--wh:#fff;
+  --tx:#1A1A1E;--t2:#5A5862;--t3:#6B6975;--wh:#fff;
   --bg:#F7F6F3;--bg2:#EDEBE6;
   --br:rgba(206,152,64,.18);--br2:rgba(206,152,64,.28);
   --r:10px;--rl:15px;--rll:20px;
@@ -242,7 +255,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F7F6F3;color:#1A1A1
 .ct i{color:var(--tx)}
 .cs{font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.6}
 .sep,.sl{
-  font-size:9.5px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;
+  font-size:9.5px;font-weight:700;color:var(--gold-txt);text-transform:uppercase;letter-spacing:.1em;
   padding:8px 0 5px;border-bottom:1px solid rgba(196,138,31,.15);
   margin:6px 0 12px;display:flex;align-items:center;gap:6px
 }
@@ -518,7 +531,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F7F6F3;color:#1A1A1
     </div>
     <div class="lk-body">
       <label class="lbl">Usuario</label>
-      <select class="linp" id="lu" style="margin-bottom:4px" onchange="document.getElementById('lpin').value='';[0,1,2,3,4,5].forEach(function(i){var e=document.getElementById('p'+i);if(e)e.value=''})"></select>
+      <input class="linp" id="lu" style="margin-bottom:4px" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Ej. JDuran" oninput="document.getElementById('lpin').value='';[0,1,2,3,4,5].forEach(function(i){var e=document.getElementById('p'+i);if(e)e.value=''})">
       <label class="lbl" style="margin-top:14px">PIN de acceso</label>
       <div class="pin-row">
         <input class="pin-d" type="password" maxlength="1" inputmode="numeric" id="p0" oninput="pn(0)">
@@ -650,8 +663,9 @@ const BOTNAV={
   supervisor:['dash','contrato','buzon','cobros','almm'],
   almacen:   ['dash','arqueo','almp','almm','cfg'],
   promotor:  ['dash','contrato','cfg'],
+  maestro:   ['users','cfg','auditoria'],
 };
-const BNLAB={dash:'Inicio',contrato:'Venta',buzon:'Buzón',cobros:'Cobros',com:'Comis.',arqueo:'Arqueo',almp:'Bodega',almm:'Ruta',cfg:'Config',users:'Usuarios'};
+const BNLAB={dash:'Inicio',contrato:'Venta',buzon:'Buzón',cobros:'Cobros',com:'Comis.',arqueo:'Arqueo',almp:'Bodega',almm:'Ruta',cfg:'Config',users:'Usuarios',auditoria:'Auditoría'};
 
 // ── ESTADO ─────────────────────────────────────────────────────────
 let ses=null, pag='dash';
@@ -664,7 +678,7 @@ let contratos=[],semanas=[],pagos=[],facN=1;
 let comunicados=[];
 let almM={},almP={},movAlm=[],entAlm=[],despachos=[],arqueos=[],solic=[];
 let selP=[],fotos={f:null,r:null},gps=null,tventa='credito';
-let editU=null,expId=null;
+let editU=null,expId=null,resetPinUid=null;
 var PROVINCIAS_RD=['Azua','Bahoruco','Barahona','Dajabón','Distrito Nacional','Duarte','El Seibo','Elías Piña',
   'Espaillat','Hato Mayor','Hermanas Mirabal','Independencia','La Altagracia','La Romana','La Vega',
   'María Trinidad Sánchez','Monseñor Nouel','Monte Cristi','Monte Plata','Pedernales','Peravia',
@@ -695,15 +709,32 @@ const perms=()=>sesPermisos;
 // respuesta no es 2xx, para que cada llamador solo tenga que
 // try/catch y mostrar el mensaje.
 async function apiFetch(url,opts={}){
-  const r=await fetch(url,{
-    ...opts,
-    headers:{'Content-Type':'application/json',...(opts.headers||{})},
-    credentials:'include',
-    body:opts.body?JSON.stringify(opts.body):undefined,
-  });
+  let r;
+  try{
+    r=await fetch(url,{
+      ...opts,
+      headers:{'Content-Type':'application/json',...(opts.headers||{})},
+      credentials:'include',
+      body:opts.body?JSON.stringify(opts.body):undefined,
+    });
+  }catch(e){
+    // El fetch del navegador falla con un TypeError en ingles ("Failed to
+    // fetch") cuando no hay señal -- eso llegaba crudo hasta el usuario en
+    // un alert(). Mensaje unico y en español para el caso mas comun de
+    // esta app (promotores en la calle con conexion inestable).
+    const err=new Error('No hay conexión a internet. Verifica tu señal e intenta de nuevo.');
+    err.status=0;err.esErrorDeRed=true;throw err;
+  }
   let data=null;
   try{data=await r.json();}catch(e){}
   if(!r.ok){
+    if(r.status===401){
+      // Sesion expirada/invalida -- antes cada pantalla mostraba su propio
+      // error generico ("No autenticado") y el usuario podia reintentar la
+      // misma accion sin entender por que fallaba. Ahora se fuerza logout
+      // una sola vez, con un mensaje claro.
+      if(ses){ses=null;sesPermisos=[];$('app').classList.remove('on');$('login').style.display='';initLogin();alert('Tu sesión expiró. Inicia sesión de nuevo.');}
+    }
     const err=new Error(data?.error||('Error '+r.status));
     err.status=r.status;err.data=data;throw err;
   }
@@ -715,7 +746,7 @@ async function apiFetch(url,opts={}){
 // desde siempre (n, rl, on, ed) para no tener que reescribir cada
 // pantalla que ya lee usuarios con esos nombres de campo.
 function mapUsuarioApi(u){
-  return{id:u.id,n:u.nombre,rol:u.rol,rl:u.rol_label,c:u.color||'#A87A2E',
+  return{id:u.id,n:u.nombre,us:u.usuario||'',rol:u.rol,rl:u.rol_label,c:u.color||'#A87A2E',
     on:u.activo!==false,ed:u.editable!==false,permisos:u.permisos_custom||null,
     verTodasFacturas:u.ver_todas_facturas===true};
 }
@@ -735,12 +766,6 @@ async function cargarProductosAdmin(){
 async function cargarComunicados(){
   try{ comunicados=await apiFetch('/api/comunicados'); }
   catch(e){ console.error('No se pudieron cargar los comunicados:',e); comunicados=[]; }
-}
-async function cargarUsuariosLogin(){
-  try{
-    const lista=await apiFetch('/api/usuarios-login');
-    USUARIOS=lista.map(mapUsuarioApi);
-  }catch(e){console.error('No se pudo cargar la lista de usuarios:',e);USUARIOS=[];}
 }
 async function cargarUsuariosAdmin(){
   try{
@@ -930,19 +955,16 @@ function aplicarIdentidadEmpresa(){
 // y el servidor decide si es correcto. El navegador nunca vuelve a ver
 // ni guardar ningun PIN.
 async function initLogin(){
-  const lu=$('lu');lu.innerHTML='<option value="">Cargando...</option>';
-  await cargarUsuariosLogin();
-  lu.innerHTML='<option value="">Seleccionar usuario...</option>';
-  USUARIOS.forEach(u=>{lu.innerHTML+=`<option value="${u.id}">${esc(u.n)} — ${esc(u.rl)}</option>`;});
+  const lu=$('lu');if(lu)lu.value='';
 }
 async function login(){
-  const uid=$('lu').value,pin=$('lpin').value,err=$('lerr');
+  const usuario=($('lu').value||'').trim(),pin=$('lpin').value,err=$('lerr');
   err.textContent='';
-  if(!uid){err.textContent='Selecciona tu usuario.';return;}
+  if(!usuario){err.textContent='Escribe tu usuario.';return;}
   if(!pin||pin.length!==6){err.textContent='Ingresa tu PIN de 6 dígitos.';return;}
   let resp;
   try{
-    resp=await apiFetch('/api/login',{method:'POST',body:{usuarioId:Number(uid),pin}});
+    resp=await apiFetch('/api/login',{method:'POST',body:{usuario,pin}});
   }catch(e){
     if(e.status===429){err.textContent='Demasiados intentos. Cuenta bloqueada temporalmente, intenta en unos minutos.';}
     else{err.textContent='Usuario o PIN incorrecto.';}
@@ -967,8 +989,18 @@ async function login(){
     cargarComisionesSemanas(), cargarComisionesPagos(), cargarCuentasPorPagar(),
     cargarCrm(), cargarAsientos(), cargarEmpleados(), cargarNominas(),
     cargarComunicados(), cargar(), cargarConfigEmpresa(),
+    // Excel (XLSX) y el mapa (Leaflet) ya NO bloquean la carga de la
+    // pantalla de login -- se piden aca, en paralelo con los datos, recien
+    // despues de autenticar. Si alguna falla (sin señal), no rompe el resto.
+    pedLoadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js').catch(()=>{}),
+    pedLoadScript('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js').catch(()=>{}),
   ]);
-  buildNav();buildBotNav();ir('dash');
+  buildNav();buildBotNav();
+  // Maestro (soporte tecnico) no tiene 'dash' (es un panel de KPIs de
+  // negocio, fuera de su alcance) -- aterriza en el primer modulo que si
+  // pueda ver. El resto de los roles siempre tienen 'dash', asi que para
+  // ellos el comportamiento es identico a antes.
+  ir(perms().includes('dash')?'dash':(perms()[0]||'dash'));
 }
 async function logout(){
   try{await apiFetch('/api/logout',{method:'POST'});}catch(e){}
@@ -1052,7 +1084,7 @@ function render(id){
   else if(id==='asistente')m.innerHTML=rAsistente();
   else if(id==='users'){m.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i>Cargando usuarios...</div>';cargarUsuariosAdmin().then(()=>{if(pag==='users')m.innerHTML=rUsers();});}
   else if(id==='cfg'){
-    if(ses&&['gerente','subgerente'].includes(ses.rol)){
+    if(ses&&['gerente','subgerente','maestro'].includes(ses.rol)){
       m.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i>Cargando...</div>';
       Promise.all([cargarBackups(),cargarConfigIA()]).then(function(){if(pag==='cfg')m.innerHTML=rCfg();});
     } else m.innerHTML=rCfg();
@@ -1511,7 +1543,7 @@ function rContrato(){
     <div id="cnt_ok" style="display:none"></div>
     <div class="actions">
       <button class="bs" onclick="resetC()"><i class="ti ti-refresh"></i> Limpiar</button>
-      <button class="bg" onclick="enviarC()"><i class="ti ti-send"></i> Enviar para aprobación</button>
+      <button class="bg" id="btn_enviarC" onclick="enviarC()"><i class="ti ti-send"></i> Enviar para aprobación</button>
     </div>
   </div>`;
 }
@@ -1761,7 +1793,11 @@ function calcDescuento(){
   const netEl=$('cf_neto');if(netEl)netEl.value=neto||'';
   const netLbl=$('neto_lbl');if(netLbl)netLbl.textContent='RD$'+neto.toLocaleString('es-DO');
 }
+let _enviandoContrato=false;
 async function enviarC(){
+  // Evita doble factura/comision por doble clic -- el backend tambien
+  // protege esto (ventana de 2 min), esto solo da respuesta instantanea.
+  if(_enviandoContrato)return;
   let ok=true;
   [['cf_nm','e_nm','Nombre'],['cf_ce','e_ce','Cédula'],['cf_t1','e_t1','Teléfono'],['cf_mn','e_mn','Monto'],['cf_pr','e_pr','Promotor'],
    ['cf_zo','e_zo','Zona / Ruta'],['cf_in','e_in','Institución / Trabajo'],['cf_prov','e_prov','Provincia'],
@@ -1792,8 +1828,11 @@ async function enviarC(){
     canal:$('cf_canal')?.value||'ruta',
   };
   let contrato;
+  _enviandoContrato=true;
+  const btnEnv=$('btn_enviarC');if(btnEnv){btnEnv.disabled=true;btnEnv.style.opacity='.6';}
   try{contrato=await apiFetch('/api/contratos',{method:'POST',body:payload});}
   catch(e){alert('No se pudo enviar el contrato: '+e.message);return;}
+  finally{_enviandoContrato=false;if(btnEnv){btnEnv.disabled=false;btnEnv.style.opacity='';}}
   facN++;await cargarContratos();
   const b=$('cnt_ok');b.style.display='flex';b.className='okbox';b.style.cssText='display:flex;background:var(--gbg);border-color:var(--green);color:var(--gdk)';b.innerHTML=`<i class="ti ti-send"></i> Contrato <b>${contrato.numero_factura}</b> enviado al buzón de aprobación.`;
   buildBotNav();setTimeout(()=>{resetC();b.style.display='none';},4000);
@@ -2426,12 +2465,12 @@ async function marcarPag(){
 }
 
 // ── USUARIOS ───────────────────────────────────────────────────────
-const GRPS=[{lab:'Gerencia',roles:['gerente','subgerente'],c:'#A87A2E'},{lab:'Operaciones',roles:['coordinador','supervisor'],c:'#185FA5'},{lab:'Almacén',roles:['almacen'],c:'#5B4E8A'},{lab:'Promotores',roles:['promotor'],c:'#0F6E56'}];
+const GRPS=[{lab:'Gerencia',roles:['gerente','subgerente'],c:'#A87A2E'},{lab:'Soporte Técnico',roles:['maestro'],c:'#6B4FA0'},{lab:'Operaciones',roles:['coordinador','supervisor'],c:'#185FA5'},{lab:'Almacén',roles:['almacen'],c:'#5B4E8A'},{lab:'Promotores',roles:['promotor'],c:'#0F6E56'}];
 function rUsers(){
-  const esGer=['gerente','subgerente'].includes(ses.rol);
+  const esGer=['gerente','subgerente','maestro'].includes(ses.rol);
   let h=`<div class="card">
     <div class="ct"><i class="ti ti-users" style="color:var(--gold);font-size:18px"></i>Gestión de usuarios <span class="pill" style="margin-left:auto">${USUARIOS.filter(u=>u.on).length} activos</span></div>
-    <div class="cs">Agrega y gestiona usuarios. Los gerentes solo pueden cambiar su propio PIN.</div>`;
+    <div class="cs">Agrega y gestiona usuarios de cualquier rol, incluidos Gerente y Sub-Gerente. Para cambiar tu propio PIN usa Configuración.</div>`;
   if(esGer&&editU&&editU.id===ses.id){
     h+=`<div class="selfbox">
       <div class="uav" style="background:${ses.c};width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff">${ses.n[0]}</div>
@@ -2448,6 +2487,25 @@ function rUsers(){
       </div>
     </div>`;
   }
+  if(resetPinUid){
+    const ru=USUARIOS.find(x=>x.id===resetPinUid);
+    if(ru){
+      h+=`<div class="selfbox">
+        <div class="uav" style="background:${ru.c};width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff">${ru.n[0]}</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:600">Restablecer PIN de ${esc(ru.n)}</div>
+        <div style="font-size:11px;color:var(--t2)">${esc(ru.rl)}${ru.us?` · @${esc(ru.us)}`:''}</div></div>
+        <div class="fi" style="min-width:130px;margin-bottom:0">
+          <label>PIN nuevo</label>
+          <input type="password" id="rp_pin" maxlength="6" placeholder="• • • • • •" oninput="$('rp_prev').textContent=this.value?this.value.split('').map(()=>'•').join(' '):'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
+          <div class="ppin" id="rp_prev">—</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <button class="bg" onclick="gResetPin(${ru.id})"><i class="ti ti-check"></i> Guardar</button>
+          <button class="bs" onclick="resetPinUid=null;$('main').innerHTML=rUsers()"><i class="ti ti-x"></i> Cancelar</button>
+        </div>
+      </div>`;
+    }
+  }
   const editOtro=editU&&editU.id!==ses.id;
   if(!editU||editOtro){
     h+=`<div class="af">
@@ -2461,11 +2519,16 @@ function rUsers(){
             <option value="almacen"${editU?.rol==='almacen'?' selected':''}>Encargado de Almacén</option>
             <option value="promotor"${editU?.rol==='promotor'?' selected':''}>Promotor</option>
             <option value="coordinador"${editU?.rol==='coordinador'?' selected':''}>Coordinador Operativo</option>
+            <option value="subgerente"${editU?.rol==='subgerente'?' selected':''}>Sub-Gerente</option>
+            <option value="gerente"${editU?.rol==='gerente'?' selected':''}>Gerente General</option>
+            <option value="maestro"${editU?.rol==='maestro'?' selected':''}>Maestro (Soporte Técnico)</option>
           </select></div>
         <div class="fi"><label>PIN (6 dígitos)${editU?'':' <span class="req">*</span>'}</label>
           <input type="password" id="u_pin" maxlength="6" placeholder="${editU?'Dejar vacío para no cambiarlo':'• • • • • •'}" oninput="$('u_prev').textContent=this.value?this.value.split('').map(()=>'•').join(' '):'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
           <div class="ppin" id="u_prev">—</div></div>
+        ${editU?`<div class="fi sp2"><label>Usuario de acceso</label><input id="u_us" value="${esc(editU?.us||'')}" placeholder="Ej. JDuran" autocapitalize="none" spellcheck="false"></div>`:''}
       </div>
+      ${editU?'':'<div class="cs" style="margin:-4px 0 8px">El usuario de acceso (para entrar al sistema) se genera automáticamente a partir del nombre -- se puede ajustar después desde Editar.</div>'}
       <div class="em" id="u_err"></div>
       <div style="display:flex;gap:6px;justify-content:flex-end">
         ${editU?`<button class="bs" onclick="editU=null;$('main').innerHTML=rUsers()"><i class="ti ti-x"></i> Cancelar</button>`:''}
@@ -2488,12 +2551,13 @@ function rUsers(){
         <div class="uav" style="background:${u.c}">${u.n[0].toUpperCase()}</div>
         <div style="flex:1;min-width:0">
           <div class="unm">${esc(u.n)}${yo?`<span style="font-size:9px;background:var(--gold-p);border:0.5px solid var(--gold);border-radius:100px;padding:1px 5px;color:var(--gold-m)">Tú</span>`:''}</div>
-          <div class="url">${esc(u.rl)}</div>
+          <div class="url">${esc(u.rl)}${u.us?` · @${esc(u.us)}`:''}</div>
           <div class="upin"><i class="ti ti-lock" style="font-size:9px"></i> PIN protegido</div>
         </div>
         <div class="uacts">
           ${esGer&&!yo?`<button class="ub" onclick="abrirPermisos(${u.id})" title="Permisos"><i class="ti ti-key"></i></button>`:''}
-          ${pEd?`<button class="ub" onclick="${yo?'ePinP()':'sEdit('+u.id+')'}"><i class="ti ${yo?'ti-key':'ti-edit'}"></i></button>`:''}
+          ${pEd&&!yo?`<button class="ub" onclick="abrirResetPin(${u.id})" title="Restablecer PIN (si no se acuerda)"><i class="ti ti-lock-open"></i></button>`:''}
+          ${pEd?`<button class="ub" onclick="${yo?'ePinP()':'sEdit('+u.id+')'}" title="${yo?'Cambiar mi PIN':'Editar'}"><i class="ti ${yo?'ti-key':'ti-edit'}"></i></button>`:''}
           ${pEl?`<button class="ub del" onclick="delU(${u.id})"><i class="ti ti-trash"></i></button>`:''}
           ${!pEd&&!yo?'<span style="font-size:9px;color:var(--t3);padding:2px 5px;background:#f5f5f3;border-radius:4px">Fijo</span>':''}
         </div>
@@ -2512,8 +2576,8 @@ function rUsers(){
   }
   return h+'</div>';
 }
-const RLAB={supervisor:'Supervisor de Ruta',almacen:'Encargado de Almacén',promotor:'Promotor',coordinador:'Coordinador Operativo'};
-function ePinP(){editU=USUARIOS.find(u=>u.id===ses.id);$('main').innerHTML=rUsers();setTimeout(()=>{const el=$('sp');if(el)el.focus();},50);}
+const RLAB={supervisor:'Supervisor de Ruta',almacen:'Encargado de Almacén',promotor:'Promotor',coordinador:'Coordinador Operativo',subgerente:'Sub-Gerente',gerente:'Gerente General',maestro:'Maestro (Soporte Técnico)'};
+function ePinP(){resetPinUid=null;editU=USUARIOS.find(u=>u.id===ses.id);$('main').innerHTML=rUsers();setTimeout(()=>{const el=$('sp');if(el)el.focus();},50);}
 async function gPinP(){
   const pin=$('sp')?.value||'';
   if(pin.length!==6||!/^\d{6}$/.test(pin)){alert('PIN debe ser 6 dígitos numéricos.');return;}
@@ -2521,14 +2585,26 @@ async function gPinP(){
   catch(e){alert('No se pudo cambiar el PIN: '+e.message);return;}
   editU=null;$('main').innerHTML=rUsers();showToast('PIN actualizado ✅');
 }
-function sEdit(id){editU=USUARIOS.find(u=>u.id===id);$('main').innerHTML=rUsers();}
+function sEdit(id){resetPinUid=null;editU=USUARIOS.find(u=>u.id===id);$('main').innerHTML=rUsers();}
+// Restablecer PIN de OTRO usuario -- para cuando no se acuerda (no es
+// "recuperar" el PIN original: eso es imposible, esta hasheado con bcrypt.
+// Es ponerle uno nuevo). Atajo dedicado, sin pasar por el formulario
+// completo de Editar.
+function abrirResetPin(id){editU=null;resetPinUid=id;$('main').innerHTML=rUsers();setTimeout(()=>{const el=$('rp_pin');if(el)el.focus();},50);}
+async function gResetPin(id){
+  const pin=$('rp_pin')?.value||'';
+  if(pin.length!==6||!/^\d{6}$/.test(pin)){alert('PIN debe ser 6 dígitos numéricos.');return;}
+  try{await apiFetch(`/api/usuarios/${id}/pin`,{method:'PATCH',body:{pin}});}
+  catch(e){alert('No se pudo restablecer el PIN: '+e.message);return;}
+  resetPinUid=null;$('main').innerHTML=rUsers();showToast('PIN restablecido ✅');
+}
 async function sUser(id){
-  const nm=$('u_nm')?.value?.trim(),rl=$('u_rl')?.value,pin=$('u_pin')?.value;
+  const nm=$('u_nm')?.value?.trim(),rl=$('u_rl')?.value,pin=$('u_pin')?.value,us=$('u_us')?.value?.trim();
   const err=$('u_err');
   if(!nm||!rl){err.textContent='Completa todos los campos';return;}
   if(pin&&(pin.length!==6||!/^\d{6}$/.test(pin))){err.textContent='PIN debe ser 6 dígitos';return;}
   try{
-    await apiFetch(`/api/usuarios/${id}`,{method:'PATCH',body:{nombre:nm,rol:rl,rolLabel:RLAB[rl]||rl}});
+    await apiFetch(`/api/usuarios/${id}`,{method:'PATCH',body:{nombre:nm,rol:rl,rolLabel:RLAB[rl]||rl,usuario:us||undefined}});
     if(pin)await apiFetch(`/api/usuarios/${id}/pin`,{method:'PATCH',body:{pin}});
   }catch(e){err.textContent=e.message;return;}
   editU=null;await cargarUsuariosAdmin();$('main').innerHTML=rUsers();showToast('Usuario actualizado ✅');
@@ -2563,7 +2639,7 @@ async function reactU(id){
 
 // ── Claves de IA de Sarah (solo Gerente/Sub-Gerente) ──────────────────
 var IA_CONFIG_LISTA=[];
-var IA_PROVEEDORES={openai:{lab:'OpenAI (GPT-4o mini)',icon:'🧠'},gemini:{lab:'Google Gemini',icon:'✦'},claude:{lab:'Anthropic Claude',icon:'⚡'}};
+var IA_PROVEEDORES={openai:{lab:'OpenAI (GPT-4o mini)',icon:'🧠'},gemini:{lab:'Google Gemini',icon:'✦'},claude:{lab:'Anthropic Claude',icon:'⚡'},huggingface:{lab:'Hugging Face (gpt-oss-120b)',icon:'🤗'}};
 async function cargarConfigIA(){
   try{ IA_CONFIG_LISTA=await apiFetch('/api/ia/config'); }
   catch(e){ console.error('No se pudo cargar la configuración de IA:',e); IA_CONFIG_LISTA=[]; }
@@ -2583,7 +2659,7 @@ function rSarahConfigHTML(){
   }).join('');
   return '<div class="card">'
     + '<div class="ct"><i class="ti ti-robot" style="color:var(--gold);font-size:18px"></i>Sarah — Asistente IA</div>'
-    + '<div class="cs">La clave que guardes acá la usan TODOS los usuarios del sistema sin que tengan que configurar nada -- nunca se muestra en el navegador. Se prueba con el primer proveedor activo (orden: Claude, OpenAI, Gemini).</div>'
+    + '<div class="cs">La clave que guardes acá la usan TODOS los usuarios del sistema sin que tengan que configurar nada -- nunca se muestra en el navegador. Se prueba con el primer proveedor activo (orden: Claude, OpenAI, Gemini, Hugging Face).</div>'
     + filas
     + '</div>';
 }
@@ -2759,9 +2835,35 @@ function rEmpresaConfigHTML(){
     </div>
   </div>`;
 }
+// Cambiar el propio PIN es de cualquier rol -- ya no vive dentro del
+// modulo Usuarios (exclusivo de Maestro desde ahora), asi que se ofrece
+// aca, en Configuracion, a lo que TODOS los roles ya tienen acceso.
+function rMiPinHTML(){
+  return `<div class="card">
+    <div class="ct"><i class="ti ti-key" style="color:var(--gold);font-size:18px"></i>Mi cuenta</div>
+    <div class="cs">Usuario: <b>@${esc(ses.us||'')}</b> — ${esc(ses.rl)}</div>
+    <div class="g2">
+      <div class="fi" style="min-width:130px">
+        <label>Nuevo PIN (6 dígitos)</label>
+        <input type="password" id="mp_pin" maxlength="6" placeholder="• • • • • •" oninput="$('mp_prev').textContent=this.value?this.value.split('').map(()=>'•').join(' '):'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
+        <div class="ppin" id="mp_prev">—</div>
+      </div>
+    </div>
+    <div class="em" id="mp_err"></div>
+    <div class="actions"><div></div><button class="bg" onclick="gMiPin()"><i class="ti ti-check"></i> Guardar PIN</button></div>
+  </div>`;
+}
+async function gMiPin(){
+  const pin=$('mp_pin')?.value||'',err=$('mp_err');
+  if(pin.length!==6||!/^\d{6}$/.test(pin)){err.textContent='PIN debe ser 6 dígitos numéricos.';return;}
+  try{await apiFetch(`/api/usuarios/${ses.id}/pin`,{method:'PATCH',body:{pin}});}
+  catch(e){err.textContent=e.message;return;}
+  err.textContent='';$('mp_pin').value='';$('mp_prev').textContent='—';
+  showToast('PIN actualizado ✅');
+}
 function rCfg(){
   const cfg=localStorage.getItem('k_fb')||'';
-  return (ses&&['gerente','subgerente'].includes(ses.rol)?rEmpresaConfigHTML()+rSarahConfigHTML()+rRespaldoHTML():'')+`<div class="card">
+  return rMiPinHTML()+(ses&&['gerente','subgerente','maestro'].includes(ses.rol)?rEmpresaConfigHTML()+rSarahConfigHTML()+rRespaldoHTML():'')+`<div class="card">
     <div class="ct"><i class="ti ti-settings" style="color:var(--gold);font-size:18px"></i>Configuración
       <span class="pill" style="margin-left:auto;background:${cfg?'var(--gbg)':'var(--gold-p)'};border-color:${cfg?'var(--green)':'var(--gold)'};color:${cfg?'var(--gdk)':'var(--gold-m)'}">${cfg?'Firebase activo':'Sin sync'}</span></div>
     <div class="cs">Sincronización en tiempo real entre dispositivos. Gratis con Firebase.</div>
@@ -4446,11 +4548,40 @@ async function pagarGuardar(){
 
 
 document.addEventListener('DOMContentLoaded',init);
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{});});
+}
+
+// ── ACCESIBILIDAD POR TECLADO ────────────────────────────────────────
+// El sistema usa <div onclick=...> como patron para tarjetas/miniaturas
+// clickeables (selector credito/contado, fotos de cedula, seleccion de
+// producto, expandir/colapsar tarjetas, etc.) -- ningun <div> recibe foco
+// de teclado por defecto, asi que quedaban inalcanzables sin mouse/tactil.
+// En vez de editar cada uno a mano (se generan dinamicamente en varias
+// pantallas), esto los detecta automaticamente donde sea que aparezcan.
+function accesibilizarClicables(raiz){
+  (raiz||document).querySelectorAll('[onclick]:not([tabindex])').forEach(function(el){
+    var tag=el.tagName;
+    if(tag==='BUTTON'||tag==='A'||tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA')return;
+    el.setAttribute('tabindex','0');
+    if(!el.hasAttribute('role'))el.setAttribute('role','button');
+  });
+}
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Enter'&&e.key!==' ')return;
+  var el=e.target;
+  if(el&&el.getAttribute&&el.getAttribute('role')==='button'&&el.hasAttribute('onclick')){
+    e.preventDefault();el.click();
+  }
+});
+new MutationObserver(function(){accesibilizarClicables(document);})
+  .observe(document.body,{childList:true,subtree:true});
+document.addEventListener('DOMContentLoaded',function(){accesibilizarClicables(document);});
 
 
 
 function showToast(msg,type){var wrap=document.getElementById('toast-wrap');if(!wrap)return;var d=document.createElement('div');var bg=type==='err'?'#C62828':type==='info'?'#185FA5':'#1a7a42';d.style.cssText='background:'+bg+';color:#fff;padding:10px 16px;border-radius:12px;font-size:12px;font-weight:700;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:300px;word-break:break-word;font-family:inherit;animation:k-popIn .3s ease';d.textContent=msg;wrap.appendChild(d);setTimeout(function(){d.remove();},3000);}
-function rolLabel(rol){var l={gerente:'Gerente General',subgerente:'Sub-Gerente',coordinador:'Coordinador',supervisor:'Supervisor',almacen:'Almacén',promotor:'Promotor'};return l[rol]||rol;}
+function rolLabel(rol){var l={gerente:'Gerente General',subgerente:'Sub-Gerente',coordinador:'Coordinador',supervisor:'Supervisor',almacen:'Almacén',promotor:'Promotor',maestro:'Maestro (Soporte Técnico)'};return l[rol]||rol;}
 function openMdl(titulo,cuerpo,botones){var o=document.getElementById('modal');if(!o)return;var t=document.getElementById('mtit');if(t)t.textContent=titulo;var b=document.getElementById('mbody');if(b)b.innerHTML=cuerpo;var f=document.getElementById('mft');if(f)f.innerHTML=botones||'<button class="bs" onclick="closeMdl()">Cerrar</button>';o.classList.add('on');}
 function closeMdl(){var o=document.getElementById('modal');if(o)o.classList.remove('on');}
 function pn(i){var v=document.getElementById('p'+i).value.replace(/\D/,'');document.getElementById('p'+i).value=v;if(v&&i<5)document.getElementById('p'+(i+1)).focus();var pin='';for(var x=0;x<6;x++){var el=document.getElementById('p'+x);pin+=el?el.value:'';}document.getElementById('lpin').value=pin;if(pin.length===6)setTimeout(login,120);}

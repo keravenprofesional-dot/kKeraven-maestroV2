@@ -25,12 +25,24 @@ const pool = new Pool({
 // permisos_custom en la base de datos que sobreescribe esta lista por completo
 // para ese usuario puntual.
 const PERMS_POR_ROL = {
-  gerente:     ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel','auditoria','rrhh','comunicados'],
-  subgerente:  ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','users','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel','auditoria','rrhh','comunicados'],
+  // 'users' salio de gerente/subgerente: crear cuentas, poner PIN y asignar
+  // roles paso a ser exclusivo de 'maestro' (pedido explicito). Cambiar el
+  // propio PIN sigue disponible para todos por fuera de este modulo (ver
+  // /api/usuarios/:id/pin -> requireMaestroOSelf, y rMiPinHTML en cfg).
+  gerente:     ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','delfac','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel','auditoria','rrhh','comunicados'],
+  subgerente:  ['dash','contrato','buzon','cobros','arqueo','almp','almm','com','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','productos','laboratorio','laboratorio_produccion','excel','auditoria','rrhh','comunicados'],
   coordinador: ['dash','contrato','buzon','cobros','arqueo','almp','com','cfg','pedidos','nomina','contab','cxp','ccrm','clientes','cxc','miscom','pagar','rendimiento','asistente','cobrador','ruta','comunicados'],
   supervisor:  ['dash','contrato','buzon','cobros','almm','cfg','clientes','cxc','miscom','rendimiento','asistente','cobrador','ruta','comunicados'],
   almacen:     ['dash','arqueo','almp','almm','cfg','asistente','comunicados'],
   promotor:    ['dash','contrato','cfg','asistente','comunicados'],
+  // Soporte tecnico: SOLO usuarios/permisos/configuracion/auditoria (no
+  // 'dash' -- ese panel es de KPIs de negocio). Nunca ve contratos,
+  // comisiones, nomina, RRHH, CxC/CxP ni ningun modulo de trabajo diario.
+  // 'users' es EXCLUSIVO de maestro (Gerente/Sub-Gerente ya no lo tienen,
+  // pedido explicito -- crear cuentas/poner PIN/asignar rol, incluidos
+  // Gerente y Sub-Gerente, pasa por Maestro). El resto (cfg/auditoria) se
+  // agrega por encima sin quitarle nada a Gerente/Sub-Gerente.
+  maestro:     ['users','cfg','auditoria','asistente'],
 };
 
 // Roles que deben confirmar lectura de un comunicado (los que publican
@@ -44,6 +56,7 @@ async function init() {
   await pool.query(seedProductos);
   const seedLab = fs.readFileSync(path.join(__dirname, 'seed_lab_materias_primas.sql'), 'utf8');
   await pool.query(seedLab);
+  await backfillUsuariosLogin();
 }
 
 function permisosEfectivos(usuario) {
@@ -59,9 +72,69 @@ const BLOQUEO_MINUTOS = 15;
 
 async function listarUsuariosActivos() {
   const { rows } = await pool.query(
-    `SELECT id, nombre, rol, rol_label, color FROM usuarios WHERE activo = TRUE ORDER BY id`
+    `SELECT id, nombre, usuario, rol, rol_label, color FROM usuarios WHERE activo = TRUE ORDER BY id`
   );
   return rows;
+}
+
+// Login por usuario (ya no por id elegido de una lista publica). Case-
+// insensitive: "jduran"/"JDuran"/"JDURAN" son la misma cuenta.
+async function buscarUsuarioPorLogin(usuario) {
+  const { rows } = await pool.query(`SELECT * FROM usuarios WHERE LOWER(usuario) = LOWER($1)`, [String(usuario || '').trim()]);
+  return rows[0] || null;
+}
+
+// true si `usuario` esta libre (o es el mismo que ya tiene `excluirId` --
+// para permitir guardar sin cambiar el usuario de la propia cuenta).
+async function usuarioLoginDisponible(usuario, excluirId) {
+  const existente = await buscarUsuarioPorLogin(usuario);
+  return !existente || String(existente.id) === String(excluirId);
+}
+
+// Quita acentos/diacriticos y deja solo letras -- sin depender de la
+// extension `unaccent` de Postgres (puede no estar habilitada en Supabase).
+function _soloLetras(txt) {
+  return String(txt || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z]/g, '');
+}
+function _capitalizar(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+}
+
+// Genera el usuario de login estandarizado a partir del nombre completo:
+// inicial del primer nombre + el segundo "token" del nombre (en la
+// practica el apellido que sigue inmediatamente -- para nombres
+// compuestos, ej. "Jose Augusto Duran Garcia", puede no coincidir con el
+// apellido real que la persona esperaba; por eso el campo `usuario` queda
+// editable despues desde Usuarios). Si choca con uno ya existente, se
+// suman letras del primer nombre (JDuran -> JoDuran -> JosDuran...) hasta
+// diferenciarlo; si se agotan las letras del primer nombre, se agrega un
+// numero al final como ultimo recurso.
+function generarUsuarioLogin(nombreCompleto, existentesLower) {
+  const partes = String(nombreCompleto || '').trim().split(/\s+/).map(_soloLetras).filter(Boolean);
+  const primero = partes[0] || 'usuario';
+  const segundo = partes[1] || partes[0] || 'usuario';
+  for (let letras = 1; letras <= primero.length; letras++) {
+    const candidato = _capitalizar(primero.slice(0, letras)) + _capitalizar(segundo);
+    if (!existentesLower.has(candidato.toLowerCase())) return candidato;
+  }
+  const base = _capitalizar(primero) + _capitalizar(segundo);
+  let n = 2, candidato = base + n;
+  while (existentesLower.has(candidato.toLowerCase())) { n++; candidato = base + n; }
+  return candidato;
+}
+
+// Corre una sola vez por usuario (ver init()): completa `usuario` para
+// las cuentas que ya existian antes de este cambio y todavia no lo
+// tienen. Idempotente -- una cuenta que ya tiene `usuario` no se toca.
+async function backfillUsuariosLogin() {
+  const { rows } = await pool.query(`SELECT id, nombre, usuario FROM usuarios ORDER BY id`);
+  const existentesLower = new Set(rows.filter((r) => r.usuario).map((r) => r.usuario.toLowerCase()));
+  for (const u of rows) {
+    if (u.usuario) continue;
+    const usuarioLogin = generarUsuarioLogin(u.nombre, existentesLower);
+    existentesLower.add(usuarioLogin.toLowerCase());
+    await pool.query(`UPDATE usuarios SET usuario = $2 WHERE id = $1`, [u.id, usuarioLogin]);
+  }
 }
 
 async function buscarUsuarioPorId(id) {
@@ -72,7 +145,7 @@ async function buscarUsuarioPorId(id) {
 // Lista completa para el panel de administracion (incluye inactivos, sin pin_hash)
 async function listarUsuariosCompleto() {
   const { rows } = await pool.query(
-    `SELECT id, nombre, rol, rol_label, color, activo, editable, permisos_custom, ver_todas_facturas
+    `SELECT id, nombre, usuario, rol, rol_label, color, activo, editable, permisos_custom, ver_todas_facturas
      FROM usuarios ORDER BY id`
   );
   return rows;
@@ -86,15 +159,17 @@ async function actualizarVerTodasFacturas(id, valor) {
   await pool.query(`UPDATE usuarios SET ver_todas_facturas = $2 WHERE id = $1`, [id, !!valor]);
 }
 
-async function actualizarUsuario(id, { nombre, rol, rolLabel }) {
+async function actualizarUsuario(id, { nombre, rol, rolLabel, usuario }, actorId) {
   const { rows } = await pool.query(
     `UPDATE usuarios SET
        nombre = COALESCE($2, nombre),
-       rol = COALESCE($3, rol),
-       rol_label = COALESCE($4, rol_label)
+       usuario = COALESCE($3, usuario),
+       rol = COALESCE($4, rol),
+       rol_label = COALESCE($5, rol_label),
+       actualizado_por = $6, actualizado_en = now()
      WHERE id = $1
-     RETURNING id, nombre, rol, rol_label, color, activo, editable, permisos_custom`,
-    [id, nombre, rol, rolLabel]
+     RETURNING id, nombre, usuario, rol, rol_label, color, activo, editable, permisos_custom`,
+    [id, nombre, usuario ?? null, rol, rolLabel, actorId ?? null]
   );
   return rows[0] || null;
 }
@@ -104,8 +179,12 @@ async function actualizarUsuario(id, { nombre, rol, rolLabel }) {
 // Esto es lo que reemplaza la comparacion en el navegador (linea 701-707
 // del HTML original, "if(pin!==u.pin)") por una verificacion real en el
 // servidor.
-async function verificarLogin(usuarioId, pin) {
-  const usuario = await buscarUsuarioPorId(usuarioId);
+// Login ahora es por `usuario` (texto que la persona escribe), no por un
+// id elegido de una lista publica. verificarLogin() sigue trabajando con
+// el id INTERNAMENTE una vez encontrada la cuenta, para reusar el mismo
+// bloqueo por intentos fallidos que ya existia.
+async function verificarLogin(usuarioLogin, pin) {
+  const usuario = await buscarUsuarioPorLogin(usuarioLogin);
   if (!usuario || !usuario.activo) return { ok: false, motivo: 'usuario_no_encontrado' };
 
   if (usuario.bloqueado_hasta && new Date(usuario.bloqueado_hasta) > new Date()) {
@@ -119,48 +198,74 @@ async function verificarLogin(usuarioId, pin) {
       const bloqueadoHasta = new Date(Date.now() + BLOQUEO_MINUTOS * 60 * 1000);
       await pool.query(
         `UPDATE usuarios SET intentos_fallidos = 0, bloqueado_hasta = $2 WHERE id = $1`,
-        [usuarioId, bloqueadoHasta]
+        [usuario.id, bloqueadoHasta]
       );
       return { ok: false, motivo: 'bloqueado', bloqueado_hasta: bloqueadoHasta };
     }
-    await pool.query(`UPDATE usuarios SET intentos_fallidos = $2 WHERE id = $1`, [usuarioId, intentos]);
+    await pool.query(`UPDATE usuarios SET intentos_fallidos = $2 WHERE id = $1`, [usuario.id, intentos]);
     return { ok: false, motivo: 'pin_incorrecto' };
   }
 
   await pool.query(
     `UPDATE usuarios SET intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = $1`,
-    [usuarioId]
+    [usuario.id]
   );
   return { ok: true, usuario };
 }
 
+// Verificacion por id (la usa /api/verificar-pin, con la sesion ya
+// autenticada -- ahi si tiene sentido conocer el id, no el usuario que
+// tipeo en el login).
+async function verificarLoginPorId(usuarioId, pin) {
+  const usuario = await buscarUsuarioPorId(usuarioId);
+  if (!usuario || !usuario.activo) return { ok: false, motivo: 'usuario_no_encontrado' };
+  return verificarLogin(usuario.usuario, pin);
+}
+
 async function crearUsuario({ nombre, rol, rolLabel, pin, color }) {
   const pinHash = await bcrypt.hash(String(pin), 10);
+  const { rows: existentesRows } = await pool.query(`SELECT usuario FROM usuarios WHERE usuario IS NOT NULL`);
+  const existentesLower = new Set(existentesRows.map((r) => r.usuario.toLowerCase()));
+  const usuarioLogin = generarUsuarioLogin(nombre, existentesLower);
   const { rows } = await pool.query(
-    `INSERT INTO usuarios (nombre, rol, rol_label, pin_hash, color)
-     VALUES ($1,$2,$3,$4,$5) RETURNING id, nombre, rol, rol_label, color, activo`,
-    [nombre, rol, rolLabel, pinHash, color || '#B8860B']
+    `INSERT INTO usuarios (nombre, usuario, rol, rol_label, pin_hash, color)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, nombre, usuario, rol, rol_label, color, activo`,
+    [nombre, usuarioLogin, rol, rolLabel, pinHash, color || '#B8860B']
   );
   return rows[0];
 }
 
-async function cambiarPinUsuario(id, nuevoPin) {
+// Cambiar el PIN tambien desbloquea al usuario y resetea sus intentos --
+// antes, si un Gerente le cambiaba el PIN a alguien bloqueado por 5
+// intentos fallidos, seguia bloqueado hasta que se cumplieran los 15
+// minutos igual, sin ninguna forma de desbloqueo manual real.
+async function cambiarPinUsuario(id, nuevoPin, actorId) {
   const pinHash = await bcrypt.hash(String(nuevoPin), 10);
-  await pool.query(`UPDATE usuarios SET pin_hash = $2 WHERE id = $1`, [id, pinHash]);
+  await pool.query(
+    `UPDATE usuarios SET pin_hash = $2, intentos_fallidos = 0, bloqueado_hasta = NULL,
+       actualizado_por = $3, actualizado_en = now() WHERE id = $1`,
+    [id, pinHash, actorId ?? null]
+  );
 }
 
-async function actualizarPermisosUsuario(id, permisos) {
-  await pool.query(`UPDATE usuarios SET permisos_custom = $2 WHERE id = $1`, [
-    id,
-    permisos ? JSON.stringify(permisos) : null,
-  ]);
+async function actualizarPermisosUsuario(id, permisos, actorId) {
+  await pool.query(
+    `UPDATE usuarios SET permisos_custom = $2, actualizado_por = $3, actualizado_en = now() WHERE id = $1`,
+    [id, permisos ? JSON.stringify(permisos) : null, actorId ?? null]
+  );
 }
 
-async function desactivarUsuario(id) {
-  await pool.query(`UPDATE usuarios SET activo = FALSE WHERE id = $1`, [id]);
+async function desactivarUsuario(id, actorId) {
+  await pool.query(
+    `UPDATE usuarios SET activo = FALSE, actualizado_por = $2, actualizado_en = now() WHERE id = $1`,
+    [id, actorId ?? null]
+  );
 }
-async function reactivarUsuario(id) {
-  await pool.query(`UPDATE usuarios SET activo = TRUE WHERE id = $1`, [id]);
+async function reactivarUsuario(id, actorId) {
+  await pool.query(
+    `UPDATE usuarios SET activo = TRUE, actualizado_por = $2, actualizado_en = now() WHERE id = $1`,
+    [id, actorId ?? null]
+  );
 }
 
 // ── PRODUCTOS (catalogo editable) ────────────────────────────────────
@@ -249,6 +354,24 @@ async function crearContrato(datos, usuarioId) {
   try {
     await cliente.query('BEGIN');
     const clienteId = await resolverCliente(datos);
+    // Proteccion contra doble envio (doble clic, o reintento tras un corte
+    // de conexion ambiguo): si el MISMO usuario ya registro un contrato
+    // para este mismo cliente y monto en los ultimos 2 minutos, se devuelve
+    // ese contrato ya existente en vez de crear uno duplicado (con su
+    // comision duplicada). Ventana corta a proposito: una venta real nueva
+    // al mismo cliente por el mismo monto un rato despues debe poder
+    // registrarse sin problema.
+    const dup = await cliente.query(
+      `SELECT * FROM contratos
+       WHERE cliente_id = $1 AND monto = $2 AND creado_por = $3
+         AND creado_en > now() - interval '2 minutes'
+       ORDER BY creado_en DESC LIMIT 1`,
+      [clienteId, Number(datos.monto) || 0, usuarioId]
+    );
+    if (dup.rows[0]) {
+      await cliente.query('ROLLBACK');
+      return dup.rows[0];
+    }
     const numeroFactura = (datos.fac && datos.fac.trim()) || (await siguienteNumeroFactura());
     const neto = (Number(datos.monto) || 0) - (Number(datos.descuento) || 0);
     const { rows } = await cliente.query(
@@ -1478,19 +1601,22 @@ function _iaDescifrar(valor) {
   return Buffer.concat([decipher.update(cifrado), decipher.final()]).toString('utf8');
 }
 
-async function guardarClaveIA(proveedor, apiKey) {
+async function guardarClaveIA(proveedor, apiKey, actorId) {
   const cifrada = _iaCifrar(apiKey);
   const { rows } = await pool.query(
-    `INSERT INTO config_ia (proveedor, api_key_cifrada, activo, actualizado_en)
-     VALUES ($1,$2,TRUE,now())
-     ON CONFLICT (proveedor) DO UPDATE SET api_key_cifrada = $2, activo = TRUE, actualizado_en = now()
+    `INSERT INTO config_ia (proveedor, api_key_cifrada, activo, actualizado_en, actualizado_por)
+     VALUES ($1,$2,TRUE,now(),$3)
+     ON CONFLICT (proveedor) DO UPDATE SET api_key_cifrada = $2, activo = TRUE, actualizado_en = now(), actualizado_por = $3
      RETURNING proveedor, activo, actualizado_en`,
-    [proveedor, cifrada]
+    [proveedor, cifrada, actorId ?? null]
   );
   return rows[0];
 }
-async function desactivarClaveIA(proveedor) {
-  await pool.query(`UPDATE config_ia SET activo = FALSE WHERE proveedor = $1`, [proveedor]);
+async function desactivarClaveIA(proveedor, actorId) {
+  await pool.query(
+    `UPDATE config_ia SET activo = FALSE, actualizado_en = now(), actualizado_por = $2 WHERE proveedor = $1`,
+    [proveedor, actorId ?? null]
+  );
 }
 // Nunca devuelve la clave descifrada -- solo si hay una guardada y si
 // está activa, para que la pantalla de administración pueda mostrar
@@ -1521,7 +1647,7 @@ async function obtenerConfigEmpresaPublica() {
   return rows[0] || { nombre_comercial: null, logo_base64: null, telefono: null };
 }
 
-async function guardarConfigEmpresa(datos) {
+async function guardarConfigEmpresa(datos, actorId) {
   const {
     nombreComercial, razonSocial, rnc, direccion, telefono, telefono2,
     email, sitioWeb, actividadEconomica, logoBase64, cuentasBancarias,
@@ -1542,7 +1668,8 @@ async function guardarConfigEmpresa(datos) {
        cuentas_bancarias     = COALESCE($11::jsonb, cuentas_bancarias),
        modulos_activos       = COALESCE($12::jsonb, modulos_activos),
        onboarding_completado = COALESCE($13, onboarding_completado),
-       actualizado_en        = now()
+       actualizado_en        = now(),
+       actualizado_por       = $14
      WHERE id = 1
      RETURNING *`,
     [
@@ -1552,6 +1679,7 @@ async function guardarConfigEmpresa(datos) {
       Array.isArray(cuentasBancarias) ? JSON.stringify(cuentasBancarias) : null,
       Array.isArray(modulosActivos) ? JSON.stringify(modulosActivos) : null,
       typeof onboardingCompletado === 'boolean' ? onboardingCompletado : null,
+      actorId ?? null,
     ]
   );
   return rows[0];
@@ -1617,6 +1745,23 @@ async function llamarIA(mensajes, sistema) {
       const d = await r.json();
       if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
       return { texto: d.content[0].text };
+    }
+    if (proveedor === 'huggingface') {
+      // Endpoint OpenAI-compatible de Hugging Face Inference Providers --
+      // ":fastest" deja que HF elija solo el proveedor mas rapido disponible
+      // para este modelo (no hace falta fijar uno).
+      const r = await fetch('https://router.huggingface.co/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+        body: JSON.stringify({
+          model: 'openai/gpt-oss-120b:fastest',
+          messages: [{ role: 'system', content: sistema }].concat(mensajes),
+          max_tokens: 800, temperature: 0.8,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+      return { texto: d.choices[0].message.content };
     }
     return { error: 'Proveedor de IA no reconocido: ' + proveedor };
   } catch (err) {
@@ -1727,6 +1872,21 @@ async function listarAuditoria() {
     FROM contrato_abonos a
     JOIN contratos c2 ON c2.id = a.contrato_id
     LEFT JOIN usuarios uab ON uab.id = a.registrado_por
+    UNION ALL
+    SELECT 'usuario_modificado', u.id, u.nombre, u.actualizado_en,
+           um.nombre, ('Se modifico el usuario ' || u.nombre || ' (rol/permisos/PIN/estado)')
+    FROM usuarios u LEFT JOIN usuarios um ON um.id = u.actualizado_por
+    WHERE u.actualizado_en IS NOT NULL
+    UNION ALL
+    SELECT 'config_ia', NULL, ci.proveedor, ci.actualizado_en,
+           uci.nombre, ('Clave de IA ' || ci.proveedor || ' ' || (CASE WHEN ci.activo THEN 'activada' ELSE 'desactivada' END))
+    FROM config_ia ci LEFT JOIN usuarios uci ON uci.id = ci.actualizado_por
+    WHERE ci.actualizado_en IS NOT NULL
+    UNION ALL
+    SELECT 'config_empresa', NULL, 'Datos de la empresa', ce.actualizado_en,
+           uce.nombre, 'Se modificaron los datos de la empresa (identidad, cuentas bancarias o modulos)'
+    FROM config_empresa ce LEFT JOIN usuarios uce ON uce.id = ce.actualizado_por
+    WHERE ce.actualizado_por IS NOT NULL
     ORDER BY fecha DESC NULLS LAST
     LIMIT 300
   `);
@@ -2456,7 +2616,10 @@ module.exports = {
   actualizarUsuario,
   actualizarVerTodasFacturas,
   buscarUsuarioPorId,
+  buscarUsuarioPorLogin,
+  usuarioLoginDisponible,
   verificarLogin,
+  verificarLoginPorId,
   crearUsuario,
   cambiarPinUsuario,
   actualizarPermisosUsuario,

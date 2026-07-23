@@ -234,7 +234,12 @@ tiene overrides — nunca esta tabla ni ninguna copia de ella):
 `gerente` / `subgerente` (control total, solo gerente anula factura),
 `coordinador` (amplio, sin Usuarios/Auditoría/RRHH), `supervisor`
 (buzón/cobros/comisiones/ruta de su equipo), `almacen` (inventario),
-`promotor` (registra solo sus propios contratos).
+`promotor` (registra solo sus propios contratos), `maestro` (soporte
+técnico — usuarios/permisos/PIN/configuración/claves de IA/auditoría/
+backups; se suma por encima de Gerente/Sub-Gerente sin quitarles nada;
+nunca ve contratos/comisiones/nómina/RRHH/CxC/CxP ni ningún dato de
+negocio — login por `usuario` estandarizado, ver `generarUsuarioLogin` en
+`db.js`).
 
 **Entidades principales:** Contrato (buzón de aprobación simultáneo a
 Supervisor/Coordinador/Gerente/Sub-Gerente), Cliente, Producto, Laboratorio

@@ -3,3 +3,4 @@ node_modules/
 pgdata/
 backups/
 RENDER_ENV_VARS.txt
+PINS_NUEVOS.txt

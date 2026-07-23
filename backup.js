@@ -42,7 +42,18 @@ function _ejecutar(bin, args, env) {
   });
 }
 
-async function crearBackup(etiqueta) {
+// Registro simple de quien crea/restaura un respaldo -- antes no quedaba
+// ningun rastro de quien ejecuto la operacion mas destructiva del sistema
+// (restaurar sobrescribe TODO). Un archivo de texto (append-only) alcanza
+// aca: no hace falta una tabla nueva para algo que no se consulta desde
+// la UI todavia, solo que quede trazado.
+async function _registrarEnLog(entrada) {
+  await fs.promises.mkdir(BACKUPS_DIR, { recursive: true });
+  const linea = JSON.stringify({ ...entrada, en: new Date().toISOString() }) + '\n';
+  await fs.promises.appendFile(path.join(BACKUPS_DIR, 'backups_log.jsonl'), linea);
+}
+
+async function crearBackup(etiqueta, usuarioId) {
   await fs.promises.mkdir(BACKUPS_DIR, { recursive: true });
   const db = _parseDatabaseUrl(process.env.DATABASE_URL);
   const marca = new Date().toISOString().replace(/[:.]/g, '-');
@@ -59,6 +70,7 @@ async function crearBackup(etiqueta) {
     await fs.promises.unlink(archivo).catch(() => {});
     throw new Error('pg_dump falló: ' + stderr.slice(-500));
   }
+  await _registrarEnLog({ accion: 'crear', archivo: nombre, usuarioId: usuarioId ?? null });
   return { archivo: nombre, creadoEn: new Date().toISOString() };
 }
 
@@ -78,19 +90,20 @@ async function listarBackups() {
 // elegido. Antes de tocar nada, crea un respaldo del estado actual --
 // si la restauración fue un error, ese respaldo "antes_de_restaurar"
 // permite deshacerlo.
-async function restaurarBackup(nombreArchivo) {
+async function restaurarBackup(nombreArchivo, usuarioId) {
   const nombreSeguro = path.basename(String(nombreArchivo || '')); // evita path traversal
   const archivo = path.join(BACKUPS_DIR, nombreSeguro);
   if (!nombreSeguro.endsWith('.dump') || !fs.existsSync(archivo)) {
     throw new Error('Ese respaldo no existe');
   }
-  const antes = await crearBackup('antes_de_restaurar');
+  const antes = await crearBackup('antes_de_restaurar', usuarioId);
   const db = _parseDatabaseUrl(process.env.DATABASE_URL);
   const { code, stderr } = await _ejecutar(
     'pg_restore',
     ['-h', db.host, '-p', db.port, '-U', db.user, '-d', db.database, '--clean', '--if-exists', '--no-owner', '--no-privileges', archivo],
     { PGPASSWORD: db.password }
   );
+  await _registrarEnLog({ accion: 'restaurar', archivo: nombreSeguro, usuarioId: usuarioId ?? null, backupDeSeguridad: antes.archivo });
   // pg_restore a veces devuelve código distinto de 0 por avisos menores
   // (ej. un rol que no existe en este servidor) sin que la restauración
   // haya fallado de verdad -- por eso NO se lanza como excepción, pero

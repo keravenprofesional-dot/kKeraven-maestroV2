@@ -822,4 +822,60 @@ CREATE TABLE IF NOT EXISTS config_empresa (
   CONSTRAINT config_empresa_fila_unica CHECK (id = 1)
 );
 INSERT INTO config_empresa (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
-CREATE INDEX IF NOT EXISTS idx_rrhh_evaluaciones_candidato ON rrhh_evaluaciones(candidato_id);
+-- (el CREATE INDEX de idx_rrhh_evaluaciones_candidato que estaba aca abajo
+-- era un duplicado exacto del que ya existe mas arriba en este archivo --
+-- quitado, no cambia nada porque ambos usaban IF NOT EXISTS.)
+
+-- ── AUDITORIA DE ACCIONES ADMINISTRATIVAS ─────────────────────────────
+-- Antes, listarAuditoria() solo cubria anulaciones/decisiones/abonos de
+-- contrato. Cambios de permisos, alta de usuarios, cambio de PIN ajeno,
+-- y activar/desactivar claves de IA no dejaban ningun rastro de quien lo
+-- hizo. Estas columnas son la base para que listarAuditoria() las incluya.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS actualizado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS actualizado_en TIMESTAMPTZ;
+ALTER TABLE config_ia ADD COLUMN IF NOT EXISTS actualizado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
+ALTER TABLE config_empresa ADD COLUMN IF NOT EXISTS actualizado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
+
+-- ── INDICES FALTANTES EN FK CON CONSULTAS REALES FRECUENTES ───────────
+-- Postgres no indexa las FK automaticamente. Estas tres si se filtran
+-- seguido en db.js (listarComisionesSemanas, listarCuentasPorPagar,
+-- listarEntradasAlmacen) y no tenian indice.
+CREATE INDEX IF NOT EXISTS idx_comisiones_semana_promotores_semana ON comisiones_semana_promotores(semana_id);
+CREATE INDEX IF NOT EXISTS idx_cuenta_por_pagar_abonos_cuenta ON cuenta_por_pagar_abonos(cuenta_id);
+CREATE INDEX IF NOT EXISTS idx_almacen_entrada_items_entrada ON almacen_entrada_items(entrada_id);
+
+-- ── SARAH: NUEVO PROVEEDOR DE IA (Hugging Face) ───────────────────────
+-- Ensancha el CHECK de config_ia para admitir 'huggingface' ademas de
+-- openai/gemini/claude (via el endpoint OpenAI-compatible de HF Inference
+-- Providers, router.huggingface.co).
+ALTER TABLE config_ia DROP CONSTRAINT IF EXISTS config_ia_proveedor_check;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'config_ia_proveedor_check') THEN
+    ALTER TABLE config_ia ADD CONSTRAINT config_ia_proveedor_check CHECK (proveedor IN ('openai','gemini','claude','huggingface'));
+  END IF;
+END $$;
+
+-- ── LOGIN POR USUARIO ESTANDARIZADO (ya no por nombre visible en un
+-- selector publico) ────────────────────────────────────────────────
+-- Se deja NULLABLE a nivel de columna a proposito: el backfill de los
+-- usuarios ya existentes (generarUsuarioLogin(), con su logica de
+-- colision) corre en JS desde db.js -> init(), justo despues de que este
+-- archivo se ejecuta. No se puede hacer ese backfill en SQL puro sin
+-- depender de una extension (unaccent) que quiza no este habilitada en
+-- Supabase. La aplicacion (crearUsuario) siempre lo completa igual.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS usuario TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_usuario_unico ON usuarios (LOWER(usuario)) WHERE usuario IS NOT NULL;
+
+-- ── ROL MAESTRO (soporte tecnico) ──────────────────────────────────
+-- Un rol nuevo, por encima de Gerente/Sub-Gerente solo en lo TECNICO
+-- (usuarios, permisos, PIN, configuracion, claves de IA, auditoria,
+-- backups) -- nunca ve contratos/comisiones/nomina/RRHH/CxC/CxP, eso
+-- sigue siendo exclusivo de los roles de negocio. Gerente/Sub-Gerente
+-- conservan intacto todo lo que ya podian hacer (este rol se suma, no
+-- reemplaza nada).
+ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usuarios_rol_check') THEN
+    ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN ('gerente','subgerente','coordinador','supervisor','almacen','promotor','maestro'));
+  END IF;
+END $$;

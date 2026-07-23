@@ -1,0 +1,10 @@
+.git
+.env
+.env.example
+RENDER_ENV_VARS.txt
+PINS_NUEVOS.txt
+node_modules
+backups
+pgdata
+*.md
+.gitignore

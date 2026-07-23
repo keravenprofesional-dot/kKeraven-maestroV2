@@ -24,8 +24,8 @@
 
 ## Autenticación
 - Sesiones con `express-session` + `connect-pg-simple` (persistidas en la misma base Postgres que usa la app)
-- Hash de PIN: `bcryptjs` (login por selector de usuario + PIN de 6 dígitos, no usuario/clave tradicional)
-- RBAC de 6 roles (`gerente`, `subgerente`, `coordinador`, `supervisor`, `almacen`, `promotor`) con permisos por módulo (`PERMS_POR_ROL` en `db.js`), sobreescribibles por usuario vía `permisos_custom`
+- Hash de PIN: `bcrypt` nativo (login por `usuario` estandarizado que cada quien escribe, ej. `JDuran` -- ya no hay un selector público con los nombres, ver `generarUsuarioLogin` en `db.js` -- + PIN de 6 dígitos)
+- RBAC de 7 roles (`gerente`, `subgerente`, `coordinador`, `supervisor`, `almacen`, `promotor`, `maestro`) con permisos por módulo (`PERMS_POR_ROL` en `db.js`), sobreescribibles por usuario vía `permisos_custom`. `maestro` es soporte técnico: administra usuarios/permisos/configuración/auditoría/backups por encima de Gerente (se suma, no le quita nada), pero nunca ve contratos/comisiones/nómina/RRHH ni ningún dato de negocio
 
 ## IA
 - Asistente propio ("Sarah"): claves de API cifradas en la tabla `config_ia` (nunca en texto plano — ver `IA_CIFRADO_SECRET`), consumidas solo desde el backend (el navegador nunca ve la clave)

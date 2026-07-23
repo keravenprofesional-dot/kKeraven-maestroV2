@@ -23,6 +23,7 @@ campo (Ruta con Mapa, Cobrador Automático por WhatsApp).
 | Supervisor | Buzón, cobros, comisiones (cuadre), ruta | Su equipo/zona |
 | Almacén | Arqueo, Almacén Principal/Móvil | Inventario |
 | Promotor | Registrar contrato (Facturación) | Lo que él mismo vende |
+| Maestro (soporte técnico) | Usuarios, permisos, PIN, configuración de empresa, claves de IA, auditoría, backups | Solo técnico/acceso — nunca ve contratos, comisiones, nómina, RRHH ni CxC/CxP. Se suma por encima de Gerente sin quitarle nada |
 
 El permiso real de cada usuario lo decide `PERMS_POR_ROL` en `db.js` (o
 `permisos_custom` si el usuario tiene overrides guardados) — es la fuente de

@@ -6,10 +6,12 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "seed:usuarios": "node seed_usuarios.js"
+    "seed:usuarios": "node seed_usuarios.js",
+    "crear:maestro": "node crear_maestro.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "compression": "^1.8.1",
     "connect-pg-simple": "^10.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
