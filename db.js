@@ -96,30 +96,32 @@ async function usuarioLoginDisponible(usuario, excluirId) {
 function _soloLetras(txt) {
   return String(txt || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z]/g, '');
 }
-function _capitalizar(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
-}
 
-// Genera el usuario de login estandarizado a partir del nombre completo:
-// inicial del primer nombre + el segundo "token" del nombre (en la
-// practica el apellido que sigue inmediatamente -- para nombres
-// compuestos, ej. "Jose Augusto Duran Garcia", puede no coincidir con el
-// apellido real que la persona esperaba; por eso el campo `usuario` queda
-// editable despues desde Usuarios). Si choca con uno ya existente, se
-// suman letras del primer nombre (JDuran -> JoDuran -> JosDuran...) hasta
-// diferenciarlo; si se agotan las letras del primer nombre, se agrega un
-// numero al final como ultimo recurso.
+// Genera el usuario de login estandarizado a partir del nombre completo,
+// formato "inicial(es).apellido" en minusculas -- la ultima palabra del
+// nombre se toma como apellido y todo lo anterior como nombre(s) de pila.
+// Ej. "Jose Augusto Duran" -> "jduran". Si choca con uno ya existente, se
+// van sumando las iniciales de los siguientes nombres de pila (no letras
+// del primero): "Jose Emilio Duran" choca con "jduran" -> "jeduran". Si
+// se agotan los nombres de pila disponibles (o el nombre es una sola
+// palabra) y sigue chocando, se agrega un numero al final como ultimo
+// recurso. El campo `usuario` queda editable despues desde Usuarios para
+// los casos con doble apellido u otras excepciones.
 function generarUsuarioLogin(nombreCompleto, existentesLower) {
   const partes = String(nombreCompleto || '').trim().split(/\s+/).map(_soloLetras).filter(Boolean);
-  const primero = partes[0] || 'usuario';
-  const segundo = partes[1] || partes[0] || 'usuario';
-  for (let letras = 1; letras <= primero.length; letras++) {
-    const candidato = _capitalizar(primero.slice(0, letras)) + _capitalizar(segundo);
+  const nombres = partes.length > 1 ? partes.slice(0, -1) : partes;
+  const apellido = (partes.length > 1 ? partes[partes.length - 1] : partes[0] || 'usuario').toLowerCase();
+  let iniciales = (nombres[0] || 'u')[0].toLowerCase();
+  let candidato = iniciales + apellido;
+  if (!existentesLower.has(candidato.toLowerCase())) return candidato;
+  for (let i = 1; i < nombres.length; i++) {
+    iniciales += nombres[i][0].toLowerCase();
+    candidato = iniciales + apellido;
     if (!existentesLower.has(candidato.toLowerCase())) return candidato;
   }
-  const base = _capitalizar(primero) + _capitalizar(segundo);
-  let n = 2, candidato = base + n;
-  while (existentesLower.has(candidato.toLowerCase())) { n++; candidato = base + n; }
+  let n = 2;
+  candidato = iniciales + apellido + n;
+  while (existentesLower.has(candidato.toLowerCase())) { n++; candidato = iniciales + apellido + n; }
   return candidato;
 }
 
@@ -320,23 +322,79 @@ async function reactivarProducto(id) {
 }
 
 // ── CLIENTES ──────────────────────────────────────────────────────
+// Normaliza un nombre para comparar "es la misma persona" sin que
+// mayusculas/tildes/espacios de mas cuenten como diferencia (el nombre
+// lo tipea un vendedor distinto cada vez, a mano, en la calle).
+function normalizarNombre(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
 // Busca por cedula (si viene) y reusa; si no existe, crea uno nuevo.
 // Es lo que permite que Facturacion y Cobrador compartan el mismo
 // cliente en vez de tener copias sueltas como en el HTML original.
+//
+// Ademas resuelve la foto de cedula reutilizable: si el cliente ya
+// existia y el nombre del contrato coincide (normalizado) con el nombre
+// ya guardado, y el cliente TODAVIA no tenia foto de cedula propia, la
+// foto que venga en este contrato (datos.fotoFrenteUrl/fotoReversoUrl)
+// se guarda como la copia de referencia del cliente para reusar en
+// compras futuras -- no se duplica si ya tenia una.
 async function resolverCliente(datos) {
   const cedula = (datos.cedula || '').trim();
   if (cedula) {
-    const existente = await pool.query(`SELECT id FROM clientes WHERE cedula = $1`, [cedula]);
-    if (existente.rows[0]) return existente.rows[0].id;
+    const existente = await pool.query(
+      `SELECT id, nombre, foto_cedula_frente_url, foto_cedula_reverso_url FROM clientes WHERE cedula = $1`,
+      [cedula]
+    );
+    const cli = existente.rows[0];
+    if (cli) {
+      const mismoNombre = normalizarNombre(cli.nombre) === normalizarNombre(datos.nombre);
+      const sinFotoPropia = !cli.foto_cedula_frente_url && !cli.foto_cedula_reverso_url;
+      if (mismoNombre && sinFotoPropia && (datos.fotoFrenteUrl || datos.fotoReversoUrl)) {
+        await pool.query(
+          `UPDATE clientes SET foto_cedula_frente_url = $2, foto_cedula_reverso_url = $3 WHERE id = $1`,
+          [cli.id, datos.fotoFrenteUrl || null, datos.fotoReversoUrl || null]
+        );
+      }
+      return cli.id;
+    }
   }
   const { rows } = await pool.query(
-    `INSERT INTO clientes (cedula, nombre, telefono1, telefono2, email, institucion, barrio, referencia, direccion, zona, provincia)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+    `INSERT INTO clientes (cedula, nombre, telefono1, telefono2, email, institucion, barrio, referencia, direccion, zona, provincia,
+       referencia_nombre, referencia_telefono, foto_cedula_frente_url, foto_cedula_reverso_url)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
     [cedula || null, datos.nombre, datos.telefono1 || null, datos.telefono2 || null, datos.email || null,
      datos.institucion || null, datos.barrio || null, datos.referencia || null, datos.direccion || null, datos.zona || null,
-     datos.provincia || null]
+     datos.provincia || null, datos.referenciaNombre || null, datos.referenciaTelefono || null,
+     datos.fotoFrenteUrl || null, datos.fotoReversoUrl || null]
   );
   return rows[0].id;
+}
+
+// Busca un cliente por cedula para el autocompletado en Facturacion (ver
+// GET /api/clientes/buscar-por-cedula). Compara el nombre normalizado --
+// si coincide, entrega la foto de cedula ya guardada para reusarla; si
+// NO coincide (misma cedula, nombre distinto -- posible error de tipeo o
+// otra persona), no entrega la foto: mejor pedir las fotos de nuevo que
+// asumir que es la misma persona.
+async function buscarClientePorCedula(cedula, nombre) {
+  const ced = (cedula || '').trim();
+  if (!ced) return null;
+  const { rows } = await pool.query(
+    `SELECT id, nombre, foto_cedula_frente_url, foto_cedula_reverso_url FROM clientes WHERE cedula = $1`,
+    [ced]
+  );
+  const cli = rows[0];
+  if (!cli) return null;
+  const coincideNombre = normalizarNombre(cli.nombre) === normalizarNombre(nombre);
+  return {
+    encontrado: true,
+    nombreGuardado: cli.nombre,
+    coincideNombre,
+    fotoCedulaFrenteUrl: coincideNombre ? cli.foto_cedula_frente_url : null,
+    fotoCedulaReversoUrl: coincideNombre ? cli.foto_cedula_reverso_url : null,
+  };
 }
 
 // ── CONTRATOS / FACTURACION ──────────────────────────────────────
@@ -435,6 +493,18 @@ async function listarContratos({ estado, usuario } = {}) {
             cl.institucion AS cliente_institucion, cl.barrio AS cliente_barrio,
             cl.referencia AS cliente_referencia, cl.direccion AS cliente_direccion,
             cl.provincia AS cliente_provincia,
+            -- Las 3 fotos pesan ~200-300KB cada una en base64 -- traerlas
+            -- para CADA contrato en CADA login (esto se pedia entero al
+            -- iniciar sesion) era varios MB de mas sin necesidad. Solo los
+            -- pendientes (Buzon los necesita ya mismo para poder aprobar/
+            -- rechazar) las traen aca; para un contrato ya decidido, la
+            -- pantalla las pide puntual al expandirlo (ver GET
+            -- /api/contratos/:id/fotos). Van despues de c.* a proposito:
+            -- node-postgres se queda con el ultimo valor de una columna
+            -- repetida, asi que esto pisa las de c.* sin tocar el resto.
+            CASE WHEN c.estado = 'pendiente' THEN c.foto_frente_url ELSE NULL END AS foto_frente_url,
+            CASE WHEN c.estado = 'pendiente' THEN c.foto_reverso_url ELSE NULL END AS foto_reverso_url,
+            CASE WHEN c.estado = 'pendiente' THEN c.foto_factura_url ELSE NULL END AS foto_factura_url,
             COALESCE(
               (SELECT json_agg(p.nombre) FROM contrato_productos cp
                JOIN productos p ON p.id = cp.producto_id WHERE cp.contrato_id = c.id), '[]'
@@ -456,6 +526,24 @@ async function listarContratos({ estado, usuario } = {}) {
     params
   );
   return rows;
+}
+
+// Fotos de UN contrato puntual, pedidas al expandirlo en Buzón cuando ya
+// fue decidido (ver listarContratos: para esos, foto_*_url viene NULL en
+// el listado general a proposito). Mismo alcance por rol que
+// listarContratos -- un promotor nunca las ve, el resto solo las de lo
+// suyo salvo ver_todas_facturas.
+async function obtenerFotosContrato(id, usuario) {
+  const veTodo = !usuario || usuario.rol === 'gerente' || usuario.rol === 'subgerente' || usuario.ver_todas_facturas;
+  if (!veTodo && usuario.rol === 'promotor') return null;
+  const condiciones = ['id = $1'];
+  const params = [id];
+  if (!veTodo) { params.push(usuario.id); condiciones.push(`creado_por = $${params.length}`); }
+  const { rows } = await pool.query(
+    `SELECT foto_frente_url, foto_reverso_url, foto_factura_url FROM contratos WHERE ${condiciones.join(' AND ')}`,
+    params
+  );
+  return rows[0] || null;
 }
 
 // "Cuadre de ventas" de un usuario -- lo que un promotor/vendedor sí
@@ -1073,9 +1161,18 @@ async function abonarCuentaPorPagar(cuentaId, monto, nota) {
 // desde CRM es el mismo registro si despues aparece en una factura,
 // en vez de quedar duplicado como en el HTML original (arreglo `crm`
 // suelto, sin relacion con los clientes de Facturacion).
+// Nota de rendimiento: esta lista se pide en CADA login (junto con
+// contratos, etc.) -- por eso NO trae fotos aca (ni la de cedula del
+// cliente ni las de un contrato puntual), serian varios MB de mas para
+// los ~150 clientes reales. Las fotos se piden puntual, solo al expandir
+// UN cliente en la pantalla: la de cedula con GET /api/clientes/:id/fotos,
+// la del contrato activo reusando GET /api/contratos/:id/fotos (mismo
+// endpoint que ya usa Buzón).
 async function listarClientesCrm() {
   const { rows } = await pool.query(
-    `SELECT c.id, c.nombre, c.telefono1, c.cedula, c.tipo, c.notas, c.creado_en,
+    `SELECT c.id, c.nombre, c.telefono1, c.telefono2, c.cedula, c.tipo, c.notas, c.creado_en,
+            c.institucion, c.barrio, c.direccion, c.referencia, c.referencia_nombre, c.referencia_telefono,
+            (c.foto_cedula_frente_url IS NOT NULL OR c.foto_cedula_reverso_url IS NOT NULL) AS tiene_foto_cedula,
             c.estado_crm, c.proximo_seguimiento, c.vendedor_id, v.nombre AS vendedor_nombre,
             COALESCE(
               (SELECT json_agg(json_build_object('texto',n.texto,'fecha',n.creado_en) ORDER BY n.creado_en)
@@ -1093,6 +1190,18 @@ async function listarClientesCrm() {
      ORDER BY c.proximo_seguimiento NULLS LAST, c.nombre`
   );
   return rows;
+}
+
+// Foto de cedula del CLIENTE (una sola copia reusable, ver resolverCliente
+// en db.js), pedida puntual al expandir su ficha en CRM -- no viaja en
+// listarClientesCrm() para no pesar el login. Cualquiera con acceso al
+// CRM puede pedirla (mismo permiso que listar clientes, ver server.js).
+async function obtenerFotoCedulaCliente(id) {
+  const { rows } = await pool.query(
+    `SELECT foto_cedula_frente_url, foto_cedula_reverso_url FROM clientes WHERE id = $1`,
+    [id]
+  );
+  return rows[0] || null;
 }
 
 async function crearClienteCrm({ nombre, telefono1, cedula, tipo, notas, estadoCrm, proximoSeguimiento, vendedorId }) {
@@ -2650,9 +2759,11 @@ module.exports = {
   obtenerConfigEmpresaPublica,
   guardarConfigEmpresa,
   resolverCliente,
+  buscarClientePorCedula,
   siguienteNumeroFactura,
   crearContrato,
   listarContratos,
+  obtenerFotosContrato,
   resumenVentasUsuario,
   decidirContrato,
   buscarContratosParaRuta,
@@ -2678,6 +2789,7 @@ module.exports = {
   crearCuentaPorPagar,
   abonarCuentaPorPagar,
   listarClientesCrm,
+  obtenerFotoCedulaCliente,
   crearClienteCrm,
   actualizarClienteCrm,
   agregarNotaCliente,

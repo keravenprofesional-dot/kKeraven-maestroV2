@@ -534,7 +534,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F7F6F3;color:#1A1A1
       <input class="linp" id="lu" style="margin-bottom:4px" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Ej. JDuran" oninput="document.getElementById('lpin').value='';[0,1,2,3,4,5].forEach(function(i){var e=document.getElementById('p'+i);if(e)e.value=''})">
       <label class="lbl" style="margin-top:14px">PIN de acceso</label>
       <div class="pin-row">
-        <input class="pin-d" type="password" maxlength="1" inputmode="numeric" id="p0" oninput="pn(0)">
+        <input class="pin-d" type="password" maxlength="1" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" id="p0" oninput="pn(0)">
         <input class="pin-d" type="password" maxlength="1" inputmode="numeric" id="p1" oninput="pn(1)">
         <input class="pin-d" type="password" maxlength="1" inputmode="numeric" id="p2" oninput="pn(2)">
         <input class="pin-d" type="password" maxlength="1" inputmode="numeric" id="p3" oninput="pn(3)">
@@ -840,10 +840,12 @@ async function cargarCuentasPorPagar(){
 async function cargarCrm(){
   try{
     const lista=await apiFetch('/api/crm/clientes');
-    crm=lista.map(c=>({id:c.id,nombre:c.nombre,tel:c.telefono1||'',cedula:c.cedula||'',tipo:c.tipo||'Particular',
+    crm=lista.map(c=>({id:c.id,nombre:c.nombre,tel:c.telefono1||'',tel2:c.telefono2||'',cedula:c.cedula||'',tipo:c.tipo||'Particular',
       notas:c.notas||'',historial:(c.historial||[]).map(h=>({texto:h.texto,fecha:(h.fecha||'').slice(0,10)})),
       estado:c.estado_crm||'nuevo',seguimiento:(c.proximo_seguimiento||'').slice(0,10),
       vendedorId:c.vendedor_id||null,vendedor:c.vendedor_nombre||'',
+      institucion:c.institucion||'',barrio:c.barrio||'',direccion:c.direccion||'',referencia:c.referencia||'',
+      refNombre:c.referencia_nombre||'',refTelefono:c.referencia_telefono||'',tieneFotoCedula:!!c.tiene_foto_cedula,
       compras:(c.compras||[]).map(o=>({id:o.id,fac:o.fac,fecha:(o.fecha||'').slice(0,10),monto:Number(o.monto)||0,saldo:Number(o.saldo)||0,estado:o.estado})),
       en:c.creado_en}));
   }catch(e){console.error('No se pudo cargar el CRM:',e);}
@@ -957,22 +959,14 @@ function aplicarIdentidadEmpresa(){
 async function initLogin(){
   const lu=$('lu');if(lu)lu.value='';
 }
-async function login(){
-  const usuario=($('lu').value||'').trim(),pin=$('lpin').value,err=$('lerr');
-  err.textContent='';
-  if(!usuario){err.textContent='Escribe tu usuario.';return;}
-  if(!pin||pin.length!==6){err.textContent='Ingresa tu PIN de 6 dígitos.';return;}
-  let resp;
-  try{
-    resp=await apiFetch('/api/login',{method:'POST',body:{usuario,pin}});
-  }catch(e){
-    if(e.status===429){err.textContent='Demasiados intentos. Cuenta bloqueada temporalmente, intenta en unos minutos.';}
-    else{err.textContent='Usuario o PIN incorrecto.';}
-    $('lpin').value='';
-    return;
-  }
-  const u=mapUsuarioApi(resp.usuario);
-  sesPermisos=resp.permisos||[];
+// Comun a login() y a la restauracion silenciosa de sesion en init()
+// (ver /api/session) -- antes solo login() sabia hacer esto, por lo que
+// CADA recarga de pagina (el celular mata la pestaña en 2do plano y la
+// vuelve a abrir, o el usuario simplemente refresca) mandaba al login
+// aunque la cookie de sesion (dura 12h) siguiera perfectamente valida.
+async function entrarComoSesion(usuarioApi,permisos){
+  const u=mapUsuarioApi(usuarioApi);
+  sesPermisos=permisos||[];
   ses=u;
   $('login').style.display='none';
   $('app').classList.add('on');
@@ -989,18 +983,41 @@ async function login(){
     cargarComisionesSemanas(), cargarComisionesPagos(), cargarCuentasPorPagar(),
     cargarCrm(), cargarAsientos(), cargarEmpleados(), cargarNominas(),
     cargarComunicados(), cargar(), cargarConfigEmpresa(),
-    // Excel (XLSX) y el mapa (Leaflet) ya NO bloquean la carga de la
-    // pantalla de login -- se piden aca, en paralelo con los datos, recien
-    // despues de autenticar. Si alguna falla (sin señal), no rompe el resto.
-    pedLoadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js').catch(()=>{}),
-    pedLoadScript('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js').catch(()=>{}),
+    // Excel (XLSX, ~300KB) solo lo necesitan los roles con modulos de
+    // reportes/importacion en Excel -- Promotor y Maestro nunca lo usan,
+    // no tiene sentido que paguen ese costo en cada login (afecta mucho
+    // en 3G/4G en la calle). El mapa (Leaflet) ya ni se pide aca: se
+    // carga solo, al momento, al abrir la pestaña Mapa de Ruta (ver
+    // rutaInit()) -- la mayoria de los que si tienen acceso a Ruta usan
+    // mas la pestaña "Preparar ruta", que no necesita mapa para nada.
+    (u.rol!=='promotor'&&u.rol!=='maestro'
+      ? pedLoadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js').catch(()=>{})
+      : Promise.resolve()),
   ]);
   buildNav();buildBotNav();
-  // Maestro (soporte tecnico) no tiene 'dash' (es un panel de KPIs de
-  // negocio, fuera de su alcance) -- aterriza en el primer modulo que si
-  // pueda ver. El resto de los roles siempre tienen 'dash', asi que para
-  // ellos el comportamiento es identico a antes.
-  ir(perms().includes('dash')?'dash':(perms()[0]||'dash'));
+  // Recuerda en que modulo estaba cada usuario (ver ir()) para no
+  // devolverlo siempre al Dashboard si solo estaba consultando/llenando
+  // otra pantalla. Maestro (soporte tecnico) no tiene 'dash' -- aterriza
+  // en el primer modulo que si pueda ver, igual que antes.
+  let ultimo=null;try{ultimo=localStorage.getItem('kv_ultimo_modulo_'+u.id);}catch(e){}
+  const destino=(ultimo&&perms().includes(ultimo))?ultimo:(perms().includes('dash')?'dash':(perms()[0]||'dash'));
+  ir(destino);
+}
+async function login(){
+  const usuario=($('lu').value||'').trim(),pin=$('lpin').value,err=$('lerr');
+  err.textContent='';
+  if(!usuario){err.textContent='Escribe tu usuario.';return;}
+  if(!pin||pin.length!==6){err.textContent='Ingresa tu PIN (1 letra + 5 números).';return;}
+  let resp;
+  try{
+    resp=await apiFetch('/api/login',{method:'POST',body:{usuario,pin}});
+  }catch(e){
+    if(e.status===429){err.textContent='Demasiados intentos. Cuenta bloqueada temporalmente, intenta en unos minutos.';}
+    else{err.textContent='Usuario o PIN incorrecto.';}
+    $('lpin').value='';
+    return;
+  }
+  await entrarComoSesion(resp.usuario,resp.permisos);
 }
 async function logout(){
   try{await apiFetch('/api/logout',{method:'POST'});}catch(e){}
@@ -1056,6 +1073,7 @@ function irC(id){cerrarMenu();ir(id);}
 function ir(id){
   if(!ses||!perms().includes(id))return;
   pag=id;
+  try{localStorage.setItem('kv_ultimo_modulo_'+ses.id,id);}catch(e){}
   const n=NAV.find(x=>x.id===id);
   $('tbtit').textContent=n?n.lab:'Keraven';
   render(id);buildNav();buildBotNav();
@@ -1376,15 +1394,16 @@ function rContrato(){
     <div class="sl"><i class="ti ti-user" style="font-size:11px"></i>Datos del cliente</div>
     <div class="g2">
       <div class="fi sp2"><label>Nombre completo <span class="req">*</span></label>
-        <input id="cf_nm" placeholder="Nombre y apellido" oninput="upper(this)">
+        <input id="cf_nm" placeholder="Nombre y apellido" oninput="upper(this)" onblur="cfVerificarClienteExistente()">
         <div class="em" id="e_nm"></div></div>
       <div class="fi"><label>Cédula <span class="req">*</span></label>
-        <input id="cf_ce" placeholder="000-0000000-0" maxlength="13" oninput="fCed(this)">
+        <input id="cf_ce" placeholder="000-0000000-0" maxlength="13" oninput="fCed(this);cfVerificarClienteExistenteDebounced()">
         <div class="em" id="e_ce"></div></div>
       <div class="fi"><label>Teléfono <span class="req">*</span></label>
         <input id="cf_t1" type="tel" placeholder="809-000-0000" maxlength="12" oninput="fTel(this)">
         <div class="em" id="e_t1"></div></div>
       <div class="fi"><label>Teléfono 2</label><input id="cf_t2" type="tel" placeholder="829-000-0000" maxlength="12" oninput="fTel(this)"></div>
+      <div class="fi sp2" id="cf_cliente_aviso"></div>
       <div class="fi sp2"><label>Correo electrónico</label><input id="cf_em" type="email" placeholder="correo@ejemplo.com"></div>
       <div class="fi"><label>Institución / Trabajo <span class="req">*</span></label><input id="cf_in" placeholder="Escuela, Farmacia..." oninput="upper(this)"><div class="em" id="e_in"></div></div>
       <div class="fi"><label>Provincia <span class="req">*</span></label>
@@ -1393,6 +1412,8 @@ function rContrato(){
       <div class="fi"><label>Barrio / Sector <span class="req">*</span></label><input id="cf_br" placeholder="Ej: Los Mameyes, Cristo Rey..." oninput="upper(this)"><div class="em" id="e_br"></div></div>
       <div class="fi"><label>Referencia del lugar <span class="req">*</span></label><input id="cf_rf" placeholder="Frente al parque..." oninput="upper(this)"><div class="em" id="e_rf"></div></div>
       <div class="fi"><label>Dirección exacta <span class="req">*</span></label><input id="cf_dir" placeholder="Calle, número, sector..." oninput="upper(this)"><div class="em" id="e_dir"></div></div>
+      <div class="fi"><label>Referencia personal (nombre)</label><input id="cf_refn" placeholder="Alguien que lo pueda avalar" oninput="upper(this)"></div>
+      <div class="fi"><label>Referencia personal (teléfono)</label><input id="cf_reft" type="tel" placeholder="809-000-0000" maxlength="12" oninput="fTel(this)"></div>
     </div>
 
     <div class="sl"><i class="ti ti-id" style="font-size:11px"></i>Foto cédula <span class="req">*</span></div>
@@ -1401,7 +1422,7 @@ function rContrato(){
         <div class="ftop">Frente</div>
         <div class="fb" id="fb_f" onclick="tF('f')">
           <div id="fe_f"><i class="ti ti-camera" style="font-size:26px;color:var(--t3)"></i><span style="font-size:11px;color:var(--t2)">Toca para capturar</span></div>
-          <img id="fp_f" alt=""><div class="fb-badge" id="fbd_f"><i class="ti ti-check" style="font-size:9px"></i>OK</div>
+          <img id="fp_f" alt="" onclick="event.stopPropagation();fotos.f&&verFoto(fotos.f,'Cédula Frente')" style="cursor:zoom-in"><div class="fb-badge" id="fbd_f"><i class="ti ti-check" style="font-size:9px"></i>OK</div>
           <div class="fb-ov" id="fov_f">
             <button style="background:#fff;color:#111" onclick="event.stopPropagation();tF('f')"><i class="ti ti-camera"></i> Cambiar</button>
             <button style="background:var(--er);color:#fff" onclick="event.stopPropagation();clF('f')"><i class="ti ti-trash"></i></button>
@@ -1413,7 +1434,7 @@ function rContrato(){
         <div class="ftop">Reverso</div>
         <div class="fb" id="fb_r" onclick="tF('r')">
           <div id="fe_r"><i class="ti ti-camera" style="font-size:26px;color:var(--t3)"></i><span style="font-size:11px;color:var(--t2)">Toca para capturar</span></div>
-          <img id="fp_r" alt=""><div class="fb-badge" id="fbd_r"><i class="ti ti-check" style="font-size:9px"></i>OK</div>
+          <img id="fp_r" alt="" onclick="event.stopPropagation();fotos.r&&verFoto(fotos.r,'Cédula Reverso')" style="cursor:zoom-in"><div class="fb-badge" id="fbd_r"><i class="ti ti-check" style="font-size:9px"></i>OK</div>
           <div class="fb-ov" id="fov_r">
             <button style="background:#fff;color:#111" onclick="event.stopPropagation();tF('r')"><i class="ti ti-camera"></i> Cambiar</button>
             <button style="background:var(--er);color:#fff" onclick="event.stopPropagation();clF('r')"><i class="ti ti-trash"></i></button>
@@ -1460,7 +1481,7 @@ function rContrato(){
             <i class="ti ti-file-invoice" style="font-size:30px;color:var(--t3)"></i>
             <span style="font-size:11px;color:var(--t2);text-align:center">Toca para fotografiar la factura física</span>
           </div>
-          <img id="fp_fac" alt="" style="display:none;width:100%;height:auto;border-radius:var(--rl)">
+          <img id="fp_fac" alt="" onclick="event.stopPropagation();fotos.fac&&verFoto(fotos.fac,'Factura Física')" style="display:none;width:100%;height:auto;border-radius:var(--rl);cursor:zoom-in">
           <div class="fb-badge" id="fbd_fac" style="display:none"><i class="ti ti-check" style="font-size:9px"></i>OK</div>
           <div class="fb-ov" id="fov_fac" style="display:none">
             <button style="background:#fff;color:#111" onclick="event.stopPropagation();tF('fac')"><i class="ti ti-camera"></i> Cambiar</button>
@@ -1547,7 +1568,7 @@ function rContrato(){
     </div>
   </div>`;
 }
-function iContrato(){selP=[];fotos={f:null,r:null,fac:null};gps=null;tventa='credito';renderProds();const cf=$('cf_fac');if(cf)cf.value='';const cd=$('cf_dsc');if(cd)cd.value='';const cn=$('neto_lbl');if(cn)cn.textContent='RD$0';}
+function iContrato(){selP=[];fotos={f:null,r:null,fac:null};gps=null;tventa='credito';renderProds();const cf=$('cf_fac');if(cf)cf.value='';const cd=$('cf_dsc');if(cd)cd.value='';const cn=$('neto_lbl');if(cn)cn.textContent='RD$0';cfRestaurarBorrador();}
 function fCed(el){let v=el.value.replace(/\D/g,'');if(v.length>3)v=v.slice(0,3)+'-'+v.slice(3);if(v.length>11)v=v.slice(0,11)+'-'+v.slice(11);el.value=v.slice(0,13);}
 function fTel(el){let v=el.value.replace(/\D/g,'');if(v.length>3)v=v.slice(0,3)+'-'+v.slice(3);if(v.length>6)v=v.slice(0,7)+'-'+v.slice(7);el.value=v.slice(0,12);}
 // ── CÁMARA CÉDULA ────────────────────────────────────────────────
@@ -1825,6 +1846,7 @@ async function enviarC(){
     tipoVenta:tventa,plazoDias:plazo||null,fechaLimite:plazo?addD($('cf_fe').value,plazo):null,
     productos:[...selP],monto:parseFloat($('cf_mn').value)||0,descuento:parseFloat($('cf_dsc')?.value||0),
     observaciones:$('cf_ob').value,fotoFrenteUrl:fotos.f,fotoReversoUrl:fotos.r,fotoFacturaUrl:fotos.fac||null,
+    referenciaNombre:$('cf_refn')?.value||'',referenciaTelefono:$('cf_reft')?.value||'',
     canal:$('cf_canal')?.value||'ruta',
   };
   let contrato;
@@ -1842,8 +1864,9 @@ function resetC(){
   // de 4s tras enviar el contrato (setTimeout en enviarC), el formulario
   // ya no existe en el DOM -- no hay nada que limpiar.
   if(!$('cf_fe'))return;
-  ['cf_nm','cf_ce','cf_t1','cf_t2','cf_in','cf_br','cf_rf','cf_dir','cf_gp','cf_mn','cf_ob','cf_fl'].forEach(id=>{const el=$(id);if(el)el.value='';});
+  ['cf_nm','cf_ce','cf_t1','cf_t2','cf_in','cf_br','cf_rf','cf_dir','cf_gp','cf_mn','cf_ob','cf_fl','cf_refn','cf_reft'].forEach(id=>{const el=$(id);if(el)el.value='';});
   ['cf_pr','cf_zo','cf_prov','cf_pl'].forEach(id=>{const el=$(id);if(el)el.value='';});
+  const aviso=$('cf_cliente_aviso');if(aviso)aviso.innerHTML='';_cfUltimaVerif=null;
   $('cf_fe').value=hoy();document.querySelectorAll('.em').forEach(e=>e.textContent='');
   document.querySelectorAll('.er').forEach(e=>e.classList.remove('er'));
   clF('f');clF('r');
@@ -1855,6 +1878,72 @@ function resetC(){
   const roCo=$('ro_co');if(roCo)roCo.classList.remove('on');
   const plSec=$('pl_sec');if(plSec)plSec.style.display='';
   renderProds();
+  cfLimpiarBorrador();
+}
+
+// ── Borrador de Facturación (autosave local) ────────────────────────
+// Si el celular mata la pestaña en 2do plano (memoria baja, comun en
+// gama baja) o el promotor cambia de pantalla a medio llenar, al volver
+// no se pierde lo ya tipeado. Solo texto/numeros/productos -- las fotos
+// de cedula/factura NO se guardan aca (pesan demasiado para localStorage
+// como para hacerlo en cada tecla), esas hay que volver a tomarlas.
+const CF_DRAFT_KEY='kv_draft_contrato';
+const CF_CAMPOS=['cf_fac','cf_pr','cf_zo','cf_nm','cf_ce','cf_t1','cf_t2','cf_em','cf_in','cf_prov','cf_br','cf_rf','cf_dir','cf_ob','cf_mn','cf_dsc','cf_pl','cf_refn','cf_reft'];
+let _cfDraftTimer=null;
+function cfGuardarBorradorDebounced(){clearTimeout(_cfDraftTimer);_cfDraftTimer=setTimeout(cfGuardarBorrador,400);}
+function cfGuardarBorrador(){
+  try{
+    const d={};CF_CAMPOS.forEach(id=>{const el=$(id);if(el)d[id]=el.value;});
+    d._tventa=tventa;d._selP=selP;d._ts=Date.now();
+    localStorage.setItem(CF_DRAFT_KEY,JSON.stringify(d));
+  }catch(e){}
+}
+function cfRestaurarBorrador(){
+  let d=null;
+  try{d=JSON.parse(localStorage.getItem(CF_DRAFT_KEY)||'null');}catch(e){}
+  if(!d||!d._ts||Date.now()-d._ts>24*60*60*1000){cfLimpiarBorrador();return;}
+  const hayAlgo=CF_CAMPOS.some(id=>d[id])||(Array.isArray(d._selP)&&d._selP.length);
+  if(!hayAlgo)return;
+  CF_CAMPOS.forEach(id=>{const el=$(id);if(el&&d[id])el.value=d[id];});
+  if(Array.isArray(d._selP))selP=d._selP;
+  if(d._tventa)sTipo(d._tventa);
+  renderProds();calcDescuento();
+  if($('cf_pl')&&$('cf_pl').value)calcPl();
+  showToast('📝 Se restauró la información que estabas llenando');
+}
+function cfLimpiarBorrador(){try{localStorage.removeItem(CF_DRAFT_KEY);}catch(e){}}
+
+// ── Autocompletado de cliente que repite compra ─────────────────────
+// Al completar cedula+nombre, si ya existe un cliente con esa cedula Y
+// el nombre coincide (ignorando mayusculas/tildes/espacios -- lo tipea
+// un vendedor distinto cada vez), reusa su foto de cedula guardada en
+// vez de pedirla de nuevo (ver resolverCliente/buscarClientePorCedula en
+// db.js). _aplicarFoto() ya dispara la captura de GPS actual por su
+// cuenta -- no hace falta llamarla aparte.
+let _cfVerifTimer=null,_cfUltimaVerif=null;
+function cfVerificarClienteExistenteDebounced(){clearTimeout(_cfVerifTimer);_cfVerifTimer=setTimeout(cfVerificarClienteExistente,500);}
+async function cfVerificarClienteExistente(){
+  const cedEl=$('cf_ce'),nmEl=$('cf_nm'),aviso=$('cf_cliente_aviso');
+  if(!cedEl||!nmEl)return;
+  const ced=cedEl.value.trim(),nom=nmEl.value.trim();
+  if(ced.length!==13||!nom){if(aviso)aviso.innerHTML='';return;}
+  const clave=ced+'|'+nom;
+  if(_cfUltimaVerif===clave)return;
+  _cfUltimaVerif=clave;
+  let r;
+  try{r=await apiFetch('/api/clientes/buscar-por-cedula?cedula='+encodeURIComponent(ced)+'&nombre='+encodeURIComponent(nom));}
+  catch(e){return;}
+  if(!aviso)return;
+  if(!r||!r.encontrado){aviso.innerHTML='';return;}
+  if(r.coincideNombre&&(r.fotoCedulaFrenteUrl||r.fotoCedulaReversoUrl)){
+    if(r.fotoCedulaFrenteUrl&&!fotos.f)_aplicarFoto('f',r.fotoCedulaFrenteUrl);
+    if(r.fotoCedulaReversoUrl&&!fotos.r)_aplicarFoto('r',r.fotoCedulaReversoUrl);
+    aviso.innerHTML='<div class="cs" style="color:var(--green);display:flex;align-items:center;gap:6px;margin:0"><i class="ti ti-user-check"></i> Cliente ya registrado — se reutilizó su foto de cédula y se capturó tu ubicación actual.</div>';
+  }else if(r.coincideNombre===false){
+    aviso.innerHTML='<div class="cs" style="color:var(--er);display:flex;align-items:center;gap:6px;margin:0"><i class="ti ti-alert-triangle"></i> Ya existe un cliente con esta cédula pero con otro nombre ("'+esc(r.nombreGuardado)+'") — verifica la cédula o toma las fotos de nuevo.</div>';
+  }else{
+    aviso.innerHTML='';
+  }
 }
 
 // ── BUZÓN ──────────────────────────────────────────────────────────
@@ -1876,7 +1965,7 @@ function ccCard(c){
   const isE=expId===c.id;let body='';
   if(isE){
     const pills=c.prods.map(p=>`<span class="ppill">${p}</span>`).join('');
-    const thumbs=`<div class="trow"><div class="th">${c.fF?`<img src="${c.fF}" alt="">`:'Frente'}</div><div class="th">${c.fR?`<img src="${c.fR}" alt="">`:'Reverso'}</div></div>`;
+    const thumbs=`<div class="trow"><div class="th"${c.fF?` onclick="verFoto('${c.fF}','Cédula Frente')" style="cursor:zoom-in"`:''}>${c.fF?`<img src="${c.fF}" alt="">`:'Frente'}</div><div class="th"${c.fR?` onclick="verFoto('${c.fR}','Cédula Reverso')" style="cursor:zoom-in"`:''}>${c.fR?`<img src="${c.fR}" alt="">`:'Reverso'}</div></div>`;
     let ac='';
     if(c.status==='pendiente'){ac=`<div class="apg">
       <div class="pna"><div class="pna-t"><i class="ti ti-circle-check"></i>Aprobar</div>
@@ -1919,14 +2008,26 @@ function ccCard(c){
       <i class="ti ti-chevron-${isE?'up':'down'}" style="font-size:14px;color:var(--t2)"></i>
     </div>${body}</div>`;
 }
-function togE(id){
+async function togE(id){
   expId=expId===id?null:id;
-  // El Buzón real (más abajo en el archivo) usa pestañas Pendientes/
-  // Aprobados/Rechazados con bzTab() -- re-renderizar todo con rBuzon()
-  // borra el contenido de la pestaña activa sin volver a llenarlo. Se
-  // repinta solo la pestaña actual en vez de todo el buzón.
-  if(typeof bzTab==='function'&&typeof _bzTabActual!=='undefined')bzTab(_bzTabActual);
-  else $('main').innerHTML=rBuzon();
+  const repintar=()=>{
+    if(typeof bzTab==='function'&&typeof _bzTabActual!=='undefined')bzTab(_bzTabActual);
+    else $('main').innerHTML=rBuzon();
+  };
+  repintar();
+  // Un contrato ya decidido (aprobado/rechazado) no trae sus fotos en el
+  // listado general (ver listarContratos en db.js -- pesan demasiado
+  // como para bajarlas todas en cada login). Al expandirlo por primera
+  // vez, si no las tiene en memoria, se piden puntual aca y se repinta
+  // de nuevo ya con ellas.
+  const c=contratos.find(x=>x.id===id);
+  if(expId===id&&c&&c.status!=='pendiente'&&!c.fF&&!c.fR&&!c.fFac){
+    try{
+      const f=await apiFetch(`/api/contratos/${id}/fotos`);
+      c.fF=f.foto_frente_url||null;c.fR=f.foto_reverso_url||null;c.fFac=f.foto_factura_url||null;
+      if(expId===id)repintar();
+    }catch(e){}
+  }
 }
 async function decidir(id,dec){
   let c=contratos.find(x=>x.id===id);if(!c)return;
@@ -2523,10 +2624,10 @@ function rUsers(){
             <option value="gerente"${editU?.rol==='gerente'?' selected':''}>Gerente General</option>
             <option value="maestro"${editU?.rol==='maestro'?' selected':''}>Maestro (Soporte Técnico)</option>
           </select></div>
-        <div class="fi"><label>PIN (6 dígitos)${editU?'':' <span class="req">*</span>'}</label>
-          <input type="password" id="u_pin" maxlength="6" placeholder="${editU?'Dejar vacío para no cambiarlo':'• • • • • •'}" oninput="$('u_prev').textContent=this.value?this.value.split('').map(()=>'•').join(' '):'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
+        <div class="fi"><label>PIN (1 letra + 5 números)${editU?'':' <span class="req">*</span>'}</label>
+          <input type="password" id="u_pin" maxlength="6" placeholder="${editU?'Dejar vacío para no cambiarlo':'j25301'}" oninput="$('u_prev').textContent=this.value?this.value.split('').map(()=>'•').join(' '):'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
           <div class="ppin" id="u_prev">—</div></div>
-        ${editU?`<div class="fi sp2"><label>Usuario de acceso</label><input id="u_us" value="${esc(editU?.us||'')}" placeholder="Ej. JDuran" autocapitalize="none" spellcheck="false"></div>`:''}
+        ${editU?`<div class="fi sp2"><label>Usuario de acceso</label><input id="u_us" value="${esc(editU?.us||'')}" placeholder="Ej. jduran" autocapitalize="none" spellcheck="false"></div>`:''}
       </div>
       ${editU?'':'<div class="cs" style="margin:-4px 0 8px">El usuario de acceso (para entrar al sistema) se genera automáticamente a partir del nombre -- se puede ajustar después desde Editar.</div>'}
       <div class="em" id="u_err"></div>
@@ -2580,7 +2681,7 @@ const RLAB={supervisor:'Supervisor de Ruta',almacen:'Encargado de Almacén',prom
 function ePinP(){resetPinUid=null;editU=USUARIOS.find(u=>u.id===ses.id);$('main').innerHTML=rUsers();setTimeout(()=>{const el=$('sp');if(el)el.focus();},50);}
 async function gPinP(){
   const pin=$('sp')?.value||'';
-  if(pin.length!==6||!/^\d{6}$/.test(pin)){alert('PIN debe ser 6 dígitos numéricos.');return;}
+  if(!/^[A-Za-z]\d{5}$/.test(pin)){alert('PIN debe ser 1 letra seguida de 5 números (ej. j25301).');return;}
   try{await apiFetch(`/api/usuarios/${ses.id}/pin`,{method:'PATCH',body:{pin}});}
   catch(e){alert('No se pudo cambiar el PIN: '+e.message);return;}
   editU=null;$('main').innerHTML=rUsers();showToast('PIN actualizado ✅');
@@ -2593,7 +2694,7 @@ function sEdit(id){resetPinUid=null;editU=USUARIOS.find(u=>u.id===id);$('main').
 function abrirResetPin(id){editU=null;resetPinUid=id;$('main').innerHTML=rUsers();setTimeout(()=>{const el=$('rp_pin');if(el)el.focus();},50);}
 async function gResetPin(id){
   const pin=$('rp_pin')?.value||'';
-  if(pin.length!==6||!/^\d{6}$/.test(pin)){alert('PIN debe ser 6 dígitos numéricos.');return;}
+  if(!/^[A-Za-z]\d{5}$/.test(pin)){alert('PIN debe ser 1 letra seguida de 5 números (ej. j25301).');return;}
   try{await apiFetch(`/api/usuarios/${id}/pin`,{method:'PATCH',body:{pin}});}
   catch(e){alert('No se pudo restablecer el PIN: '+e.message);return;}
   resetPinUid=null;$('main').innerHTML=rUsers();showToast('PIN restablecido ✅');
@@ -2602,7 +2703,7 @@ async function sUser(id){
   const nm=$('u_nm')?.value?.trim(),rl=$('u_rl')?.value,pin=$('u_pin')?.value,us=$('u_us')?.value?.trim();
   const err=$('u_err');
   if(!nm||!rl){err.textContent='Completa todos los campos';return;}
-  if(pin&&(pin.length!==6||!/^\d{6}$/.test(pin))){err.textContent='PIN debe ser 6 dígitos';return;}
+  if(pin&&!/^[A-Za-z]\d{5}$/.test(pin)){err.textContent='PIN debe ser 1 letra seguida de 5 números';return;}
   try{
     await apiFetch(`/api/usuarios/${id}`,{method:'PATCH',body:{nombre:nm,rol:rl,rolLabel:RLAB[rl]||rl,usuario:us||undefined}});
     if(pin)await apiFetch(`/api/usuarios/${id}/pin`,{method:'PATCH',body:{pin}});
@@ -2613,7 +2714,7 @@ async function aUser(){
   const nm=$('u_nm')?.value?.trim(),rl=$('u_rl')?.value,pin=$('u_pin')?.value;
   const err=$('u_err');
   if(!nm||!rl||!pin){err.textContent='Completa todos los campos';return;}
-  if(pin.length!==6||!/^\d{6}$/.test(pin)){err.textContent='PIN debe ser 6 dígitos';return;}
+  if(!/^[A-Za-z]\d{5}$/.test(pin)){err.textContent='PIN debe ser 1 letra seguida de 5 números';return;}
   try{
     await apiFetch('/api/usuarios',{method:'POST',body:{nombre:nm,rol:rl,rolLabel:RLAB[rl]||rl,pin,color:COLS[USUARIOS.length%COLS.length]}});
   }catch(e){err.textContent=e.message;return;}
@@ -2621,7 +2722,7 @@ async function aUser(){
 }
 async function aPromotor(){
   const nm=prompt('Nombre del promotor:');if(!nm?.trim())return;
-  const pin=prompt('PIN de 6 dígitos:');if(!pin||pin.length!==6||!/^\d{6}$/.test(pin)){alert('PIN inválido.');return;}
+  const pin=prompt('PIN (1 letra + 5 números, ej. j25301):');if(!pin||!/^[A-Za-z]\d{5}$/.test(pin)){alert('PIN inválido.');return;}
   try{
     await apiFetch('/api/usuarios',{method:'POST',body:{nombre:nm.trim().toUpperCase(),rol:'promotor',rolLabel:'Promotor',pin,color:COLS[USUARIOS.length%COLS.length]}});
   }catch(e){alert('No se pudo agregar: '+e.message);return;}
@@ -2723,7 +2824,7 @@ async function crearRespaldoAhora(){
 }
 async function restaurarRespaldo(archivo){
   if(!confirm('⚠️ ESTO REEMPLAZA TODOS LOS DATOS ACTUALES con lo que había en "'+archivo+'".\n\nSe crea automáticamente un respaldo de seguridad del estado de ahora por si te arrepientes, pero de todas formas: ¿estás seguro?'))return;
-  var pin=prompt('Escribe tu PIN de 6 dígitos para confirmar la restauración:');
+  var pin=prompt('Escribe tu PIN para confirmar la restauración:');
   if(!pin)return;
   try{ await apiFetch('/api/verificar-pin',{method:'POST',body:{pin:pin}}); }
   catch(e){ alert('PIN incorrecto. Restauración cancelada.'); return; }
@@ -2844,8 +2945,8 @@ function rMiPinHTML(){
     <div class="cs">Usuario: <b>@${esc(ses.us||'')}</b> — ${esc(ses.rl)}</div>
     <div class="g2">
       <div class="fi" style="min-width:130px">
-        <label>Nuevo PIN (6 dígitos)</label>
-        <input type="password" id="mp_pin" maxlength="6" placeholder="• • • • • •" oninput="$('mp_prev').textContent=this.value?this.value.split('').map(()=>'•').join(' '):'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
+        <label>Nuevo PIN (1 letra + 5 números)</label>
+        <input type="password" id="mp_pin" maxlength="6" placeholder="j25301" oninput="$('mp_prev').textContent=this.value?this.value.split('').map(()=>'•').join(' '):'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
         <div class="ppin" id="mp_prev">—</div>
       </div>
     </div>
@@ -2855,7 +2956,7 @@ function rMiPinHTML(){
 }
 async function gMiPin(){
   const pin=$('mp_pin')?.value||'',err=$('mp_err');
-  if(pin.length!==6||!/^\d{6}$/.test(pin)){err.textContent='PIN debe ser 6 dígitos numéricos.';return;}
+  if(!/^[A-Za-z]\d{5}$/.test(pin)){err.textContent='PIN debe ser 1 letra seguida de 5 números.';return;}
   try{await apiFetch(`/api/usuarios/${ses.id}/pin`,{method:'PATCH',body:{pin}});}
   catch(e){err.textContent=e.message;return;}
   err.textContent='';$('mp_pin').value='';$('mp_prev').textContent='—';
@@ -3129,7 +3230,17 @@ async function init(){
     initPedidos();
     return;
   }
-  await Promise.all([initLogin(), cargarConfigEmpresaPublica()]);
+  // Si ya hay una cookie de sesion valida (la pestaña se recargo sola, o
+  // el usuario volvio a abrir la PWA), entrar directo sin pedir PIN de
+  // nuevo -- antes SIEMPRE se mostraba el login aunque la sesion (dura
+  // 12h) siguiera activa, porque nada llamaba a /api/session.
+  let sesionActiva=null;
+  try{sesionActiva=await apiFetch('/api/session');}catch(e){}
+  if(sesionActiva){
+    await Promise.all([entrarComoSesion(sesionActiva.usuario,sesionActiva.permisos),cargarConfigEmpresaPublica()]);
+  }else{
+    await Promise.all([initLogin(),cargarConfigEmpresaPublica()]);
+  }
   const fb=localStorage.getItem('k_fb');
   if(fb){try{iFB(JSON.parse(fb));}catch(e){}}
 }
@@ -4322,6 +4433,7 @@ function rCRMBody(){
     if(isE){
       const hist=(cl.historial||[]);
       const compras=(cl.compras||[]);
+      const activo=compras.find(o=>o.saldo>0);
       body=`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--br)">
         <div class="g3" style="margin-bottom:10px">
           <div class="fi"><label>Etapa</label>
@@ -4335,7 +4447,30 @@ function rCRMBody(){
               ${usuariosSel.map(u=>`<option value="${u.id}"${cl.vendedorId===u.id?' selected':''}>${esc(u.n)}</option>`).join('')}
             </select></div>
         </div>
-        <div class="sl">Historial de compras (${compras.length})</div>
+
+        <div class="sl"><i class="ti ti-address-book" style="font-size:11px"></i>Datos de contacto</div>
+        <div class="g2" style="margin-bottom:6px">
+          <div style="font-size:12px"><b>Teléfono:</b> ${esc(cl.tel||'—')}</div>
+          <div style="font-size:12px"><b>Teléfono 2:</b> ${esc(cl.tel2||'—')}</div>
+          <div style="font-size:12px"><b>Institución / Trabajo:</b> ${esc(cl.institucion||'—')}</div>
+          <div style="font-size:12px"><b>Cédula:</b> ${esc(cl.cedula||'—')}</div>
+          <div class="sp2" style="font-size:12px"><b>Dirección:</b> ${esc([cl.barrio,cl.direccion,cl.referencia].filter(Boolean).join(' · ')||'—')}</div>
+          <div class="sp2" style="font-size:12px"><b>Referencia personal:</b> ${cl.refNombre?esc(cl.refNombre)+(cl.refTelefono?' · '+esc(cl.refTelefono):''):'—'}</div>
+        </div>
+
+        <div class="sl" style="margin-top:8px"><i class="ti ti-id" style="font-size:11px"></i>Foto de cédula</div>
+        ${cl.tieneFotoCedula
+          ?`<div id="crm_foto_ced_${cl.id}"><button class="bsm" onclick="crmVerFotoCedula(${cl.id})"><i class="ti ti-photo"></i> Ver foto guardada</button></div>`
+          :`<div style="font-size:12px;color:var(--t3)">Todavía no tiene foto de cédula guardada.</div>`}
+
+        ${activo?`<div class="sl" style="margin-top:8px"><i class="ti ti-file-invoice" style="font-size:11px"></i>Contrato activo por cobrar</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+          <span style="font-size:12px">${esc(activo.fac)} · ${fD(activo.fecha)} · debe <b style="color:var(--er)">${fM(activo.saldo)}</b></span>
+          <button class="bsm" onclick="crmVerFotoContrato(${activo.id},'crm_foto_act_${cl.id}')"><i class="ti ti-photo"></i> Ver fotos del contrato</button>
+        </div>
+        <div id="crm_foto_act_${cl.id}"></div>`:''}
+
+        <div class="sl" style="margin-top:10px">Historial de compras (${compras.length})</div>
         ${compras.length?compras.map(o=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--br)">
           <span>${o.fac} · ${fD(o.fecha)}</span><b style="color:${o.saldo>0?'var(--er)':'var(--green)'}">${fM(o.monto)}${o.saldo>0?' (debe '+fM(o.saldo)+')':''}</b>
         </div>`).join(''):`<div style="font-size:12px;color:var(--t3);padding:4px 0">Sin compras registradas todavía.</div>`}
@@ -4368,6 +4503,33 @@ function rCRMBody(){
 }
 
 function crmToggle(id){crmExpId=crmExpId===id?null:id;rCRMBody();}
+
+// Fotos pedidas al momento (no viajan en cargarCrm(), ver comentario en
+// listarClientesCrm en db.js) -- se piden solo cuando de verdad se
+// quieren ver, tocando el botón correspondiente.
+async function crmVerFotoCedula(id){
+  const cont=$('crm_foto_ced_'+id);if(!cont)return;
+  cont.innerHTML='<span style="font-size:11px;color:var(--t3)">Cargando...</span>';
+  try{
+    const f=await apiFetch(`/api/crm/clientes/${id}/foto-cedula`);
+    let h='';
+    if(f.foto_cedula_frente_url)h+=`<img src="${f.foto_cedula_frente_url}" onclick="verFoto('${f.foto_cedula_frente_url}','Cédula Frente')" style="width:70px;height:46px;object-fit:cover;border-radius:6px;cursor:zoom-in;border:1.5px solid rgba(196,138,31,.3);margin-right:6px">`;
+    if(f.foto_cedula_reverso_url)h+=`<img src="${f.foto_cedula_reverso_url}" onclick="verFoto('${f.foto_cedula_reverso_url}','Cédula Reverso')" style="width:70px;height:46px;object-fit:cover;border-radius:6px;cursor:zoom-in;border:1.5px solid rgba(196,138,31,.3)">`;
+    cont.innerHTML=h||'<span style="font-size:11px;color:var(--t3)">Sin foto guardada.</span>';
+  }catch(e){cont.innerHTML='<span style="font-size:11px;color:var(--er)">No se pudo cargar.</span>';}
+}
+async function crmVerFotoContrato(contratoId,elId){
+  const cont=$(elId);if(!cont)return;
+  cont.innerHTML='<span style="font-size:11px;color:var(--t3)">Cargando...</span>';
+  try{
+    const f=await apiFetch(`/api/contratos/${contratoId}/fotos`);
+    let h='';
+    [['foto_frente_url','Cédula Frente'],['foto_reverso_url','Cédula Reverso'],['foto_factura_url','Factura Física']].forEach(([k,lbl])=>{
+      if(f[k])h+=`<img src="${f[k]}" onclick="verFoto('${f[k]}','${lbl}')" style="width:70px;height:46px;object-fit:cover;border-radius:6px;cursor:zoom-in;border:1.5px solid rgba(21,101,192,.3);margin-right:6px">`;
+    });
+    cont.innerHTML=h||'<span style="font-size:11px;color:var(--t3)">Sin fotos en este contrato.</span>';
+  }catch(e){cont.innerHTML='<span style="font-size:11px;color:var(--er)">No se pudo cargar.</span>';}
+}
 
 async function crmAddNota(id){
   const inp=$('crm_nota_'+id);const txt=inp?.value?.trim();if(!txt)return;
@@ -4548,6 +4710,12 @@ async function pagarGuardar(){
 
 
 document.addEventListener('DOMContentLoaded',init);
+document.addEventListener('DOMContentLoaded',function(){
+  const m=document.getElementById('main');
+  if(m)m.addEventListener('input',function(e){
+    if(e.target&&e.target.id&&e.target.id.indexOf('cf_')===0&&pag==='contrato')cfGuardarBorradorDebounced();
+  });
+});
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{});});
 }
@@ -4584,7 +4752,7 @@ function showToast(msg,type){var wrap=document.getElementById('toast-wrap');if(!
 function rolLabel(rol){var l={gerente:'Gerente General',subgerente:'Sub-Gerente',coordinador:'Coordinador',supervisor:'Supervisor',almacen:'Almacén',promotor:'Promotor',maestro:'Maestro (Soporte Técnico)'};return l[rol]||rol;}
 function openMdl(titulo,cuerpo,botones){var o=document.getElementById('modal');if(!o)return;var t=document.getElementById('mtit');if(t)t.textContent=titulo;var b=document.getElementById('mbody');if(b)b.innerHTML=cuerpo;var f=document.getElementById('mft');if(f)f.innerHTML=botones||'<button class="bs" onclick="closeMdl()">Cerrar</button>';o.classList.add('on');}
 function closeMdl(){var o=document.getElementById('modal');if(o)o.classList.remove('on');}
-function pn(i){var v=document.getElementById('p'+i).value.replace(/\D/,'');document.getElementById('p'+i).value=v;if(v&&i<5)document.getElementById('p'+(i+1)).focus();var pin='';for(var x=0;x<6;x++){var el=document.getElementById('p'+x);pin+=el?el.value:'';}document.getElementById('lpin').value=pin;if(pin.length===6)setTimeout(login,120);}
+function pn(i){var v=document.getElementById('p'+i).value.replace(i===0?/[^A-Za-z]/:/\D/,'');document.getElementById('p'+i).value=v;if(v&&i<5)document.getElementById('p'+(i+1)).focus();var pin='';for(var x=0;x<6;x++){var el=document.getElementById('p'+x);pin+=el?el.value:'';}document.getElementById('lpin').value=pin;if(pin.length===6)setTimeout(login,120);}
 
 </script>
 
@@ -6240,7 +6408,7 @@ var MANUAL_MODULOS={
   ccrm:{tit:'CRM',pasos:['Llevá el seguimiento de cada cliente: etapa (nuevo, contactado, interesado, cliente, inactivo) y próxima fecha de seguimiento.','No dejes seguimientos vencidos -- Auditoría te avisa cuáles están atrasados.']},
   pedidos:{tit:'Portal de Pedidos',pasos:['Es el catálogo online para que un cliente arme su propio pedido.','Confirmá los pedidos entrantes antes de despacharlos.']},
   rendimiento:{tit:'Rendimiento',pasos:['Reportes de ventas y comisiones por vendedor/periodo -- usalo para decisiones, no para cargar datos.']},
-  users:{tit:'Usuarios',pasos:['Solo Gerencia/Sub-Gerencia crean usuarios y les asignan permisos.','Cada usuario debe tener su propio PIN de 6 dígitos -- nunca compartir un mismo usuario entre dos personas (se pierde la trazabilidad de quién hizo qué).']},
+  users:{tit:'Usuarios',pasos:['Solo Maestro crea usuarios, asigna roles/permisos y el usuario de acceso de cada quien.','Cada usuario debe tener su propio PIN (1 letra + 5 números) -- nunca compartir un mismo usuario entre dos personas (se pierde la trazabilidad de quién hizo qué).']},
   delfac:{tit:'Anular Factura',pasos:['Uso restringido a Gerencia/Sub-Gerencia.','SIEMPRE hay que escribir el motivo real de la anulación -- queda guardado permanentemente junto con quién y cuándo.']},
   auditoria:{tit:'Auditoría',pasos:['Revisala periódicamente (recomendado: cada semana) -- ahí ves alertas reales (stock bajo, vencidos, pendientes) antes de que se conviertan en un problema.','Podés convertir cualquier alerta en una tarea asignada a alguien del equipo, con fecha límite.']},
   rrhh:{tit:'Recursos Humanos',pasos:['Pestaña Personal: mirá tardanzas, faltas y amonestaciones de cada empleado activo. "Ver detalle" abre su historial completo y sus vacaciones; "Ficha" abre su solicitud de empleo completa (datos personales, académicos, contacto de emergencia, ARS/AFP).','Registrá cada tardanza, falta o amonestación el mismo día que ocurre -- el sistema te muestra el artículo del Código de Trabajo que suele aplicar, pero eso es solo referencia: la decisión y la indagación siempre las hace RRHH.','Vacaciones se acumulan solas según la fecha de ingreso (14 días/año con menos de 5 años, 18 días/año con 5 o más) -- registrá cada período tomado para descontarlo del disponible.','Pestaña Reclutamiento: llevá cada candidato desde que aplica hasta que pasa a empleado fijo (aplicado → entrevista → prueba → fijo). "Ficha" completa su solicitud de empleo; "Cuestionario" aplica una evaluación de competencias según el puesto (vendedor, almacén, secretaria, supervisor) -- es una herramienta de APOYO, no un test psicológico clínico ni una decisión automática. Al marcarlo "fijo" se crea su registro en Nómina automáticamente, arrastrando toda su ficha.','Pestaña Código de Trabajo: consultá la referencia por tipo de caso cuando lo necesites, sin tener que registrar una incidencia.','Pestaña Deberes y Derechos: consultá de un vistazo los derechos y deberes generales del trabajador y del empleador (salario, seguridad social, vacaciones, preaviso/cesantía, etc.) -- también informativo, no sustituye asesoría legal.']},
@@ -6841,8 +7009,8 @@ async function rrhhGuardarEtapaCandidato(id){
   #cbroot{ font-family: "Segoe UI", Arial, sans-serif; margin: 0; background: var(--bg); color: var(--tx); }
   #cbroot header{ background: var(--red); color: #fff; padding: 12px 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;}
   #cbroot header h1{ font-size: 20px; margin: 0; }
-  #cbroot nav{ background:var(--red2); padding:0 12px; display:flex; gap:4px;}
-  #cbroot nav button{ background:transparent; color:var(--silver); border:0; padding:12px 18px; font-size:15px; cursor:pointer; border-bottom:3px solid transparent;}
+  #cbroot nav{ background:var(--red2); padding:0 12px; display:flex; gap:4px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  #cbroot nav button{ background:transparent; color:var(--silver); border:0; padding:12px 18px; font-size:15px; cursor:pointer; border-bottom:3px solid transparent; flex-shrink:0; white-space:nowrap;}
   #cbroot nav button.activa{ color:#fff; font-weight:bold; border-bottom:3px solid var(--gold);}
   #cbroot .contenido{ padding: 16px 20px; }
   #cbroot .tarjetas{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
@@ -6938,9 +7106,15 @@ function cob_init(){
 // CUENTAS y la plantilla se arman en el momento (no como const fija) porque
 // dependen de configEmpresa, que se carga despues de iniciar sesion.
 function plantillaCobroDefecto(){
+  var razon=(configEmpresa&&(configEmpresa.razon_social||configEmpresa.nombre_comercial))||nombreEmpresaActual()||'nuestra empresa';
+  var tel=(configEmpresa&&configEmpresa.telefono)?configEmpresa.telefono:'(configura el teléfono en Configuración → Datos de la Empresa)';
   var cuentas=cuentasEmpresaTxt()||'(configura tus cuentas bancarias en Configuración → Datos de la Empresa)';
-  return "Hola {nombre} 👋, le saludamos de "+(nombreEmpresaActual()||'nuestra empresa')+". Le recordamos que su contrato No. {contrato} tiene un saldo pendiente de RD${saldo}, con fecha límite {limite} ({dias} días de atraso). " +
-    "Puede pagar por depósito o transferencia a: " + cuentas + ". Favor enviar aquí el comprobante. ¡Gracias!";
+  return "Estimado/a {nombre},\n\n"+
+    "Le escribimos de "+razon+", departamento de Cobros, en relación con su contrato No. {contrato}.\n\n"+
+    "A la fecha registra un atraso de {dias} día(s) en su pago, con un saldo pendiente de RD${saldo} (fecha límite {limite}). De acuerdo con lo establecido en su contrato, la falta de pago puede generar cargos adicionales y, de persistir, dar lugar a las acciones que el contrato contempla.\n\n"+
+    "Puede regularizar su pago por depósito o transferencia a: "+cuentas+" (favor enviar el comprobante por este medio).\n\n"+
+    "Le exhortamos a ponerse al día a la brevedad posible y a comunicarse con nuestras oficinas al "+tel+" para coordinar su pago o aclarar cualquier duda.\n\n"+
+    "Atentamente,\nDepartamento de Cobros\n"+razon;
 }
 
 const CB_DATOS_INICIALES = [
@@ -9129,9 +9303,8 @@ function rtMapaHTML(){
     + '<div id="rt_next"></div>'
     + '<div id="ruta_map"></div>'
     + '<div class="card" style="margin-top:14px">'
-    +   '<div class="ct"><i class="ti ti-list-numbers" style="color:var(--gold)"></i>Orden de visitas'
-    +     '<button class="bsm" style="margin-left:auto" onclick="rtAbrirTodo()">📍 Abrir ruta completa en Google Maps</button>'
-    +   '</div>'
+    +   '<div class="ct"><i class="ti ti-list-numbers" style="color:var(--gold)"></i>Orden de visitas</div>'
+    +   '<button class="bsm" style="margin-bottom:10px;width:100%" onclick="rtAbrirTodo()">📍 Abrir ruta completa en Google Maps</button>'
     +   '<div id="rt_lista"></div>'
     + '</div>';
 }
@@ -9139,7 +9312,11 @@ function rtMapaHTML(){
 function rutaInit(){
   if(_rutaVista!=='mapa'){ rtCargarSeleccionHoy(); return; }
   RT.mapa=null; RT.marcaYo=null;
-  rtCargar().then(function(){ rtPintar(); setTimeout(rtMapaInit,60); });
+  // Leaflet se pide recien aca (no en el login) -- rtMapaInit() ya sabe
+  // seguir sin mapa (typeof L==='undefined') si esto falla por señal.
+  pedLoadScript('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js').catch(()=>{}).then(function(){
+    rtCargar().then(function(){ rtPintar(); setTimeout(rtMapaInit,60); });
+  });
   rtSeguirGPS();
 }
 

@@ -27,6 +27,11 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://unpkg.com'],
+      // Sin esto, Helmet le pone su default script-src-attr 'none' y bloquea
+      // TODOS los onclick=/oninput= inline del frontend (index.html no tiene
+      // build step ni nonces) -- mismo nivel de confianza que ya se acepto
+      // arriba en scriptSrc, no es una relajacion nueva del CSP.
+      scriptSrcAttr: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://unpkg.com'],
       imgSrc: ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org'],
       fontSrc: ["'self'", 'data:', 'https://cdn.jsdelivr.net'],
@@ -260,7 +265,7 @@ app.patch('/api/usuarios/:id', requireAuth, requireRol('maestro'), h(async (req,
 app.post('/api/usuarios', requireAuth, requireRol('maestro'), h(async (req, res) => {
   const { nombre, rol, rolLabel, pin, color } = req.body || {};
   if (!nombre || !rol || !pin) return res.status(400).json({ error: 'Faltan datos obligatorios' });
-  if (!/^\d{6}$/.test(String(pin))) return res.status(400).json({ error: 'El PIN debe ser de 6 dígitos numéricos' });
+  if (!/^[A-Za-z]\d{5}$/.test(String(pin))) return res.status(400).json({ error: 'El PIN debe ser 1 letra seguida de 5 números (ej. j25301)' });
   const nuevo = await db.crearUsuario({ nombre, rol, rolLabel, pin, color });
   res.status(201).json(nuevo);
 }));
@@ -286,7 +291,7 @@ app.patch('/api/usuarios/:id/ver-todas-facturas', requireAuth, requireRol('maest
 app.patch('/api/usuarios/:id/pin', requireAuth, requireMaestroOPropioPin, h(async (req, res) => {
   const { pin } = req.body || {};
   if (!pin) return res.status(400).json({ error: 'Falta el nuevo PIN' });
-  if (!/^\d{6}$/.test(String(pin))) return res.status(400).json({ error: 'El PIN debe ser de 6 dígitos numéricos' });
+  if (!/^[A-Za-z]\d{5}$/.test(String(pin))) return res.status(400).json({ error: 'El PIN debe ser 1 letra seguida de 5 números (ej. j25301)' });
   await db.cambiarPinUsuario(req.params.id, pin, req.usuario.id);
   res.json({ ok: true });
 }));
@@ -395,6 +400,24 @@ app.get('/api/contratos', requireAuth, requireAnyPermiso('contrato', 'buzon', 'c
 // puede ver de su facturación: totales, nunca el detalle de un cliente.
 app.get('/api/contratos/mi-cuadre', requireAuth, requirePermiso('contrato'), h(async (req, res) => {
   res.json(await db.resumenVentasUsuario(req.usuario.id));
+}));
+
+// Autocompletado en Facturación: al escribir cédula+nombre de un cliente
+// que ya compró antes, permite reusar su foto de cédula sin volver a
+// fotografiarla (ver resolverCliente en db.js). Mismo permiso que crear
+// un contrato -- es parte del mismo flujo.
+app.get('/api/clientes/buscar-por-cedula', requireAuth, requirePermiso('contrato'), h(async (req, res) => {
+  const r = await db.buscarClientePorCedula(req.query.cedula, req.query.nombre);
+  res.json(r || { encontrado: false });
+}));
+
+// Fotos de un contrato puntual, pedidas al expandirlo en Buzón cuando ya
+// fue decidido (listarContratos ya no las trae para esos, ver comentario
+// ahí -- es lo que evita bajar varios MB de fotos en cada login).
+app.get('/api/contratos/:id/fotos', requireAuth, requireAnyPermiso('contrato', 'buzon', 'cobros'), h(async (req, res) => {
+  const r = await db.obtenerFotosContrato(req.params.id, req.usuario);
+  if (!r) return res.status(404).json({ error: 'Contrato no encontrado' });
+  res.json(r);
 }));
 
 // Antes solo se comprobaba "truthy" (un monto negativo, una cedula "x" o
@@ -677,6 +700,14 @@ app.post('/api/cuentas-por-pagar/:id/abonar', requireAuth, requirePermiso('cxp')
 // ── CRM — CLIENTES ─────────────────────────────────────────────────────
 app.get('/api/crm/clientes', requireAuth, requirePermiso('ccrm'), h(async (req, res) => {
   res.json(await db.listarClientesCrm());
+}));
+
+// Foto de cédula del cliente, pedida puntual al expandir su ficha (no
+// viaja en la lista general -- ver comentario en listarClientesCrm).
+app.get('/api/crm/clientes/:id/foto-cedula', requireAuth, requirePermiso('ccrm'), h(async (req, res) => {
+  const r = await db.obtenerFotoCedulaCliente(req.params.id);
+  if (!r) return res.status(404).json({ error: 'Cliente no encontrado' });
+  res.json(r);
 }));
 
 app.post('/api/crm/clientes', requireAuth, requirePermiso('ccrm'), h(async (req, res) => {

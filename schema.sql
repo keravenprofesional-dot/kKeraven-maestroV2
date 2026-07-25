@@ -879,3 +879,21 @@ DO $$ BEGIN
     ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN ('gerente','subgerente','coordinador','supervisor','almacen','promotor','maestro'));
   END IF;
 END $$;
+
+-- ── FOTO DE CÉDULA REUTILIZABLE + REFERENCIA PERSONAL DEL CLIENTE ───
+-- La foto de cédula (frente/reverso) se guarda en base64 y pesa ~200-
+-- 300KB cada una. Antes se repetia completa en CADA contrato del mismo
+-- cliente (misma cedula) aunque fuera la persona de siempre -- estas 2
+-- columnas guardan UNA sola copia de referencia por cliente (resolverCliente
+-- en db.js la rellena la primera vez y la reusa despues, solo si el nombre
+-- del contrato nuevo coincide con el nombre ya guardado). Los contratos
+-- que reusan la foto del cliente dejan su propia foto_frente_url/
+-- foto_reverso_url en NULL a proposito (ver listarContratos) -- de eso se
+-- trata evitar la duplicacion.
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS foto_cedula_frente_url TEXT;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS foto_cedula_reverso_url TEXT;
+
+-- Referencia personal (alguien que pueda avalar al cliente) -- se pide
+-- una vez en Facturacion junto con los demas datos del cliente.
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS referencia_nombre TEXT;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS referencia_telefono TEXT;
