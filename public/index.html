@@ -552,10 +552,11 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F7F6F3;color:#1A1A1
 <div id="app">
   <div class="topbar" id="topbar">
     <button class="ham" onclick="abrirMenu()"><i class="ti ti-menu-2"></i></button>
-    <button class="ham" id="btn_back" onclick="volverAtras()" title="Volver atrás" style="display:none"><i class="ti ti-arrow-left"></i></button>
+    <button class="ham" id="btn_back" onclick="volverAtras()" title="Volver atrás" style="display:none;align-items:center;gap:3px;font-size:13px"><i class="ti ti-arrow-left" style="font-size:20px"></i> Atrás</button>
     <img src="/img/logo-keraven.png" alt="Logo" class="tb-logo-real" id="tb-logo">
     <div class="tb-title" id="tbtit">Panel principal</div>
     <div class="tb-av" id="tbav">?</div>
+    <button class="ham" onclick="logout()" title="Cerrar sesión (para entrar con otro usuario)"><i class="ti ti-logout"></i></button>
   </div>
   <div id="ov" onclick="cerrarMenu()"></div>
   <div class="sidebar" id="sb">
