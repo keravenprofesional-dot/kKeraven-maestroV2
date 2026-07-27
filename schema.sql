@@ -897,3 +897,7 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS foto_cedula_reverso_url TEXT;
 -- una vez en Facturacion junto con los demas datos del cliente.
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS referencia_nombre TEXT;
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS referencia_telefono TEXT;
+
+-- Telefono del usuario del sistema (no confundir con clientes.telefono1) --
+-- se pide al crear la cuenta desde Usuarios, junto con nombre/rol/usuario/PIN.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefono TEXT;

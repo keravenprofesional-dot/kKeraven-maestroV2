@@ -244,7 +244,7 @@ app.get('/api/usuarios', requireAuth, requireRol('maestro'), h(async (req, res) 
 }));
 
 app.patch('/api/usuarios/:id', requireAuth, requireRol('maestro'), h(async (req, res) => {
-  const { nombre, rol, rolLabel } = req.body || {};
+  const { nombre, rol, rolLabel, telefono } = req.body || {};
   let { usuario } = req.body || {};
   if (usuario !== undefined && usuario !== null && String(usuario).trim()) {
     usuario = String(usuario).trim();
@@ -257,16 +257,28 @@ app.patch('/api/usuarios/:id', requireAuth, requireRol('maestro'), h(async (req,
   } else {
     usuario = null;
   }
-  const actualizado = await db.actualizarUsuario(req.params.id, { nombre, rol, rolLabel, usuario }, req.usuario.id);
+  const actualizado = await db.actualizarUsuario(req.params.id, { nombre, rol, rolLabel, usuario, telefono }, req.usuario.id);
   if (!actualizado) return res.status(404).json({ error: 'Usuario no encontrado' });
   res.json(actualizado);
 }));
 
 app.post('/api/usuarios', requireAuth, requireRol('maestro'), h(async (req, res) => {
-  const { nombre, rol, rolLabel, pin, color } = req.body || {};
+  const { nombre, rol, rolLabel, pin, color, telefono } = req.body || {};
+  let { usuario } = req.body || {};
   if (!nombre || !rol || !pin) return res.status(400).json({ error: 'Faltan datos obligatorios' });
   if (!/^[A-Za-z]\d{5}$/.test(String(pin))) return res.status(400).json({ error: 'El PIN debe ser 1 letra seguida de 5 números (ej. j25301)' });
-  const nuevo = await db.crearUsuario({ nombre, rol, rolLabel, pin, color });
+  if (usuario !== undefined && usuario !== null && String(usuario).trim()) {
+    usuario = String(usuario).trim();
+    if (!/^[A-Za-z][A-Za-z0-9]{2,20}$/.test(usuario)) {
+      return res.status(400).json({ error: 'El usuario debe empezar con una letra y tener entre 3 y 21 caracteres (letras/números, sin espacios).' });
+    }
+    if (!(await db.usuarioLoginDisponible(usuario))) {
+      return res.status(409).json({ error: 'Ese usuario ya está en uso por otra cuenta.' });
+    }
+  } else {
+    usuario = null;
+  }
+  const nuevo = await db.crearUsuario({ nombre, rol, rolLabel, pin, color, telefono, usuario });
   res.status(201).json(nuevo);
 }));
 

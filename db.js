@@ -147,7 +147,7 @@ async function buscarUsuarioPorId(id) {
 // Lista completa para el panel de administracion (incluye inactivos, sin pin_hash)
 async function listarUsuariosCompleto() {
   const { rows } = await pool.query(
-    `SELECT id, nombre, usuario, rol, rol_label, color, activo, editable, permisos_custom, ver_todas_facturas
+    `SELECT id, nombre, usuario, telefono, rol, rol_label, color, activo, editable, permisos_custom, ver_todas_facturas
      FROM usuarios ORDER BY id`
   );
   return rows;
@@ -161,17 +161,18 @@ async function actualizarVerTodasFacturas(id, valor) {
   await pool.query(`UPDATE usuarios SET ver_todas_facturas = $2 WHERE id = $1`, [id, !!valor]);
 }
 
-async function actualizarUsuario(id, { nombre, rol, rolLabel, usuario }, actorId) {
+async function actualizarUsuario(id, { nombre, rol, rolLabel, usuario, telefono }, actorId) {
   const { rows } = await pool.query(
     `UPDATE usuarios SET
        nombre = COALESCE($2, nombre),
        usuario = COALESCE($3, usuario),
        rol = COALESCE($4, rol),
        rol_label = COALESCE($5, rol_label),
+       telefono = COALESCE($7, telefono),
        actualizado_por = $6, actualizado_en = now()
      WHERE id = $1
-     RETURNING id, nombre, usuario, rol, rol_label, color, activo, editable, permisos_custom`,
-    [id, nombre, usuario ?? null, rol, rolLabel, actorId ?? null]
+     RETURNING id, nombre, usuario, telefono, rol, rol_label, color, activo, editable, permisos_custom`,
+    [id, nombre, usuario ?? null, rol, rolLabel, actorId ?? null, telefono ?? null]
   );
   return rows[0] || null;
 }
@@ -224,15 +225,21 @@ async function verificarLoginPorId(usuarioId, pin) {
   return verificarLogin(usuario.usuario, pin);
 }
 
-async function crearUsuario({ nombre, rol, rolLabel, pin, color }) {
+// usuario: si Yave lo escribe a mano al crear la cuenta, se respeta tal
+// cual (ya validado/chequeado por disponibilidad en la ruta antes de
+// llegar aca); si viene vacio, se autogenera con generarUsuarioLogin().
+async function crearUsuario({ nombre, rol, rolLabel, pin, color, telefono, usuario }) {
   const pinHash = await bcrypt.hash(String(pin), 10);
-  const { rows: existentesRows } = await pool.query(`SELECT usuario FROM usuarios WHERE usuario IS NOT NULL`);
-  const existentesLower = new Set(existentesRows.map((r) => r.usuario.toLowerCase()));
-  const usuarioLogin = generarUsuarioLogin(nombre, existentesLower);
+  let usuarioLogin = (usuario || '').trim();
+  if (!usuarioLogin) {
+    const { rows: existentesRows } = await pool.query(`SELECT usuario FROM usuarios WHERE usuario IS NOT NULL`);
+    const existentesLower = new Set(existentesRows.map((r) => r.usuario.toLowerCase()));
+    usuarioLogin = generarUsuarioLogin(nombre, existentesLower);
+  }
   const { rows } = await pool.query(
-    `INSERT INTO usuarios (nombre, usuario, rol, rol_label, pin_hash, color)
-     VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, nombre, usuario, rol, rol_label, color, activo`,
-    [nombre, usuarioLogin, rol, rolLabel, pinHash, color || '#B8860B']
+    `INSERT INTO usuarios (nombre, usuario, rol, rol_label, pin_hash, color, telefono)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, nombre, usuario, telefono, rol, rol_label, color, activo`,
+    [nombre, usuarioLogin, rol, rolLabel, pinHash, color || '#B8860B', telefono || null]
   );
   return rows[0];
 }

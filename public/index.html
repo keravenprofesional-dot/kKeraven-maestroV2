@@ -746,7 +746,7 @@ async function apiFetch(url,opts={}){
 // desde siempre (n, rl, on, ed) para no tener que reescribir cada
 // pantalla que ya lee usuarios con esos nombres de campo.
 function mapUsuarioApi(u){
-  return{id:u.id,n:u.nombre,us:u.usuario||'',rol:u.rol,rl:u.rol_label,c:u.color||'#A87A2E',
+  return{id:u.id,n:u.nombre,us:u.usuario||'',tel:u.telefono||'',rol:u.rol,rl:u.rol_label,c:u.color||'#A87A2E',
     on:u.activo!==false,ed:u.editable!==false,permisos:u.permisos_custom||null,
     verTodasFacturas:u.ver_todas_facturas===true};
 }
@@ -2613,6 +2613,7 @@ function rUsers(){
       <div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:10px"><i class="ti ti-user-plus" style="color:var(--gold)"></i>${editU?'Editar usuario':'Agregar usuario'}</div>
       <div class="g2">
         <div class="fi sp2"><label>Nombre completo <span class="req">*</span></label><input id="u_nm" value="${editU?.n||''}" placeholder="Nombre" oninput="upper(this)"></div>
+        <div class="fi"><label>Teléfono</label><input id="u_tel" type="tel" value="${esc(editU?.tel||'')}" placeholder="809-000-0000" maxlength="12" oninput="fTel(this)"></div>
         <div class="fi"><label>Rol <span class="req">*</span></label>
           <select id="u_rl" ${editU&&!editU.ed?'disabled':''}>
             <option value="">Seleccionar...</option>
@@ -2624,12 +2625,13 @@ function rUsers(){
             <option value="gerente"${editU?.rol==='gerente'?' selected':''}>Gerente General</option>
             <option value="maestro"${editU?.rol==='maestro'?' selected':''}>Maestro (Soporte Técnico)</option>
           </select></div>
+        <div class="fi"><label>Usuario de acceso${editU?'':' <span class="cs" style="display:inline">(opcional)</span>'}</label>
+          <input id="u_us" value="${esc(editU?.us||'')}" placeholder="Ej. jduran -- vacío = automático" autocapitalize="none" spellcheck="false"></div>
         <div class="fi"><label>PIN (1 letra + 5 números)${editU?'':' <span class="req">*</span>'}</label>
           <input type="password" id="u_pin" maxlength="6" placeholder="${editU?'Dejar vacío para no cambiarlo':'j25301'}" oninput="$('u_prev').textContent=this.value?this.value.split('').map(()=>'•').join(' '):'—'" style="letter-spacing:.4em;font-size:18px;text-align:center">
           <div class="ppin" id="u_prev">—</div></div>
-        ${editU?`<div class="fi sp2"><label>Usuario de acceso</label><input id="u_us" value="${esc(editU?.us||'')}" placeholder="Ej. jduran" autocapitalize="none" spellcheck="false"></div>`:''}
       </div>
-      ${editU?'':'<div class="cs" style="margin:-4px 0 8px">El usuario de acceso (para entrar al sistema) se genera automáticamente a partir del nombre -- se puede ajustar después desde Editar.</div>'}
+      ${editU?'':'<div class="cs" style="margin:-4px 0 8px">Si dejas "Usuario de acceso" vacío, se genera automático a partir del nombre -- se puede ajustar después desde Editar.</div>'}
       <div class="em" id="u_err"></div>
       <div style="display:flex;gap:6px;justify-content:flex-end">
         ${editU?`<button class="bs" onclick="editU=null;$('main').innerHTML=rUsers()"><i class="ti ti-x"></i> Cancelar</button>`:''}
@@ -2652,7 +2654,7 @@ function rUsers(){
         <div class="uav" style="background:${u.c}">${u.n[0].toUpperCase()}</div>
         <div style="flex:1;min-width:0">
           <div class="unm">${esc(u.n)}${yo?`<span style="font-size:9px;background:var(--gold-p);border:0.5px solid var(--gold);border-radius:100px;padding:1px 5px;color:var(--gold-m)">Tú</span>`:''}</div>
-          <div class="url">${esc(u.rl)}${u.us?` · @${esc(u.us)}`:''}</div>
+          <div class="url">${esc(u.rl)}${u.us?` · @${esc(u.us)}`:''}${u.tel?` · ${esc(u.tel)}`:''}</div>
           <div class="upin"><i class="ti ti-lock" style="font-size:9px"></i> PIN protegido</div>
         </div>
         <div class="uacts">
@@ -2700,23 +2702,23 @@ async function gResetPin(id){
   resetPinUid=null;$('main').innerHTML=rUsers();showToast('PIN restablecido ✅');
 }
 async function sUser(id){
-  const nm=$('u_nm')?.value?.trim(),rl=$('u_rl')?.value,pin=$('u_pin')?.value,us=$('u_us')?.value?.trim();
+  const nm=$('u_nm')?.value?.trim(),rl=$('u_rl')?.value,pin=$('u_pin')?.value,us=$('u_us')?.value?.trim(),tel=$('u_tel')?.value?.trim();
   const err=$('u_err');
   if(!nm||!rl){err.textContent='Completa todos los campos';return;}
   if(pin&&!/^[A-Za-z]\d{5}$/.test(pin)){err.textContent='PIN debe ser 1 letra seguida de 5 números';return;}
   try{
-    await apiFetch(`/api/usuarios/${id}`,{method:'PATCH',body:{nombre:nm,rol:rl,rolLabel:RLAB[rl]||rl,usuario:us||undefined}});
+    await apiFetch(`/api/usuarios/${id}`,{method:'PATCH',body:{nombre:nm,rol:rl,rolLabel:RLAB[rl]||rl,usuario:us||undefined,telefono:tel||''}});
     if(pin)await apiFetch(`/api/usuarios/${id}/pin`,{method:'PATCH',body:{pin}});
   }catch(e){err.textContent=e.message;return;}
   editU=null;await cargarUsuariosAdmin();$('main').innerHTML=rUsers();showToast('Usuario actualizado ✅');
 }
 async function aUser(){
-  const nm=$('u_nm')?.value?.trim(),rl=$('u_rl')?.value,pin=$('u_pin')?.value;
+  const nm=$('u_nm')?.value?.trim(),rl=$('u_rl')?.value,pin=$('u_pin')?.value,us=$('u_us')?.value?.trim(),tel=$('u_tel')?.value?.trim();
   const err=$('u_err');
   if(!nm||!rl||!pin){err.textContent='Completa todos los campos';return;}
   if(!/^[A-Za-z]\d{5}$/.test(pin)){err.textContent='PIN debe ser 1 letra seguida de 5 números';return;}
   try{
-    await apiFetch('/api/usuarios',{method:'POST',body:{nombre:nm,rol:rl,rolLabel:RLAB[rl]||rl,pin,color:COLS[USUARIOS.length%COLS.length]}});
+    await apiFetch('/api/usuarios',{method:'POST',body:{nombre:nm,rol:rl,rolLabel:RLAB[rl]||rl,pin,color:COLS[USUARIOS.length%COLS.length],usuario:us||undefined,telefono:tel||''}});
   }catch(e){err.textContent=e.message;return;}
   editU=null;await cargarUsuariosAdmin();$('main').innerHTML=rUsers();showToast('Usuario agregado ✅');
 }
