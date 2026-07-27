@@ -436,14 +436,14 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F7F6F3;color:#1A1A1
 
 /* ═══ USERS ═══════════════════════════════════════════════════════ */
 .ug{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
-.uc{background:#fff;border:1px solid rgba(196,138,31,.1);border-radius:var(--rl);padding:11px 13px;display:flex;align-items:center;gap:9px;box-shadow:0 2px 6px rgba(26,22,40,.05)}
+.uc{background:#fff;border:1px solid rgba(196,138,31,.1);border-radius:var(--rl);padding:11px 13px;display:flex;flex-wrap:wrap;align-items:center;gap:9px;box-shadow:0 2px 6px rgba(26,22,40,.05)}
 .uc.me{border-color:var(--gold);background:rgba(196,138,31,.04)}
 .uav{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;flex-shrink:0}
 .unm{font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .url{font-size:10px;color:var(--t2);margin-top:1px}
 .upin{font-size:9px;color:var(--t3);margin-top:1px;display:flex;align-items:center;gap:2px}
-.uacts{display:flex;gap:4px;flex-shrink:0}
-.ub{width:27px;height:27px;border:1px solid rgba(196,138,31,.2);border-radius:6px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--t2);transition:all .15s}
+.uacts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.ub{height:27px;padding:0 8px;border:1px solid rgba(196,138,31,.2);border-radius:6px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:600;white-space:nowrap;color:var(--t2);transition:all .15s}
 .ub:hover{border-color:var(--gold);color:var(--gold)}
 .ub.del:hover{border-color:var(--er);color:var(--er)}
 .af{background:linear-gradient(145deg,#F7F6F3,#f5f0e8);border:1px solid rgba(196,138,31,.18);border-radius:var(--rl);padding:14px;box-shadow:inset 0 2px 8px rgba(26,22,40,.04)}
@@ -2652,16 +2652,16 @@ function rUsers(){
       const yo=u.id===ses.id,pEd=u.ed||yo,pEl=u.ed&&!yo;
       h+=`<div class="uc${yo?' me':''}">
         <div class="uav" style="background:${u.c}">${u.n[0].toUpperCase()}</div>
-        <div style="flex:1;min-width:0">
+        <div style="flex:1 1 160px;min-width:0">
           <div class="unm">${esc(u.n)}${yo?`<span style="font-size:9px;background:var(--gold-p);border:0.5px solid var(--gold);border-radius:100px;padding:1px 5px;color:var(--gold-m)">Tú</span>`:''}</div>
           <div class="url">${esc(u.rl)}${u.us?` · @${esc(u.us)}`:''}${u.tel?` · ${esc(u.tel)}`:''}</div>
           <div class="upin"><i class="ti ti-lock" style="font-size:9px"></i> PIN protegido</div>
         </div>
         <div class="uacts">
-          ${esGer&&!yo?`<button class="ub" onclick="abrirPermisos(${u.id})" title="Permisos"><i class="ti ti-key"></i></button>`:''}
-          ${pEd&&!yo?`<button class="ub" onclick="abrirResetPin(${u.id})" title="Restablecer PIN (si no se acuerda)"><i class="ti ti-lock-open"></i></button>`:''}
-          ${pEd?`<button class="ub" onclick="${yo?'ePinP()':'sEdit('+u.id+')'}" title="${yo?'Cambiar mi PIN':'Editar'}"><i class="ti ${yo?'ti-key':'ti-edit'}"></i></button>`:''}
-          ${pEl?`<button class="ub del" onclick="delU(${u.id})"><i class="ti ti-trash"></i></button>`:''}
+          ${esGer&&!yo?`<button class="ub" onclick="abrirPermisos(${u.id})" title="Permisos"><i class="ti ti-key"></i> Permisos</button>`:''}
+          ${pEd&&!yo?`<button class="ub" onclick="abrirResetPin(${u.id})" title="Restablecer PIN (si no se acuerda)"><i class="ti ti-lock-open"></i> PIN</button>`:''}
+          ${pEd?`<button class="ub" onclick="${yo?'ePinP()':'sEdit('+u.id+')'}" title="${yo?'Cambiar mi PIN':'Editar'}"><i class="ti ${yo?'ti-key':'ti-edit'}"></i> ${yo?'Mi PIN':'Editar'}</button>`:''}
+          ${pEl?`<button class="ub del" onclick="delU(${u.id})" title="Eliminar"><i class="ti ti-trash"></i> Eliminar</button>`:''}
           ${!pEd&&!yo?'<span style="font-size:9px;color:var(--t3);padding:2px 5px;background:#f5f5f3;border-radius:4px">Fijo</span>':''}
         </div>
       </div>`;

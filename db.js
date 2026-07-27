@@ -1367,12 +1367,22 @@ async function procesarNomina({ mes, quincena }, usuarioId) {
       [mes, quincena, fechaPago, totalNeto, totalBruto, activos.rows.length]
     );
     const nominaId = rows[0].id;
-    for (const emp of activos.rows) {
-      const f = detalles.find((d) => d.codigo === emp.codigo && d.nombre === emp.nombre);
+    // Un solo INSERT con todas las filas en vez de uno por empleado dentro
+    // del loop -- misma transaccion, mismos datos, sin la ida y vuelta de
+    // red extra por cada empleado.
+    if (activos.rows.length) {
+      const COLS = 15;
+      const filas = activos.rows.map((emp) => {
+        const f = detalles.find((d) => d.codigo === emp.codigo && d.nombre === emp.nombre);
+        return [nominaId, emp.id, f.nombre, f.cedula, f.codigo, f.banco, f.cuenta, f.cargo, f.bruto, f.afp, f.sfs, f.isr, f.totalDesc, f.neto, f.escala];
+      });
+      const placeholders = filas
+        .map((_, i) => `(${Array.from({ length: COLS }, (_, j) => `$${i * COLS + j + 1}`).join(',')})`)
+        .join(',');
       await cliente.query(
         `INSERT INTO nomina_detalle (nomina_id, empleado_id, nombre, cedula, codigo, banco, cuenta, cargo, bruto, afp, sfs, isr, total_descuento, neto, escala_isr)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-        [nominaId, emp.id, f.nombre, f.cedula, f.codigo, f.banco, f.cuenta, f.cargo, f.bruto, f.afp, f.sfs, f.isr, f.totalDesc, f.neto, f.escala]
+         VALUES ${placeholders}`,
+        filas.flat()
       );
     }
     await cliente.query('COMMIT');
